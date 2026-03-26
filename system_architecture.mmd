@@ -1,0 +1,62 @@
+flowchart TD
+    %% Styling
+    classDef client fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff,rx:8px,ry:8px
+    classDef frontend fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff,rx:8px,ry:8px
+    classDef backend fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff,rx:8px,ry:8px
+    classDef database fill:#6366f1,stroke:#4338ca,stroke-width:2px,color:#fff,rx:8px,ry:8px
+    classDef external fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff,rx:8px,ry:8px
+
+    subgraph ClientLayer ["Client Layer (User Interface)"]
+        Browser["User Browser / Mobile Device"]:::client
+        Roles["Actors: Admin, Worker, Vulnerable"]:::client
+        Browser --- Roles
+    end
+
+    subgraph PresentationLayer ["Frontend Layer (Next.js App Router)"]
+        UI["UI Components (React + Tailwind CSS + shadcn/ui)"]:::frontend
+        State["State Management (Zustand + React Query)"]:::frontend
+        Map["Map Interface (Leaflet / React-Leaflet)"]:::frontend
+        
+        UI <--> State
+        UI <--> Map
+    end
+
+    subgraph ApplicationLayer ["Application & API Layer (Next.js Server)"]
+        Middleware["Authentication Middleware (JWT/Cookies)"]:::backend
+        APIRoutes["Next.js API Routes (/api/*)"]:::backend
+        ServerActions["React Server Components & Actions"]:::backend
+        AuthLogic["Custom Auth Service (bcrypt)"]:::backend
+        
+        Middleware --> ServerActions
+        Middleware --> APIRoutes
+        APIRoutes <--> AuthLogic
+    end
+
+    subgraph DataLayer ["Data Access Layer"]
+        ORM["Prisma ORM (Data Access Model)"]:::database
+        DB[("SQLite Database\n(Schema: Users, Profiles, Distributions)")]:::database
+        
+        ORM <--> DB
+    end
+
+    subgraph ExternalServices ["External Services"]
+        EmailService["Email Notifications (Brevo/Nodemailer)"]:::external
+        Sendgrid["Backup Email Service (SendGrid)"]:::external
+    end
+
+    %% Connections across layers
+    Browser <==>|HTTP/GET, POST| ApplicationLayer
+    Browser <==>|React Hydration| UI
+    
+    UI ==>|API Calls / Server Actions| ApplicationLayer
+    
+    ServerActions ==>|Queries/Mutations| ORM
+    APIRoutes ==>|Queries/Mutations| ORM
+    
+    APIRoutes -->|Trigger Emails| EmailService
+    ServerActions -->|Trigger Emails| Sendgrid
+    
+    %% Directional flow
+    ClientLayer --> PresentationLayer
+    PresentationLayer --> ApplicationLayer
+    ApplicationLayer --> DataLayer

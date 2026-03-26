@@ -1,0 +1,97 @@
+erDiagram
+    %% Relationships (No text on lines)
+    USER ||--o| VULNERABLE_PROFILE : ""
+    USER ||--o{ HOUSEHOLD : ""
+    VULNERABLE_PROFILE ||--o{ VULNERABILITY_DOCUMENT : ""
+    VULNERABLE_PROFILE ||--o| HOUSEHOLD : ""
+    VULNERABLE_PROFILE ||--o{ RELIEF_DISTRIBUTION : ""
+    HOUSEHOLD ||--o{ RELIEF_DISTRIBUTION : ""
+
+    USER {
+        string id PK "CUID String"
+        string email "String, Unique, Required"
+        string password "String, Hashed, Required"
+        string name "String, Required"
+        string role "Enum: ADMIN/WORKER/VULNERABLE, Required"
+        string phone "String, Optional"
+        datetime createdAt "DateTime"
+        datetime updatedAt "DateTime"
+    }
+
+    VULNERABLE_PROFILE {
+        string id PK "CUID String"
+        string userId FK "User.id, Unique, Required"
+        string vulnerabilityTypes "String, JSON array, Required"
+        string disabilityType "String, Optional"
+        string disabilityIdNumber "String, Optional"
+        string address "String, Required"
+        string barangay "String, Required"
+        float latitude "Float, Optional"
+        float longitude "Float, Optional"
+        datetime birthDate "DateTime, Optional"
+        string gender "String, Optional"
+        string emergencyContact "String, Optional"
+        string emergencyPhone "String, Optional"
+        boolean hasMedicalCondition "Boolean, Default: false"
+        string medicalConditions "String, Optional"
+        boolean needsAssistance "Boolean, Default: false"
+        string assistanceType "String, Optional"
+        string registrationStatus "Enum: PENDING/APPROVED/..., Default: PENDING"
+        string rejectionReason "String, Optional"
+        datetime createdAt "DateTime"
+        datetime updatedAt "DateTime"
+    }
+
+    VULNERABILITY_DOCUMENT {
+        string id PK "CUID String"
+        string profileId FK "VulnerableProfile.id, Required"
+        string documentType "String, Required"
+        string fileName "String, Required"
+        string fileUrl "String, Required"
+        datetime uploadedAt "DateTime"
+    }
+
+    HOUSEHOLD {
+        string id PK "CUID String"
+        string address "String, Required"
+        string barangay "String, Required"
+        float latitude "Float, Required"
+        float longitude "Float, Required"
+        string headOfHousehold "String, Optional"
+        int totalMembers "Integer, Default: 1"
+        int vulnerableMembers "Integer, Default: 0"
+        string assignedWorkerId FK "User.id, Optional"
+        string vulnerableProfileId FK "VulnerableProfile.id, Unique, Optional"
+        string notes "String, Optional"
+        datetime createdAt "DateTime"
+        datetime updatedAt "DateTime"
+    }
+
+    RELIEF_DISTRIBUTION {
+        string id PK "CUID String"
+        string householdId FK "Household.id, Optional"
+        string vulnerableProfileId FK "VulnerableProfile.id, Optional"
+        string workerId FK "User.id, Required"
+        datetime distributionDate "DateTime, Default: now()"
+        string distributionType "String, Required"
+        string itemsProvided "String JSON array, Required"
+        int quantity "Integer, Required"
+        string notes "String, Optional"
+        datetime createdAt "DateTime"
+        datetime updatedAt "DateTime"
+    }
+
+    COMMUNITY_RESOURCE {
+        string id PK "CUID String, Standalone entity"
+        string name "String, Required"
+        string type "String, Required"
+        string address "String, Required"
+        string barangay "String, Required"
+        float latitude "Float, Required"
+        float longitude "Float, Required"
+        int capacity "Integer, Optional"
+        string contactInfo "String, Optional"
+        boolean isActive "Boolean, Default: true"
+        datetime createdAt "DateTime"
+        datetime updatedAt "DateTime"
+    }

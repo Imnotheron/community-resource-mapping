@@ -1,0 +1,356 @@
+// Community Resource Mapping System for Vulnerable Groups
+// San Policarpo, Eastern Samar
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  WORKER
+  VULNERABLE
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VulnerabilityType {
+  SENIOR_CITIZEN
+  PWD
+  LOW_INCOME
+  PREGNANT
+  CHRONIC_ILLNESS
+  SINGLE_PARENT
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole
+  phone     String?
+  profilePicture String?
+  preferences String? // JSON for user preferences (theme, etc.)
+  lastActive DateTime? // Track last activity for real-time online status
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vulnerableProfile VulnerableProfile?
+  reliefDistributions ReliefDistribution[]
+  assignedAsWorker    Household[]
+  feedback            ReliefFeedback[]
+  generalFeedback     Feedback[]
+  fieldNotes          FieldNote[]
+  notifications       Notification[]
+}
+
+model VulnerableProfile {
+  id                  String             @id @default(cuid())
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Information
+  lastName            String
+  firstName            String
+  middleName           String?
+  suffix              String?
+  dateOfBirth          DateTime?
+  gender              String?
+  civilStatus          String?
+  mobileNumber         String
+  landlineNumber       String?
+  emailAddress         String
+
+  // Address
+  houseNumber          String
+  street               String
+  barangay            String
+  municipality        String
+  province             String
+  latitude            Float?
+  longitude           Float?
+
+  // Educational & Employment
+  educationalAttainment String?
+  employmentStatus     String?
+  employmentDetails    String?
+
+  // Vulnerability Information
+  vulnerabilityTypes  String // JSON array of VulnerabilityType
+  disabilityType      String?
+  disabilityCause      String?
+  disabilityIdNumber  String?
+
+  // Emergency Contact
+  emergencyContact    String?
+  emergencyPhone      String?
+
+  // Medical & Assistance
+  hasMedicalCondition Boolean @default(false)
+  medicalConditions   String?
+  needsAssistance     Boolean @default(false)
+  assistanceType      String?
+
+  // Representative Information
+  hasRepresentative    Boolean @default(false)
+  representativeName    String?
+  representativeRelationship String?
+  representativePhone   String?
+  representativeEmail    String?
+  hasAuthorizationLetter Boolean @default(false)
+
+  registrationStatus  RegistrationStatus @default(PENDING)
+  rejectionReason     String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  documents           VulnerabilityDocument[]
+  household           Household?
+  reliefDistributions ReliefDistribution[]
+}
+
+model VulnerabilityDocument {
+  id                   String             @id @default(cuid())
+  profileId            String
+  profile              VulnerableProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  documentType         String // PWD_ID, MEDICAL_CERT, SENIOR_CITIZEN_ID, BIRTH_CERT, etc.
+  fileName             String
+  fileUrl              String
+  uploadedAt           DateTime           @default(now())
+}
+
+model Household {
+  id                  String   @id @default(cuid())
+  address             String
+  barangay            String
+  latitude            Float
+  longitude           Float
+
+  headOfHousehold     String?
+  totalMembers        Int      @default(1)
+  vulnerableMembers   Int      @default(0)
+
+  assignedWorkerId    String?
+  assignedWorker      User?    @relation(fields: [assignedWorkerId], references: [id])
+
+  vulnerableProfileId String?  @unique
+  vulnerableProfile   VulnerableProfile? @relation(fields: [vulnerableProfileId], references: [id])
+
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  reliefDistributions ReliefDistribution[]
+}
+
+model ReliefDistribution {
+  id                  String             @id @default(cuid())
+  householdId         String?            // Made optional
+  household           Household?         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  vulnerableProfileId String?
+  vulnerableProfile   VulnerableProfile? @relation(fields: [vulnerableProfileId], references: [id])
+
+  workerId            String
+  worker              User               @relation(fields: [workerId], references: [id])
+
+  distributionDate    DateTime           @default(now())
+  distributionType    String // FOOD_PACK, MEDICAL_KIT, CASH_AID, EMERGENCY_SUPPLY, etc.
+  itemsProvided       String // JSON array of items
+  quantity            Int
+  notes               String?
+
+  status              DistributionStatus @default(PENDING)
+  rejectionReason     String?
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  feedback            ReliefFeedback[]
+}
+
+enum DistributionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISTRIBUTED
+}
+
+enum FeedbackType {
+  MESSAGE
+  FEEDBACK
+  REPORT
+  BUG_REPORT
+  FEATURE_REQUEST
+  COMPLIMENT
+  SUGGESTION
+  SERVICE_COMPLAINT
+  OTHER
+}
+
+enum FeedbackStatus {
+  SUBMITTED
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+model ReliefFeedback {
+  id                  String           @id @default(cuid())
+
+  reliefDistributionId String
+  reliefDistribution   ReliefDistribution @relation(fields: [reliefDistributionId], references: [id], onDelete: Cascade)
+
+  userId              String
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  feedbackType        FeedbackType
+  message             String
+  status              FeedbackStatus   @default(SUBMITTED)
+
+  adminResponse       String?
+  adminResponseDate   DateTime?
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model CommunityResource {
+  id          String   @id @default(cuid())
+  name        String
+  type        String // EVACUATION_CENTER, HEALTH_CENTER, SCHOOL, MARKET, WATER_SOURCE, etc.
+  address     String
+  barangay    String
+  latitude    Float
+  longitude   Float
+  capacity    Int?
+  contactInfo String?
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FieldNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  title       String
+  message     String
+  status      NotificationStatus @default(PENDING)
+
+  sentViaEmail Boolean             @default(false)
+  sentViaSms   Boolean             @default(false)
+
+  emailSentAt DateTime?
+  smsSentAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum NotificationType {
+  ACCOUNT_CREATED
+  ACCOUNT_APPROVED
+  ACCOUNT_REJECTED
+  DOCUMENTS_NEEDED
+  RELIEF_APPROVED
+  RELIEF_REJECTED
+  RELIEF_SCHEDULED
+  RELIEF_DISTRIBUTED
+  ANNOUNCEMENT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model AdminSignupRequest {
+  id          String             @id @default(cuid())
+  name        String
+  email       String             @unique
+  password    String
+  position    String
+  reason      String
+  status      RegistrationStatus  @default(PENDING)
+  rejectionReason String?
+  requestedBy String?
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  type        AnnouncementType
+  targetRole  UserRole? // If null, goes to all users
+  eventDate   DateTime? // For meetings, distributions, etc.
+  eventTime   String? // For meetings, distributions, etc.
+  location    String?
+  isActive    Boolean  @default(true)
+  priority    AnnouncementPriority @default(NORMAL)
+  createdBy   String   // Admin/Worker user ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt()
+}
+
+enum AnnouncementType {
+  RELIEF_DISTRIBUTION
+  MEETING
+  GENERAL
+  EMERGENCY
+  IMPORTANT
+}
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Feedback {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        FeedbackType
+  subject     String?
+  message     String
+  status      FeedbackStatus @default(SUBMITTED)
+
+  adminResponse String?
+  adminResponseDate DateTime?
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt()
+}
