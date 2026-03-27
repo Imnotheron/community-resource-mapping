@@ -157,8 +157,37 @@ function LoginContent() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-3 items-center mb-6">
+            {/* Top Left - San Policarpo Logo */}
+            <div className="flex justify-start">
+              <img
+                src="/logo-sampolicarpo.jpg"
+                alt="San Policarpo Logo"
+                className="h-16 md:h-20 w-auto object-contain"
+              />
+            </div>
+
+            {/* Middle - ESSU Logo */}
+            <div className="flex justify-center">
+              <img
+                src="/logo-essu.jpg"
+                alt="ESSU Logo"
+                className="h-16 md:h-20 w-auto object-contain"
+              />
+            </div>
+
+            {/* Top Right - DSWD Logo */}
+            <div className="flex justify-end">
+              <img
+                src="/logo-dswd.png"
+                alt="DSWD Logo"
+                className="h-16 md:h-20 w-auto object-contain"
+              />
+            </div>
+          </div>
+
           {/* Back Button */}
-          <div className="mb-4">
+          <div className="flex justify-center mt-2">
             <Button
               variant="ghost"
               size="sm"
@@ -168,35 +197,6 @@ function LoginContent() {
               <ArrowLeft className="w-4 h-4" />
               Back to Role Selection
             </Button>
-          </div>
-          
-          <div className="grid grid-cols-3 items-center mb-2">
-            {/* Top Left - San Policarpo Logo */}
-            <div className="flex justify-start">
-              <img
-                src="/logo-sampolicarpo.jpg"
-                alt="San Policarpo Logo"
-                className="h-10 md:h-12 w-auto object-contain"
-              />
-            </div>
-
-            {/* Middle - ESSU Logo */}
-            <div className="flex justify-center">
-              <img
-                src="/logo-essu.jpg"
-                alt="ESSU Logo"
-                className="h-10 md:h-12 w-auto object-contain"
-              />
-            </div>
-
-            {/* Top Right - DSWD Logo */}
-            <div className="flex justify-end">
-              <img
-                src="/logo-dswd.png"
-                alt="DSWD Logo"
-                className="h-10 md:h-12 w-auto object-contain"
-              />
-            </div>
           </div>
         </div>
       </header>
