@@ -94,10 +94,14 @@ export async function POST(request: NextRequest) {
     })
 
     return response
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error)
     return NextResponse.json(
-      { success: false, message: 'Login failed' },
+      { 
+        success: false, 
+        message: 'Login failed: ' + (error?.message || error?.toString() || 'Unknown error'),
+        debug: process.env.NODE_ENV === 'production' ? String(error) : undefined
+      },
       { status: 500 }
     )
   }
