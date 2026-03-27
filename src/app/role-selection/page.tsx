@@ -113,10 +113,47 @@ export default function RoleSelectionPage() {
   return (
     <div className="min-h-screen !bg-white flex flex-col">
       {/* Header with Logos */}
-      <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
+      <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-3 landscape:py-2">
         <div className="max-w-7xl mx-auto">
-          {/* Back Button */}
-          <div className="mb-4">
+          <div className="grid grid-cols-3 items-center mb-1">
+            {/* Top Left - San Policarpo Logo */}
+            <div className="flex justify-start">
+              <img
+                src="/logo-sampolicarpo.jpg"
+                alt="San Policarpo Logo"
+                className="h-10 landscape:h-8 md:h-16 w-auto object-contain"
+              />
+            </div>
+
+            {/* Middle - ESSU Logo */}
+            <div className="flex justify-center">
+              <img
+                src="/logo-essu.jpg"
+                alt="ESSU Logo"
+                className="h-10 landscape:h-8 md:h-16 w-auto object-contain"
+              />
+            </div>
+
+            {/* Top Right - DSWD Logo */}
+            <div className="flex justify-end">
+              <img
+                src="/logo-dswd.png"
+                alt="DSWD Logo"
+                className="h-10 landscape:h-8 md:h-16 w-auto object-contain"
+              />
+            </div>
+          </div>
+          
+          {/* Title */}
+          <div className="text-center mt-3 landscape:mt-1">
+            <h1 className="text-xl landscape:text-lg md:text-3xl font-bold text-gray-900">
+              Community Resource Mapping System
+            </h1>
+            <p className="text-gray-500 mt-1 text-sm landscape:text-xs">San Policarpo, Eastern Samar</p>
+          </div>
+
+          {/* Back Button - below the title */}
+          <div className="flex justify-center mt-3 landscape:mt-1">
             <Button
               variant="ghost"
               size="sm"
@@ -127,54 +164,18 @@ export default function RoleSelectionPage() {
               Back to Home
             </Button>
           </div>
-          <div className="grid grid-cols-3 items-center mb-2">
-            {/* Top Left - San Policarpo Logo */}
-            <div className="flex justify-start">
-              <img
-                src="/logo-sampolicarpo.jpg"
-                alt="San Policarpo Logo"
-                className="h-14 md:h-16 w-auto object-contain"
-              />
-            </div>
-
-            {/* Middle - ESSU Logo */}
-            <div className="flex justify-center">
-              <img
-                src="/logo-essu.jpg"
-                alt="ESSU Logo"
-                className="h-14 md:h-16 w-auto object-contain"
-              />
-            </div>
-
-            {/* Top Right - DSWD Logo */}
-            <div className="flex justify-end">
-              <img
-                src="/logo-dswd.png"
-                alt="DSWD Logo"
-                className="h-14 md:h-16 w-auto object-contain"
-              />
-            </div>
-          </div>
-          
-          {/* Title */}
-          <div className="text-center mt-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Community Resource Mapping System
-            </h1>
-            <p className="text-gray-500 mt-2">San Policarpo, Eastern Samar</p>
-          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+      <main className="flex-1 flex items-start landscape:items-start justify-center px-4 sm:px-6 lg:px-8 py-6 landscape:py-3 overflow-y-auto">
         <div className="w-full max-w-6xl">
           {/* Role Selection */}
-          <div className="mb-12">
-            <h2 className="text-center text-xl md:text-2xl font-semibold text-gray-900 mb-8">
+          <div className="mb-6 landscape:mb-3">
+            <h2 className="text-center text-xl md:text-2xl font-semibold text-gray-900 mb-4 landscape:mb-2 landscape:text-lg">
               Select Your Role to Continue
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 landscape:grid-cols-2 md:grid-cols-3 gap-4 landscape:gap-3">
               {roles
                 .filter(role => !(role.id === 'admin' && !isDesktop))
                 .map((role) => {
