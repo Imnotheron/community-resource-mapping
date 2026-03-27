@@ -155,18 +155,48 @@ function LoginContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col">
       {/* Header */}
-      <header className="w-full bg-white dark:bg-slate-950 shadow-sm border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+      <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Back Button */}
+          <div className="mb-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/role-selection')}
-              className="gap-2"
+              className="gap-2 text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              Back to Role Selection
             </Button>
+          </div>
+          
+          <div className="grid grid-cols-3 items-center mb-2">
+            {/* Top Left - San Policarpo Logo */}
+            <div className="flex justify-start">
+              <img
+                src="/logo-sampolicarpo.jpg"
+                alt="San Policarpo Logo"
+                className="h-10 md:h-12 w-auto object-contain"
+              />
+            </div>
+
+            {/* Middle - ESSU Logo */}
+            <div className="flex justify-center">
+              <img
+                src="/logo-essu.jpg"
+                alt="ESSU Logo"
+                className="h-10 md:h-12 w-auto object-contain"
+              />
+            </div>
+
+            {/* Top Right - DSWD Logo */}
+            <div className="flex justify-end">
+              <img
+                src="/logo-dswd.png"
+                alt="DSWD Logo"
+                className="h-10 md:h-12 w-auto object-contain"
+              />
+            </div>
           </div>
         </div>
       </header>
