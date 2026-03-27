@@ -42,7 +42,6 @@ next-env.d.ts
 local-*
 .claude
 .z-ai-config
-dev.log
 test
 prompt
 
@@ -52,14 +51,8 @@ prompt
 *.db-shm
 *.db-wal
 
-server.log
-# Skills directory
-/skills/# binary & media
+# binary executables & archives
 *.exe
-*.png
-*.jpg
-*.jpeg
-*.gif
 *.zip
 
 # temporary/debug files
@@ -67,7 +60,6 @@ server.log
 *.log
 dev.log
 server.log
-lint-errors.txt
-tsc-errors*.txt
-files_list.txt
-final_file_check.txt
+
+# Skills directory
+/skills/
