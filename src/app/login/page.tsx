@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { User, Shield, Users, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react'
-import { useIsMobile } from '@/hooks/use-mobile'
+
+const DESKTOP_BREAKPOINT = 1024
 
 function LoginContent() {
   const router = useRouter()
@@ -15,14 +16,22 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: '', password: '', role: '' })
   const [showPassword, setShowPassword] = useState(false)
-  const isMobile = useIsMobile()
+  const [isDesktop, setIsDesktop] = useState(true)
+
+  // Detect desktop (>= 1024px)
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT)
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
+  }, [])
 
   useEffect(() => {
     // Get role from URL params
     const role = searchParams.get('role')
     if (role && ['vulnerable', 'worker', 'admin'].includes(role)) {
-      // Block admin login on mobile devices
-      if (role === 'admin' && isMobile) {
+      // Block admin login on non-desktop devices (phones & tablets)
+      if (role === 'admin' && !isDesktop) {
         alert('Admin portal is only accessible on desktop or laptop computers.')
         router.replace('/role-selection')
         return
@@ -32,7 +41,7 @@ function LoginContent() {
       // No valid role, redirect to role selection
       router.replace('/role-selection')
     }
-  }, [searchParams, router, isMobile])
+  }, [searchParams, router, isDesktop])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

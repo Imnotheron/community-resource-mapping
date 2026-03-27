@@ -4,15 +4,24 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Shield, Users, LogIn, CheckCircle, Monitor } from 'lucide-react'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { User, Shield, Users, LogIn, CheckCircle, Monitor, ArrowLeft } from 'lucide-react'
+
+const DESKTOP_BREAKPOINT = 1024
 
 export default function RoleSelectionPage() {
   const router = useRouter()
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
-  const isMobile = useIsMobile()
+  const [isDesktop, setIsDesktop] = useState(true)
 
   // Force light mode for this page
+  // Detect desktop (>= 1024px) — admin is only shown on desktop
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT)
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
+  }, [])
+
   useEffect(() => {
     document.documentElement.classList.remove('dark')
     document.documentElement.classList.add('light')
@@ -106,6 +115,18 @@ export default function RoleSelectionPage() {
       {/* Header with Logos */}
       <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-7xl mx-auto">
+          {/* Back Button */}
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/')}
+              className="gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
+            </Button>
+          </div>
           <div className="grid grid-cols-3 items-center mb-2">
             {/* Top Left - San Policarpo Logo */}
             <div className="flex justify-start">
@@ -155,7 +176,7 @@ export default function RoleSelectionPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {roles
-                .filter(role => !(isMobile && role.id === 'admin'))
+                .filter(role => !(role.id === 'admin' && !isDesktop))
                 .map((role) => {
                 const RoleIcon = role.icon
                 const colors = getRoleColor(role.color)
@@ -200,8 +221,8 @@ export default function RoleSelectionPage() {
             </div>
           </div>
 
-          {/* Mobile notice about admin access */}
-          {isMobile && (
+          {/* Notice about admin access on non-desktop devices */}
+          {!isDesktop && (
             <div className="flex items-center justify-center gap-2 mb-8 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
               <Monitor className="w-4 h-4 flex-shrink-0" />
               <span>Admin access is available on desktop computers only.</span>
