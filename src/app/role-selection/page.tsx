@@ -113,15 +113,15 @@ export default function RoleSelectionPage() {
   return (
     <div className="min-h-screen !bg-white flex flex-col">
       {/* Header with Logos */}
-      <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-3 landscape:py-2">
+      <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-3 items-center mb-1">
+          <div className="grid grid-cols-3 items-center mb-2">
             {/* Top Left - San Policarpo Logo */}
             <div className="flex justify-start">
               <img
                 src="/logo-sampolicarpo.jpg"
                 alt="San Policarpo Logo"
-                className="h-10 landscape:h-8 md:h-16 w-auto object-contain"
+                className="h-14 md:h-16 w-auto object-contain"
               />
             </div>
 
@@ -130,7 +130,7 @@ export default function RoleSelectionPage() {
               <img
                 src="/logo-essu.jpg"
                 alt="ESSU Logo"
-                className="h-10 landscape:h-8 md:h-16 w-auto object-contain"
+                className="h-14 md:h-16 w-auto object-contain"
               />
             </div>
 
@@ -139,43 +139,43 @@ export default function RoleSelectionPage() {
               <img
                 src="/logo-dswd.png"
                 alt="DSWD Logo"
-                className="h-10 landscape:h-8 md:h-16 w-auto object-contain"
+                className="h-14 md:h-16 w-auto object-contain"
               />
             </div>
           </div>
           
           {/* Title */}
-          <div className="text-center mt-3 landscape:mt-1">
-            <h1 className="text-xl landscape:text-lg md:text-3xl font-bold text-gray-900">
+          <div className="text-center mt-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
               Community Resource Mapping System
             </h1>
-            <p className="text-gray-500 mt-1 text-sm landscape:text-xs">San Policarpo, Eastern Samar</p>
-          </div>
-
-          {/* Back Button - below the title */}
-          <div className="flex justify-center mt-3 landscape:mt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/')}
-              className="gap-2 text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Home
-            </Button>
+            <p className="text-gray-500 mt-2 mb-6">San Policarpo, Eastern Samar</p>
+            
+            {/* Back Button underneath title */}
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/')}
+                className="gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-gray-300"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Return to Landing Page
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-start landscape:items-start justify-center px-4 sm:px-6 lg:px-8 py-6 landscape:py-3 overflow-y-auto">
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
         <div className="w-full max-w-6xl">
           {/* Role Selection */}
-          <div className="mb-6 landscape:mb-3">
-            <h2 className="text-center text-xl md:text-2xl font-semibold text-gray-900 mb-4 landscape:mb-2 landscape:text-lg">
+          <div className="mb-12">
+            <h2 className="text-center text-xl md:text-2xl font-semibold text-gray-900 mb-8">
               Select Your Role to Continue
             </h2>
-            <div className="grid grid-cols-1 landscape:grid-cols-2 md:grid-cols-3 gap-4 landscape:gap-3">
+            <div className="flex flex-wrap justify-center gap-6">
               {roles
                 .filter(role => !(role.id === 'admin' && !isDesktop))
                 .map((role) => {
@@ -184,7 +184,7 @@ export default function RoleSelectionPage() {
                 return (
                   <Card
                     key={role.id}
-                    className={`border-2 ${colors.hover} bg-white transition-all cursor-pointer hover:scale-105 group flex flex-col ${
+                    className={`border-2 ${colors.hover} bg-white transition-all cursor-pointer hover:scale-105 group flex flex-col w-full max-w-[350px] ${
                       selectedRole === role.id ? `ring-2 ring-offset-2 ring-${role.color}-500` : ''
                     }`}
                     onClick={() => handleRoleSelect(role.id)}
