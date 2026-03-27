@@ -145,37 +145,33 @@ export default function RoleSelectionPage() {
           </div>
           
           {/* Title */}
-          <div className="text-center mt-6">
+          <div className="text-center mt-6 flex flex-col items-center">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
               Community Resource Mapping System
             </h1>
-            <p className="text-gray-500 mt-2 mb-6">San Policarpo, Eastern Samar</p>
-            
-            {/* Back Button underneath title */}
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/')}
-                className="gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-gray-300"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Return to Landing Page
-              </Button>
-            </div>
+            <p className="text-gray-500 mt-2 mb-4">San Policarpo, Eastern Samar</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/')}
+              className="gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
+            </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-        <div className="w-full max-w-6xl">
+      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="w-full max-w-6xl mx-auto">
           {/* Role Selection */}
           <div className="mb-12">
             <h2 className="text-center text-xl md:text-2xl font-semibold text-gray-900 mb-8">
               Select Your Role to Continue
             </h2>
-            <div className="flex flex-wrap justify-center gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {roles
                 .filter(role => !(role.id === 'admin' && !isDesktop))
                 .map((role) => {
@@ -184,7 +180,7 @@ export default function RoleSelectionPage() {
                 return (
                   <Card
                     key={role.id}
-                    className={`border-2 ${colors.hover} bg-white transition-all cursor-pointer hover:scale-105 group flex flex-col w-full max-w-[350px] ${
+                    className={`border-2 ${colors.hover} bg-white transition-all cursor-pointer hover:scale-105 group flex flex-col ${
                       selectedRole === role.id ? `ring-2 ring-offset-2 ring-${role.color}-500` : ''
                     }`}
                     onClick={() => handleRoleSelect(role.id)}
