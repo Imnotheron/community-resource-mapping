@@ -13,11 +13,14 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient(): PrismaClient {
-  // Use Turso in production (when TURSO_DATABASE_URL is set)
-  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+  const tursoUrl = process.env.TURSO_DATABASE_URL
+  const tursoToken = process.env.TURSO_AUTH_TOKEN
+
+  // Use Turso in production (when TURSO_DATABASE_URL is set and not a stringified undefined)
+  if (tursoUrl && tursoUrl !== 'undefined' && tursoToken && tursoToken !== 'undefined') {
     const libsql = createClient({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
+      url: tursoUrl,
+      authToken: tursoToken,
     })
     const adapter = new PrismaLibSQL(libsql as any)
     return new PrismaClient({ adapter } as any)
