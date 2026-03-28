@@ -7,47 +7,50 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 /**
- * Creates a robust Prisma client adapted for Turso in production and local SQLite elsewhere.
- * Includes defensive checks for Vercel's unique environment variable hydration.
+ * ABSOLUTE DEFENSIVE SINGLETON
+ * This version is designed to survive Vercel "Warm Start" pollution.
+ * It does not cache the client in globalThis when in production to ensure
+ * every new serverless function cold-start gets a fresh environment check.
  */
 function createPrismaClient(): PrismaClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
-  const nodeEnv = process.env.NODE_ENV
   
-  // Vercel build phase often has CI=1 and VERCEL=1. 
-  // We use standard SQLite to prevent crashes during page data collection.
-  const isVercelBuild = process.env.CI === '1' || process.env.VERCEL === '1' && !process.env.VERCEL_ENV;
+  // Vercel environment detection
+  const isVercelBuild = process.env.CI === '1' || (process.env.VERCEL === '1' && !process.env.VERCEL_ENV);
   
-  // Ensure we don't accidentally pass "undefined" string to createClient
-  const isValidTursoUrl = tursoUrl && tursoUrl !== 'undefined' && tursoUrl.length > 5;
+  // Hard-Guard: If URL is literally the string "undefined", missing, or too short, 
+  // we FORCE it to a safe placeholder to prevent the @libsql/client crash.
+  const safeUrl = (tursoUrl && tursoUrl !== 'undefined' && tursoUrl.length > 5) 
+    ? tursoUrl 
+    : "libsql://missing-url-placeholder.turso.io";
 
-  if (nodeEnv === 'production' && !isVercelBuild && isValidTursoUrl) {
+  const hasCredentials = tursoUrl && tursoToken && tursoUrl !== 'undefined' && tursoToken !== 'undefined';
+
+  // We only use Turso if we are in PRODUCTION, NOT in a BUILD phase, and HAVE credentials.
+  if (process.env.NODE_ENV === 'production' && !isVercelBuild && hasCredentials) {
     try {
-      // Security guard: double check token
-      if (!tursoToken || tursoToken === 'undefined') {
-         throw new Error('TURSO_AUTH_TOKEN is missing or invalid in production runtime.');
-      }
+      // Ensure DATABASE_URL is set for Prisma's internal engines
+      if (!process.env.DATABASE_URL) process.env.DATABASE_URL = "file:./dev.db";
 
-      // Explicitly set a placeholder for Prisma internally (even if we use adapter)
-      if (!process.env.DATABASE_URL) {
-        process.env.DATABASE_URL = "file:./dev.db";
-      }
-
+      console.log('[DB] Initializing Turso connection...');
+      
       const libsql = createClient({
-        url: tursoUrl,
+        url: safeUrl,
         authToken: tursoToken,
       })
       
       const adapter = new PrismaLibSQL(libsql as any)
       return new PrismaClient({ adapter } as any)
     } catch (error) {
-      console.error('[CRITICAL] Failed to initialize LibSQL adapter:', error)
-      // Fallback to avoid immediate crash, allowing some parts of app to load
+      console.error('[DB] [CRITICAL] LibSQL initialization failed:', error)
+      // Fall through to SQLite fallback
     }
   }
 
-  // Fallback to local SQLite (Development or Build Phase)
+  // Fallback to local SQLite (Development or Vercel Build Phase)
+  console.log('[DB] Using local SQLite fallback (Build/Dev mode)');
+  
   if (!process.env.DATABASE_URL || process.env.DATABASE_URL === 'undefined') {
     process.env.DATABASE_URL = 'file:./dev.db'
   }
@@ -57,10 +60,15 @@ function createPrismaClient(): PrismaClient {
   })
 }
 
-// Ensure the db instance is unique.
-// In production, we don't necessarily cache globally to allow Vercel to recycle the function state cleanly.
-export const db = globalForPrisma.prisma ?? createPrismaClient()
+/**
+ * In Production (Vercel), we DO NOT use a global singleton. 
+ * This ensures that if a serverless function gets stuck with a bad "undefined" state, 
+ * it won't contaminate future requests in that same execution context.
+ */
+export const db = (process.env.NODE_ENV === 'production') 
+  ? createPrismaClient() 
+  : (globalForPrisma.prisma ?? createPrismaClient());
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db
+  globalForPrisma.prisma = db;
 }
