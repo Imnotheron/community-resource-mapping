@@ -42,8 +42,11 @@ function getPrismaClient(): PrismaClient {
   return _prismaInstance
 }
 
-export const db = globalForPrisma.prisma ?? getPrismaClient()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+// Use Proxy to defer initialization until first actual use
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = globalForPrisma.prisma ?? getPrismaClient()
+    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = client
+    return (client as any)[prop]
+  },
+})
