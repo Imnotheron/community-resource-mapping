@@ -6,47 +6,39 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Lazy initialization - only create Prisma client when first accessed
-let _prismaInstance: PrismaClient | null = null
-
-function getPrismaClient(): PrismaClient {
-  if (_prismaInstance) return _prismaInstance
-
+function createPrismaClient(): PrismaClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
 
-  // 1. Check for Turso (adapter mode) - only if URL starts with libsql://
-  if (tursoUrl && typeof tursoUrl === 'string' && tursoUrl.startsWith('libsql://') && tursoToken && typeof tursoToken === 'string') {
-    try {
-      const libsql = createClient({
-        url: tursoUrl,
-        authToken: tursoToken,
-      })
-      const adapter = new PrismaLibSQL(libsql as any)
-      _prismaInstance = new PrismaClient({ adapter } as any)
-      return _prismaInstance
-    } catch (error) {
-      console.warn('Failed to initialize Turso client, falling back to local SQLite:', error)
+  // In production (Vercel), we MUST use Turso. 
+  if (process.env.NODE_ENV === 'production') {
+    if (!tursoUrl || !tursoToken) {
+      throw new Error(`[CRITICAL] Missing Turso credentials in production! URL length: ${tursoUrl?.length}, Token length: ${tursoToken?.length}`)
     }
+    
+    // Explicit override for safety
+    if (!process.env.DATABASE_URL) {
+      process.env.DATABASE_URL = "file:./dev.db"
+    }
+
+    const libsql = createClient({
+      url: tursoUrl,
+      authToken: tursoToken,
+    })
+    
+    const adapter = new PrismaLibSQL(libsql as any)
+    return new PrismaClient({ adapter } as any)
   }
 
-  // 2. Fallback to local SQLite (development mode)
-  // Ensure DATABASE_URL is set for the engine even if using file directly
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = 'file:./dev.db'
-  }
-
-  _prismaInstance = new PrismaClient({
+  // Development: Fallback to local SQLite
+  if (!process.env.DATABASE_URL) process.env.DATABASE_URL = 'file:./dev.db'
+  
+  return new PrismaClient({
     log: ['error', 'warn'],
   })
-  return _prismaInstance
 }
 
-// Use Proxy to defer initialization until first actual use
-export const db = new Proxy({} as PrismaClient, {
-  get(_target, prop) {
-    const client = globalForPrisma.prisma ?? getPrismaClient()
-    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = client
-    return (client as any)[prop]
-  },
-})
+// Ensure the db instance is unique. Do not use Proxy deferral as it was caching build-time undefined state.
+export const db = globalForPrisma.prisma ?? createPrismaClient()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
