@@ -2,36 +2,48 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
-// Inject dummy database URL for Prisma schema validation if running on Vercel
-// where the adapter takes over but Prisma still requires the env variable.
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:./dev.db'
-}
-
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-function createPrismaClient(): PrismaClient {
+// Lazy initialization - only create Prisma client when first accessed
+let _prismaInstance: PrismaClient | null = null
+
+function getPrismaClient(): PrismaClient {
+  if (_prismaInstance) return _prismaInstance
+
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
 
-  // Use Turso in production (when TURSO_DATABASE_URL is set and not a stringified undefined)
-  if (tursoUrl && tursoUrl !== 'undefined' && tursoToken && tursoToken !== 'undefined') {
-    const libsql = createClient({
-      url: tursoUrl,
-      authToken: tursoToken,
-    })
-    const adapter = new PrismaLibSQL(libsql as any)
-    return new PrismaClient({ adapter } as any)
+  // 1. Check for Turso (adapter mode) - only if URL starts with libsql://
+  if (tursoUrl && typeof tursoUrl === 'string' && tursoUrl.startsWith('libsql://') && tursoToken && typeof tursoToken === 'string') {
+    try {
+      const libsql = createClient({
+        url: tursoUrl,
+        authToken: tursoToken,
+      })
+      const adapter = new PrismaLibSQL(libsql as any)
+      _prismaInstance = new PrismaClient({ adapter } as any)
+      return _prismaInstance
+    } catch (error) {
+      console.warn('Failed to initialize Turso client, falling back to local SQLite:', error)
+    }
   }
 
-  // Use local SQLite in development
-  return new PrismaClient({
-    log: ['query'],
+  // 2. Fallback to local SQLite (development mode)
+  // Ensure DATABASE_URL is set for the engine even if using file directly
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = 'file:./dev.db'
+  }
+
+  _prismaInstance = new PrismaClient({
+    log: ['error', 'warn'],
   })
+  return _prismaInstance
 }
 
-export const db = globalForPrisma.prisma ?? createPrismaClient()
+export const db = globalForPrisma.prisma ?? getPrismaClient()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
