@@ -61,6 +61,6 @@ function createPrismaClient(): PrismaClient {
 // In production, we don't necessarily cache globally to allow Vercel to recycle the function state cleanly.
 export const db = globalForPrisma.prisma ?? createPrismaClient()
 
-if (nodeEnv !== 'production') {
+if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = db
 }
