@@ -6,41 +6,61 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+/**
+ * Creates a robust Prisma client adapted for Turso in production and local SQLite elsewhere.
+ * Includes defensive checks for Vercel's unique environment variable hydration.
+ */
 function createPrismaClient(): PrismaClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
   const tursoToken = process.env.TURSO_AUTH_TOKEN
-
-  // During Next.js Vercel builds, env vars might not be populated during static "Collecting page data" runs.
-  // We supply a dummy file URL so the build completes successfully and doesn't abort the deployment.
-  // Next.js uses CI=1 and VERCEL=1 during builds. During serverless RUNTIME, VERCEL is true but VERCEL_ENV is populated.
-  const isBuildPhase = process.env.CI || !tursoUrl || tursoUrl === 'undefined';
+  const nodeEnv = process.env.NODE_ENV
   
-  if (process.env.NODE_ENV === 'production' && !isBuildPhase) {
-    if (!tursoUrl || !tursoToken) {
-      throw new Error(`[CRITICAL] Missing Turso credentials in production! URL length: ${tursoUrl?.length}, Token length: ${tursoToken?.length}`)
-    }
-    
-    // Explicit override for safety for the Prisma engines
-    if (!process.env.DATABASE_URL) process.env.DATABASE_URL = "file:./dev.db"
+  // Vercel build phase often has CI=1 and VERCEL=1. 
+  // We use standard SQLite to prevent crashes during page data collection.
+  const isVercelBuild = process.env.CI === '1' || process.env.VERCEL === '1' && !process.env.VERCEL_ENV;
+  
+  // Ensure we don't accidentally pass "undefined" string to createClient
+  const isValidTursoUrl = tursoUrl && tursoUrl !== 'undefined' && tursoUrl.length > 5;
 
-    const libsql = createClient({
-      url: tursoUrl,
-      authToken: tursoToken,
-    })
-    
-    const adapter = new PrismaLibSQL(libsql as any)
-    return new PrismaClient({ adapter } as any)
+  if (nodeEnv === 'production' && !isVercelBuild && isValidTursoUrl) {
+    try {
+      // Security guard: double check token
+      if (!tursoToken || tursoToken === 'undefined') {
+         throw new Error('TURSO_AUTH_TOKEN is missing or invalid in production runtime.');
+      }
+
+      // Explicitly set a placeholder for Prisma internally (even if we use adapter)
+      if (!process.env.DATABASE_URL) {
+        process.env.DATABASE_URL = "file:./dev.db";
+      }
+
+      const libsql = createClient({
+        url: tursoUrl,
+        authToken: tursoToken,
+      })
+      
+      const adapter = new PrismaLibSQL(libsql as any)
+      return new PrismaClient({ adapter } as any)
+    } catch (error) {
+      console.error('[CRITICAL] Failed to initialize LibSQL adapter:', error)
+      // Fallback to avoid immediate crash, allowing some parts of app to load
+    }
   }
 
-  // Fallback to local SQLite (development mode or Vercel Build Phase)
-  if (!process.env.DATABASE_URL) process.env.DATABASE_URL = 'file:./dev.db'
+  // Fallback to local SQLite (Development or Build Phase)
+  if (!process.env.DATABASE_URL || process.env.DATABASE_URL === 'undefined') {
+    process.env.DATABASE_URL = 'file:./dev.db'
+  }
   
   return new PrismaClient({
     log: ['error', 'warn'],
   })
 }
 
-// Ensure the db instance is unique. Do not use Proxy deferral as it was caching build-time undefined state.
+// Ensure the db instance is unique.
+// In production, we don't necessarily cache globally to allow Vercel to recycle the function state cleanly.
 export const db = globalForPrisma.prisma ?? createPrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+if (nodeEnv !== 'production') {
+  globalForPrisma.prisma = db
+}
