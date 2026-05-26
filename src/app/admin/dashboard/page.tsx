@@ -58,7 +58,8 @@ import {
   Zap,
   UserCircle,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
+  Maximize
 } from 'lucide-react'
 
 // Dynamically import map component to avoid SSR issues
@@ -146,6 +147,7 @@ export default function AdminDashboard() {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showUserProfileModal, setShowUserProfileModal] = useState(false)
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false)
+  const [isMapInteractive, setIsMapInteractive] = useState(false)
 
   // User management states
   const [users, setUsers] = useState<any[]>([])
@@ -914,25 +916,48 @@ export default function AdminDashboard() {
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-[280px]'}`}>
         {/* Header */}
         <header className="bg-white dark:bg-[#1d1b20] border-b border-[#cbc4d2] dark:border-white/10 px-8 py-4 sticky top-0 z-40" style={{boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-          <div className="flex items-center justify-between">
-            <h1 className="text-[22px] font-bold text-[#422bc0] dark:text-[#a084fb] leading-tight w-64 leading-6">
-              Community Resource<br />Mapping
-            </h1>
+          {/* Logos Row */}
+          <div className="grid grid-cols-3 items-center mb-3">
+            <div className="flex justify-start">
+              <img src="/logo-sampolicarpo.jpg" alt="San Policarpo Logo" className="h-12 md:h-14 w-auto object-contain" />
+            </div>
+            <div className="flex justify-center">
+              <img src="/logo-essu.jpg" alt="ESSU Logo" className="h-12 md:h-14 w-auto object-contain" />
+            </div>
+            <div className="flex justify-end">
+              <img src="/logo-dswd.png" alt="DSWD Logo" className="h-12 md:h-14 w-auto object-contain" />
+            </div>
+          </div>
 
-            <div className="flex items-center gap-4">
+          {/* Dashboard Title and Actions */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-[22px] font-semibold text-[#1d1b20] dark:text-white leading-tight">Institutional Overview</h1>
+              <p className="text-sm text-[#7a7582] dark:text-[#9f99a8]">Welcome back, {user?.name || 'Administrator'}!</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Active Users */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-[#e9ddff] dark:bg-[#4f378a]/20 rounded-lg border border-[#cbc4d2] dark:border-[#4f378a]/40">
+                <Zap className="w-4 h-4 text-[#4f378a] animate-pulse" />
+                <div>
+                  <p className="text-[11px] text-[#7a7582] font-medium uppercase tracking-wide">Active</p>
+                  <p className="text-base font-bold text-[#4f378a]">{activeUsers}</p>
+                </div>
+              </div>
               <Button
                 onClick={() => setShowRegisterVulnerableModal(true)}
-                className="bg-[#00604A] hover:bg-[#004d3a] text-white rounded-full px-6 py-6 h-auto gap-2 shadow-sm font-semibold text-sm text-left"
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-sm rounded-lg"
               >
-                <div className="bg-white/20 p-1.5 rounded-full"><User className="w-4 h-4 text-white" /></div>
-                <div>Register<br/>Vulnerable</div>
+                <Plus className="w-4 h-4" />
+                Register Vulnerable
               </Button>
               <Button
                 onClick={() => setShowAddUserDialog(true)}
-                className="bg-[#422bc0] hover:bg-[#3421a1] text-white rounded-full px-6 py-6 h-auto gap-2 shadow-sm font-semibold text-sm text-left"
+                className="bg-[#4f378a] hover:bg-[#3b2870] gap-2 shadow-sm rounded-lg"
               >
-                <div className="bg-white/20 p-1.5 rounded-full"><Users className="w-4 h-4 text-white" /></div>
-                <div>Add<br/>User</div>
+                <Plus className="w-4 h-4" />
+                Add User
               </Button>
             </div>
           </div>
@@ -944,220 +969,185 @@ export default function AdminDashboard() {
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               {/* Page heading */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <div>
-                  <h2 className="text-[32px] font-bold text-[#1d1b20] dark:text-white leading-tight">Admin Dashboard</h2>
-                  <p className="text-[#494551] dark:text-[#a09ba8] text-base mt-2">Welcome back, Admin! Here's the latest status of your community mapping.</p>
-                </div>
-                {/* Active Users */}
-                <div className="mt-4 sm:mt-0 flex items-center justify-between gap-6 px-6 py-4 bg-[#7e3ff2] rounded-xl text-white shadow-sm min-w-[220px]">
-                  <div className="bg-white/20 p-2.5 rounded-lg">
-                     <Zap className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[12px] font-bold uppercase tracking-widest text-[#d5c2fc] space-y-1">Active Users</p>
-                    <p className="text-3xl font-bold">{activeUsers > 0 ? activeUsers : 1}</p>
-                  </div>
-                </div>
+              <div className="mb-2">
+                <h2 className="text-[28px] font-bold text-[#1d1b20] dark:text-white leading-tight">Admin Dashboard</h2>
+                <p className="text-[#7a7582] text-sm mt-0.5">System-wide resource tracking and monitoring</p>
               </div>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#422bc0]">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Total<br/>Registrations</p>
-                      <p className="text-4xl font-bold text-[#422bc0] dark:text-[#a084fb]">{stats.total}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#eeebf6] dark:bg-[#422bc0]/30 rounded-xl flex items-center justify-center">
-                      <Users className="w-5 h-5 text-[#422bc0] dark:text-[#a084fb]" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-[#4f378a]">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 bg-[#e9ddff] dark:bg-[#4f378a]/30 rounded-lg flex items-center justify-center">
+                      <Users className="w-5 h-5 text-[#4f378a]" />
                     </div>
                   </div>
-                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">All vulnerable<br/>individuals</p>
+                  <p className="text-[#7a7582] text-sm mb-1 font-medium">Total Registrations</p>
+                  <p className="text-3xl font-bold text-[#1d1b20] dark:text-white">{stats.total}</p>
+                  <p className="text-xs text-[#7a7582] mt-1">All vulnerable individuals</p>
                 </div>
 
-                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#fbbd0a]">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Pending<br/>Review</p>
-                      <p className="text-4xl font-bold text-[#fbbd0a]">{stats.pending}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#fff8e1] dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-[#fbbd0a]" />
+                <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-yellow-500">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-yellow-600" />
                     </div>
                   </div>
-                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">Awaiting<br/>approval</p>
+                  <p className="text-[#7a7582] text-sm mb-1 font-medium">Pending Review</p>
+                  <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+                  <p className="text-xs text-[#7a7582] mt-1">Awaiting approval</p>
                 </div>
 
-                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#00c853]">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Approved<br/> </p>
-                      <p className="text-4xl font-bold text-[#00c853]">{stats.approved}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#e8f5e9] dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 text-[#00c853]" />
+                <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-[#4f378a]">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 bg-[#e9ddff] dark:bg-[#4f378a]/30 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-[#4f378a]" />
                     </div>
                   </div>
-                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">Active<br/>profiles</p>
+                  <p className="text-[#7a7582] text-sm mb-1 font-medium">Approved</p>
+                  <p className="text-3xl font-bold text-[#4f378a]">{stats.approved}</p>
+                  <p className="text-xs text-[#7a7582] mt-1">Active profiles</p>
                 </div>
 
-                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#d32f2f]">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Rejected<br/> </p>
-                      <p className="text-4xl font-bold text-[#d32f2f]">{stats.rejected}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#ffebee] dark:bg-red-900/30 rounded-xl flex items-center justify-center">
-                      <XCircle className="w-5 h-5 text-[#d32f2f]" />
+                <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-[#ba1a1a]">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                      <XCircle className="w-5 h-5 text-[#ba1a1a]" />
                     </div>
                   </div>
-                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">Declined<br/>applications</p>
+                  <p className="text-[#7a7582] text-sm mb-1 font-medium">Rejected</p>
+                  <p className="text-3xl font-bold text-[#ba1a1a]">{stats.rejected}</p>
+                  <p className="text-xs text-[#7a7582] mt-1">Declined applications</p>
+                </div>
+
+                <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-emerald-600">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                      <Package className="w-5 h-5 text-emerald-600" />
+                    </div>
+                  </div>
+                  <p className="text-[#7a7582] text-sm mb-1 font-medium">Total Distributions</p>
+                  <p className="text-3xl font-bold text-emerald-600">{distributions.length}</p>
+                  <p className="text-xs text-[#7a7582] mt-1">Relief delivered</p>
                 </div>
               </div>
 
               {/* Overall Results Section */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* User Statistics */}
-                <Card className="border border-gray-200 dark:border-slate-800 shadow-sm rounded-2xl">
-                  <CardHeader className="border-b border-gray-100 dark:border-white/10 pb-4">
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white font-bold text-lg">
-                      <BarChart3 className="w-5 h-5 text-[#422bc0] dark:text-[#a084fb]" />
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-blue-500">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                       User Statistics
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-4 bg-[#f4f7fc] dark:bg-slate-800/50 rounded-xl">
-                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Total Users</span>
-                        <span className="font-bold text-[#422bc0] dark:text-[#a084fb] text-lg">{users.length}</span>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Total Users</span>
+                        <span className="font-bold text-blue-700 dark:text-blue-400">{users.length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-[#fbf5fe] dark:bg-purple-900/10 rounded-xl">
-                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Admins</span>
-                        <span className="font-bold text-[#a72a96] dark:text-purple-400 text-lg">{users.filter((u: any) => u.role === 'ADMIN').length}</span>
+                      <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Admins</span>
+                        <span className="font-bold text-purple-700 dark:text-purple-400">{users.filter((u: any) => u.role === 'ADMIN').length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-[#f0fbf5] dark:bg-green-900/10 rounded-xl">
-                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Workers</span>
-                        <span className="font-bold text-[#00c853] dark:text-green-400 text-lg">{users.filter((u: any) => u.role === 'WORKER').length}</span>
+                      <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Workers</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400">{users.filter((u: any) => u.role === 'WORKER').length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-[#eefbfe] dark:bg-blue-900/10 rounded-xl">
-                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Vulnerable Users</span>
-                        <span className="font-bold text-[#00b0ff] dark:text-blue-400 text-lg">{users.filter((u: any) => u.role === 'VULNERABLE').length}</span>
+                      <div className="flex items-center justify-between p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Vulnerable Users</span>
+                        <span className="font-bold text-cyan-700 dark:text-cyan-400">{users.filter((u: any) => u.role === 'VULNERABLE').length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-[#fff9eb] dark:bg-yellow-900/10 rounded-xl">
-                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Pending Worker Signups</span>
-                        <span className="font-bold text-[#fbbd0a] dark:text-yellow-400 text-lg">{workerSignupRequests.filter((r: any) => r.status === 'PENDING').length}</span>
+                      <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Pending Worker Signups</span>
+                        <span className="font-bold text-yellow-700 dark:text-yellow-400">{workerSignupRequests.filter((r: any) => r.status === 'PENDING').length}</span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Registration Status Overview */}
-                <Card className="border border-gray-200 dark:border-slate-800 shadow-sm rounded-2xl flex flex-col">
-                  <CardHeader className="border-b border-gray-100 dark:border-white/10 pb-4">
-                    <CardTitle className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-2 text-gray-900 dark:text-white font-bold text-lg">
-                        <TrendingUp className="w-5 h-5 text-[#fbbd0a] dark:text-orange-400" />
-                        Registration Overview
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest block mb-1">Approval Rate</span>
-                        <span className="font-bold text-gray-900 dark:text-white text-xl block leading-none">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-orange-500">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <TrendingUp className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                      Registration Overview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Approval Rate</span>
+                        <span className="font-bold text-gray-900 dark:text-white">
                           {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
                         </span>
                       </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6 flex flex-col flex-1 justify-center">
-                    <div className="space-y-10 w-full mb-6 mt-2">
-                      <div className="w-full bg-[#f2ecf4] dark:bg-gray-700 rounded-full h-3.5">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
-                          className="bg-[#00c853] dark:bg-green-400 h-3.5 rounded-full transition-all duration-500 shadow-sm"
+                          className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-500"
                           style={{ width: `${stats.total > 0 ? (stats.approved / stats.total) * 100 : 0}%` }}
                         />
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-6 pt-4">
-                      <div className="text-center p-5 bg-[#f0fbf5] dark:bg-green-900/20 rounded-xl border border-[#e0f1e6] dark:border-green-900/40">
-                        <p className="text-xs font-bold text-[#00c853] dark:text-gray-400 uppercase tracking-widest mb-2">Approved</p>
-                        <p className="text-3xl font-bold text-[#00c853] dark:text-green-400">{stats.approved}</p>
-                      </div>
-                      <div className="text-center p-5 bg-[#fff9eb] dark:bg-yellow-900/20 rounded-xl border border-[#f5eed9] dark:border-yellow-900/40">
-                        <p className="text-xs font-bold text-[#fbbd0a] dark:text-gray-400 uppercase tracking-widest mb-2">Pending</p>
-                        <p className="text-3xl font-bold text-[#fbbd0a] dark:text-yellow-400">{stats.pending}</p>
-                      </div>
-                      <div className="text-center p-5 bg-[#ffeff1] dark:bg-red-900/20 rounded-xl border border-[#f5e4e6] dark:border-red-900/40">
-                        <p className="text-xs font-bold text-[#d32f2f] dark:text-gray-400 uppercase tracking-widest mb-2">Rejected</p>
-                        <p className="text-3xl font-bold text-[#d32f2f] dark:text-red-400">{stats.rejected}</p>
+                      <div className="grid grid-cols-3 gap-2 pt-2">
+                        <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Approved</p>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-400">{stats.approved}</p>
+                        </div>
+                        <div className="text-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Pending</p>
+                          <p className="text-lg font-bold text-yellow-700 dark:text-yellow-400">{stats.pending}</p>
+                        </div>
+                        <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Rejected</p>
+                          <p className="text-lg font-bold text-red-700 dark:text-red-400">{stats.rejected}</p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Bottom Details Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                {/* Recent Activity */}
-                <Card className="border border-[#422bc0]/20 shadow-sm rounded-2xl border-t-[6px] border-t-[#422bc0]">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white font-bold">
-                      <Activity className="w-5 h-5 text-[#422bc0] dark:text-[#a084fb]" />
-                      Recent Activity
-                    </CardTitle>
-                    <CardDescription className="dark:text-gray-400">Latest system activity and registrations</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {profiles.length === 0 ? (
-                      <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-                        <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                        <p className="font-semibold text-lg text-gray-500">No recent activity detected</p>
-                        <p className="text-sm italic">Latest system updates and registrations will appear here.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                        {profiles.slice(0, 5).map((profile) => (
-                          <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900/50 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-800">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-10 h-10">
-                                <AvatarFallback className="bg-purple-600 text-white text-sm">
-                                  {profile.user.name.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-sm text-gray-900 dark:text-white">{profile.user.name}</p>
-                                <p className="text-xs text-gray-600 dark:text-gray-400">
-                                  {profile.barangay} • {new Date(profile.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
+              {/* Recent Activity */}
+              <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-purple-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    Recent Activity
+                  </CardTitle>
+                  <CardDescription className="dark:text-gray-400">Latest system activity and registrations</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {profiles.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>No recent activity</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-80 overflow-y-auto">
+                      {profiles.slice(0, 5).map((profile) => (
+                        <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-800">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarFallback className="bg-purple-600 text-white text-sm">
+                                {profile.user.name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-sm text-gray-900 dark:text-white">{profile.user.name}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                {profile.barangay} • {new Date(profile.createdAt).toLocaleDateString()}
+                              </p>
                             </div>
-                            {getStatusBadge(profile.registrationStatus)}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Total Distributions Widget relocated here to match grid */}
-                <Card className="border border-[#00c853]/20 shadow-sm rounded-2xl border-t-[6px] border-t-[#00c853]">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white font-bold">
-                      <Package className="w-5 h-5 text-[#00c853] dark:text-green-400" />
-                      Total Distributions
-                    </CardTitle>
-                    <span className="text-sm text-[#00c853] font-semibold cursor-pointer hover:underline" onClick={() => setActiveTab('distributions')}>View Log →</span>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-4">
-                      <div className="text-5xl font-bold text-[#00c853]">{distributions.length}</div>
-                      <div className="w-12 h-12 bg-[#e8f5e9] rounded-xl flex items-center justify-center">
-                        <Package className="w-6 h-6 text-[#00c853]" />
-                      </div>
+                          {getStatusBadge(profile.registrationStatus)}
+                        </div>
+                      ))}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-6 font-medium">Relief delivered to households recently.</p>
-                  </CardContent>
-                </Card>
-              </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -1427,35 +1417,66 @@ export default function AdminDashboard() {
 
           {/* Map Tab */}
           {activeTab === 'map' && (
-            <div className="space-y-6">
-              {/* Page heading */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <div>
-                  <h2 className="text-[32px] font-bold text-[#1d1b20] dark:text-white leading-tight">Vulnerable Population Map</h2>
-                  <p className="text-[#494551] dark:text-[#a09ba8] text-base mt-2">Real-time demographic and distribution monitoring for San Policarpo.</p>
-                </div>
-                {/* Status Overview Pill */}
-                <div className="mt-4 sm:mt-0 flex items-center justify-between gap-3 px-5 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full shadow-sm">
-                  <div className="flex items-center">
-                    <div className="w-5 h-5 rounded-full bg-red-600 -mr-2 z-10 border border-white"></div>
-                    <div className="w-5 h-5 rounded-full bg-[#00c853] z-20 border border-white"></div>
+            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
+              <CardHeader>
+                <CardTitle>Vulnerable Population Map</CardTitle>
+                <CardDescription>
+                  Geographic distribution with heatmaps (Green=Received, Red=Not Received)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative h-[600px] rounded-lg overflow-hidden border border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                  {/* Legend Overlay */}
+                  <div className="absolute top-4 left-4 z-20 bg-white dark:bg-slate-900 p-4 rounded-lg shadow-md border border-gray-200 dark:border-slate-800 pointer-events-auto">
+                    <p className="font-semibold text-sm mb-3">Legend</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-emerald-500"></div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Received (0)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Not Received (0)</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    Status Overview: <span className="text-[#00c853]">62% Distribution Rate</span>
-                  </span>
-                </div>
-              </div>
 
-              {/* Map Container */}
-              <div className="h-[750px] rounded-[32px] overflow-hidden shadow-lg border-4 border-white/50 relative">
-                  <VulnerableMap
-                    points={mapPoints}
-                    center={[12.1792, 125.5072]}
-                    zoom={13}
-                    showHeatmap={true}
-                  />
-              </div>
-            </div>
+                  {/* Interactive Cover */}
+                  {!isMapInteractive && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/40 dark:bg-slate-900/40 backdrop-blur-[4px]">
+                      <Card className="w-[420px] shadow-2xl border-0 shadow-emerald-500/10">
+                        <CardContent className="p-10 text-center flex flex-col items-center">
+                          <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+                            <MapPin className="w-10 h-10" />
+                          </div>
+                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">View Vulnerable Groups Map</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 px-4 leading-relaxed">
+                            Click the button below to interact with the map and explore the distribution data
+                          </p>
+                          <Button 
+                            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-base flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+                            onClick={() => setIsMapInteractive(true)}
+                          >
+                            <Maximize className="w-4 h-4" />
+                            Enter Map
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* The Actual Map */}
+                  <div className={`w-full h-full transition-all duration-500 ${!isMapInteractive ? 'opacity-70 pointer-events-none' : 'opacity-100'}`}>
+                    <VulnerableMap
+                      points={mapPoints}
+                      center={[12.1792, 125.5072]}
+                      zoom={12}
+                      showHeatmap={true}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Distributions Tab */}

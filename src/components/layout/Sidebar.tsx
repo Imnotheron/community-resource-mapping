@@ -88,9 +88,9 @@ export default function Sidebar({
       case 'ADMIN':
       default:
         return {
-          activeBg:   'bg-[#eeebf6] dark:bg-[#422bc0]/20 text-[#422bc0] dark:text-[#a084fb] font-semibold rounded-lg',
-          activeIcon: 'text-[#422bc0] dark:text-[#a084fb]',
-          avatarBg:   'bg-[#422bc0] text-white',
+          activeBg:   'bg-[#e1d4fd] text-[#4f378a] border-l-4 border-[#4f378a] font-semibold',
+          activeIcon: 'text-[#4f378a]',
+          avatarBg:   'bg-[#4f378a] text-white',
           roleLabel:  'Admin Portal',
         }
     }
@@ -111,20 +111,39 @@ export default function Sidebar({
     >
       {/* ── Branding ── */}
       <div>
-        <div className="px-5 pt-8 pb-6 border-b-0 space-y-4">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 rounded-full bg-[#422bc0] text-white flex items-center justify-center font-bold text-xl flex-shrink-0">
-              A
+        <div className="px-4 pt-5 pb-4 border-b border-[#cbc4d2] dark:border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#e9ddff] dark:bg-[#4f378a]/30 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-5 h-5 text-[#4f378a] dark:text-[#cfbcff]" />
             </div>
             {!collapsed && (
               <div>
-                <p className="text-[#1d1b20] dark:text-white font-bold text-[16px] leading-tight">
-                  Admin
+                <p className="text-[#4f378a] dark:text-[#cfbcff] font-semibold text-[15px] leading-tight">
+                  {accent.roleLabel}
                 </p>
-                <p className="text-[#7a7582] text-[13px]">Administrator</p>
+                <p className="text-[#7a7582] text-[11px] uppercase tracking-wider">CommMap System</p>
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── User Avatar ── */}
+        <div
+          onClick={onProfileClick}
+          className="flex items-center gap-3 cursor-pointer px-4 py-3 mx-2 mt-3 rounded-lg hover:bg-[#f2ecf4] dark:hover:bg-white/5 transition-colors"
+        >
+          <Avatar className="w-9 h-9 border border-[#cbc4d2] flex-shrink-0">
+            <AvatarImage src={user.profilePicture || undefined} alt={user.name} />
+            <AvatarFallback className={`${accent.avatarBg} font-semibold text-sm`}>
+              {user.name?.charAt(0).toUpperCase() || 'U'}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-[#1d1b20] dark:text-white text-sm truncate">{user.name}</p>
+              <p className="text-xs text-[#7a7582] capitalize truncate">{user.role}</p>
+            </div>
+          )}
         </div>
 
         {/* ── Nav Items ── */}
@@ -163,10 +182,10 @@ export default function Sidebar({
           <TooltipTrigger asChild>
             <button
               onClick={onLogout}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-red-600 dark:text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-[#ba1a1a] dark:text-[#ffb4ab] hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
             >
-              <LogOut className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
-              {!collapsed && <span>Logout</span>}
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              {!collapsed && <span>Sign Out</span>}
             </button>
           </TooltipTrigger>
           {collapsed && <TooltipContent side="right">Sign Out</TooltipContent>}
