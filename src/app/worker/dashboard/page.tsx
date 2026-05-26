@@ -605,7 +605,7 @@ export default function WorkerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[#f8f2fa] dark:bg-[#1d1b20] flex">
       {/* Sidebar */}
       <CollapsibleSidebar
         user={user!}
@@ -620,48 +620,31 @@ export default function WorkerDashboard() {
       />
 
       {/* Main Content Area */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-72'}`}>
+      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-[280px]'}`}>
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-40 shadow-sm">
+        <header className="bg-white dark:bg-[#1d1b20] border-b border-[#cbc4d2] dark:border-white/10 px-8 py-4 sticky top-0 z-40" style={{boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
           {/* Logos Row */}
           <div className="grid grid-cols-3 items-center mb-2">
-            {/* Top Left - San Policarpo Logo */}
             <div className="flex justify-start">
-              <img
-                src="/logo-sampolicarpo.jpg"
-                alt="San Policarpo Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <img src="/logo-sampolicarpo.jpg" alt="San Policarpo Logo" className="h-12 md:h-14 w-auto object-contain" />
             </div>
-
-            {/* Middle - ESSU Logo */}
             <div className="flex justify-center">
-              <img
-                src="/logo-essu.jpg"
-                alt="ESSU Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <img src="/logo-essu.jpg" alt="ESSU Logo" className="h-12 md:h-14 w-auto object-contain" />
             </div>
-
-            {/* Top Right - DSWD Logo */}
             <div className="flex justify-end">
-              <img
-                src="/logo-dswd.png"
-                alt="DSWD Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <img src="/logo-dswd.png" alt="DSWD Logo" className="h-12 md:h-14 w-auto object-contain" />
             </div>
           </div>
 
           {/* Dashboard Title and Actions */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Worker Dashboard</h1>
-              <p className="text-sm text-gray-500">Welcome back, {user?.name || 'Worker'}!</p>
+              <h1 className="text-[22px] font-semibold text-[#1d1b20] dark:text-white leading-tight">Worker Dashboard</h1>
+              <p className="text-sm text-[#7a7582] dark:text-[#9f99a8]">Welcome back, {user?.name || 'Worker'}!</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {/* Active Users Counter */}
-              <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+              <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                 <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                   {activeUsers} Active Users
@@ -669,14 +652,14 @@ export default function WorkerDashboard() {
               </div>
               <Button
                 onClick={() => setShowRegisterModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-lg"
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-sm rounded-lg"
               >
                 <Plus className="w-4 h-4" />
                 Register Vulnerable
               </Button>
               <Button
                 onClick={() => setShowDistributeModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-lg"
+                className="bg-[#4f378a] hover:bg-[#3b2870] gap-2 shadow-sm rounded-lg"
               >
                 <Package className="w-4 h-4" />
                 Distribute Relief
@@ -686,71 +669,51 @@ export default function WorkerDashboard() {
         </header>
 
         {/* Content */}
-        <main className="p-6">
+        <main className="p-8">
           <div className="grid grid-cols-12 gap-6">
             {/* Main Content - Full Width */}
             <div className="col-span-12 space-y-6">
               {/* Dashboard Tab - Stats Only */}
               {activeTab === 'dashboard' && (
                 <>
+                  <div className="mb-2">
+                    <h2 className="text-[28px] font-bold text-[#1d1b20] dark:text-white leading-tight">Field Summary</h2>
+                    <p className="text-[#7a7582] text-sm mt-0.5">Your registered profiles and distributions overview</p>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-emerald-500">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1 font-medium">Total Profiles</p>
-                            <p className="text-3xl font-bold text-gray-900">{profiles.length}</p>
-                          </div>
-                          <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                            <Users className="w-6 h-6 text-emerald-600" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-emerald-600">
+                      <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center mb-4">
+                        <Users className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <p className="text-[#7a7582] text-sm mb-1 font-medium">Total Profiles</p>
+                      <p className="text-3xl font-bold text-[#1d1b20] dark:text-white">{profiles.length}</p>
+                    </div>
 
-                    <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1 font-medium">Approved</p>
-                            <p className="text-3xl font-bold text-emerald-600">{approvedProfiles.length}</p>
-                          </div>
-                          <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                            <CheckCircle className="w-6 h-6 text-green-600" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-green-600">
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-4">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      </div>
+                      <p className="text-[#7a7582] text-sm mb-1 font-medium">Approved</p>
+                      <p className="text-3xl font-bold text-emerald-600">{approvedProfiles.length}</p>
+                    </div>
 
-                    <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1 font-medium">Pending</p>
-                            <p className="text-3xl font-bold text-yellow-600">
-                              {profiles.filter(p => p.registrationStatus === 'PENDING').length}
-                            </p>
-                          </div>
-                          <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                            <Clock className="w-6 h-6 text-yellow-600" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-yellow-500">
+                      <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center mb-4">
+                        <Clock className="w-5 h-5 text-yellow-600" />
+                      </div>
+                      <p className="text-[#7a7582] text-sm mb-1 font-medium">Pending</p>
+                      <p className="text-3xl font-bold text-yellow-600">
+                        {profiles.filter(p => p.registrationStatus === 'PENDING').length}
+                      </p>
+                    </div>
 
-                    <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-emerald-500">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1 font-medium">Distributions</p>
-                            <p className="text-3xl font-bold text-emerald-600">{myDistributions.length}</p>
-                          </div>
-                          <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                            <Package className="w-6 h-6 text-emerald-600" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className="bg-white dark:bg-[#2b2930] organic-shadow card-lift p-6 rounded-lg border-l-4 border-[#4f378a]">
+                      <div className="w-10 h-10 bg-[#e9ddff] dark:bg-[#4f378a]/30 rounded-lg flex items-center justify-center mb-4">
+                        <Package className="w-5 h-5 text-[#4f378a]" />
+                      </div>
+                      <p className="text-[#7a7582] text-sm mb-1 font-medium">Distributions</p>
+                      <p className="text-3xl font-bold text-[#4f378a]">{myDistributions.length}</p>
+                    </div>
                   </div>
 
                   {/* Overview Cards */}

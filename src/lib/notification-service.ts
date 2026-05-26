@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { NotificationType } from '@prisma/client'
+type NotificationType = 'ACCOUNT_CREATED' | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'DOCUMENTS_NEEDED' | 'RELIEF_APPROVED' | 'RELIEF_REJECTED' | 'RELIEF_SCHEDULED' | 'RELIEF_DISTRIBUTED' | 'ANNOUNCEMENT'
 import { transporter } from '@/lib/email'
 
 // Notification templates

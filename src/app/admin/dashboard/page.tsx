@@ -882,17 +882,17 @@ export default function AdminDashboard() {
 
     if (isUserSyncing) {
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="min-h-screen bg-[#fdf7ff] dark:bg-[#1d1b20] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Activity className="w-12 h-12 text-purple-600 animate-spin" />
-            <p className="text-slate-600 font-medium">Loading Dashboard...</p>
+            <Activity className="w-12 h-12 text-[#4f378a] animate-spin" />
+            <p className="text-[#494551] font-medium">Loading Dashboard...</p>
           </div>
         </div>
       )
     }
 
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f8f2fa] dark:bg-[#1d1b20]">
         {/* Block mobile users from admin portal */}
         <MobileBlock />
 
@@ -911,273 +911,253 @@ export default function AdminDashboard() {
         )}
 
       {/* Main Content Area */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-72'}`}>
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-[280px]'}`}>
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-40 shadow-sm">
-          {/* Logos Row */}
-          <div className="grid grid-cols-3 items-center mb-3">
-            {/* Top Left - San Policarpo Logo */}
-            <div className="flex justify-start">
-              <img
-                src="/logo-sampolicarpo.jpg"
-                alt="San Policarpo Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
-            </div>
-
-            {/* Middle - ESSU Logo */}
-            <div className="flex justify-center">
-              <img
-                src="/logo-essu.jpg"
-                alt="ESSU Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
-            </div>
-
-            {/* Top Right - DSWD Logo */}
-            <div className="flex justify-end">
-              <img
-                src="/logo-dswd.png"
-                alt="DSWD Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
-            </div>
-          </div>
-
-          {/* Dashboard Title and Actions */}
+        <header className="bg-white dark:bg-[#1d1b20] border-b border-[#cbc4d2] dark:border-white/10 px-8 py-4 sticky top-0 z-40" style={{boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-sm text-gray-500 hidden sm:block">Welcome back, {user?.name || 'Administrator'}!</p>
-            </div>
+            <h1 className="text-[22px] font-bold text-[#422bc0] dark:text-[#a084fb] leading-tight w-64 leading-6">
+              Community Resource<br />Mapping
+            </h1>
 
-            {/* Active Users Counter */}
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                <Zap className="w-5 h-5 text-purple-600 animate-pulse" />
-                <div>
-                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Active Users</p>
-                  <p className="text-lg font-bold text-purple-700 dark:text-purple-300">{activeUsers}</p>
-                </div>
-              </div>
-
               <Button
                 onClick={() => setShowRegisterVulnerableModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-lg"
+                className="bg-[#00604A] hover:bg-[#004d3a] text-white rounded-full px-6 py-6 h-auto gap-2 shadow-sm font-semibold text-sm text-left"
               >
-                <Plus className="w-4 h-4" />
-                Register Vulnerable
+                <div className="bg-white/20 p-1.5 rounded-full"><User className="w-4 h-4 text-white" /></div>
+                <div>Register<br/>Vulnerable</div>
               </Button>
               <Button
                 onClick={() => setShowAddUserDialog(true)}
-                className="bg-purple-600 hover:bg-purple-700 gap-2 shadow-lg"
+                className="bg-[#422bc0] hover:bg-[#3421a1] text-white rounded-full px-6 py-6 h-auto gap-2 shadow-sm font-semibold text-sm text-left"
               >
-                <Plus className="w-4 h-4" />
-                Add User
+                <div className="bg-white/20 p-1.5 rounded-full"><Users className="w-4 h-4 text-white" /></div>
+                <div>Add<br/>User</div>
               </Button>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="p-6">
+        <main className="p-8">
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              {/* Stats Cards - Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 border-l-4 border-l-purple-600">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Total Registrations</p>
-                        <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-                        <p className="text-xs text-gray-600 mt-1">All vulnerable individuals</p>
-                      </div>
-                      <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                        <Users className="w-6 h-6 text-purple-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Page heading */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <div>
+                  <h2 className="text-[32px] font-bold text-[#1d1b20] dark:text-white leading-tight">Admin Dashboard</h2>
+                  <p className="text-[#494551] dark:text-[#a09ba8] text-base mt-2">Welcome back, Admin! Here's the latest status of your community mapping.</p>
+                </div>
+                {/* Active Users */}
+                <div className="mt-4 sm:mt-0 flex items-center justify-between gap-6 px-6 py-4 bg-[#7e3ff2] rounded-xl text-white shadow-sm min-w-[220px]">
+                  <div className="bg-white/20 p-2.5 rounded-lg">
+                     <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[12px] font-bold uppercase tracking-widest text-[#d5c2fc] space-y-1">Active Users</p>
+                    <p className="text-3xl font-bold">{activeUsers > 0 ? activeUsers : 1}</p>
+                  </div>
+                </div>
+              </div>
 
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 border-l-4 border-l-yellow-500">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Pending Review</p>
-                        <p className="text-3xl font-bold text-gray-900">{stats.pending}</p>
-                        <p className="text-xs text-gray-600 mt-1">Awaiting approval</p>
-                      </div>
-                      <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-yellow-600" />
-                      </div>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#422bc0]">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Total<br/>Registrations</p>
+                      <p className="text-4xl font-bold text-[#422bc0] dark:text-[#a084fb]">{stats.total}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="w-10 h-10 bg-[#eeebf6] dark:bg-[#422bc0]/30 rounded-xl flex items-center justify-center">
+                      <Users className="w-5 h-5 text-[#422bc0] dark:text-[#a084fb]" />
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">All vulnerable<br/>individuals</p>
+                </div>
 
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 border-l-4 border-l-purple-600">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Approved</p>
-                        <p className="text-3xl font-bold text-purple-600">{stats.approved}</p>
-                        <p className="text-xs text-gray-600 mt-1">Active profiles</p>
-                      </div>
-                      <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                        <CheckCircle className="w-6 h-6 text-purple-600" />
-                      </div>
+                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#fbbd0a]">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Pending<br/>Review</p>
+                      <p className="text-4xl font-bold text-[#fbbd0a]">{stats.pending}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="w-10 h-10 bg-[#fff8e1] dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-[#fbbd0a]" />
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">Awaiting<br/>approval</p>
+                </div>
 
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 border-l-4 border-l-red-500">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Rejected</p>
-                        <p className="text-3xl font-bold text-red-600">{stats.rejected}</p>
-                        <p className="text-xs text-gray-600 mt-1">Declined applications</p>
-                      </div>
-                      <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                        <XCircle className="w-6 h-6 text-red-600" />
-                      </div>
+                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#00c853]">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Approved<br/> </p>
+                      <p className="text-4xl font-bold text-[#00c853]">{stats.approved}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="w-10 h-10 bg-[#e8f5e9] dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-[#00c853]" />
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">Active<br/>profiles</p>
+                </div>
 
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 border-l-4 border-l-emerald-500">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Total Distributions</p>
-                        <p className="text-3xl font-bold text-emerald-600">{distributions.length}</p>
-                        <p className="text-xs text-gray-600 mt-1">Relief delivered</p>
-                      </div>
-                      <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                        <Package className="w-6 h-6 text-emerald-600" />
-                      </div>
+                <div className="bg-white dark:bg-[#2b2930] shadow-sm p-6 rounded-2xl border-t-[6px] border-[#d32f2f]">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[#494551] dark:text-gray-300 text-sm font-semibold mb-2 leading-tight">Rejected<br/> </p>
+                      <p className="text-4xl font-bold text-[#d32f2f]">{stats.rejected}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="w-10 h-10 bg-[#ffebee] dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                      <XCircle className="w-5 h-5 text-[#d32f2f]" />
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium text-[#7a7582] mt-5 leading-tight">Declined<br/>applications</p>
+                </div>
               </div>
 
               {/* Overall Results Section */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* User Statistics */}
-                <Card className="border border-gray-200 shadow-md border-l-4 border-l-blue-500">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-blue-600" />
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-sm rounded-2xl">
+                  <CardHeader className="border-b border-gray-100 dark:border-white/10 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white font-bold text-lg">
+                      <BarChart3 className="w-5 h-5 text-[#422bc0] dark:text-[#a084fb]" />
                       User Statistics
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                        <span className="text-sm text-gray-700">Total Users</span>
-                        <span className="font-bold text-blue-700">{users.length}</span>
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-4 bg-[#f4f7fc] dark:bg-slate-800/50 rounded-xl">
+                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Total Users</span>
+                        <span className="font-bold text-[#422bc0] dark:text-[#a084fb] text-lg">{users.length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                        <span className="text-sm text-gray-700">Admins</span>
-                        <span className="font-bold text-purple-700">{users.filter((u: any) => u.role === 'ADMIN').length}</span>
+                      <div className="flex items-center justify-between p-4 bg-[#fbf5fe] dark:bg-purple-900/10 rounded-xl">
+                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Admins</span>
+                        <span className="font-bold text-[#a72a96] dark:text-purple-400 text-lg">{users.filter((u: any) => u.role === 'ADMIN').length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
-                        <span className="text-sm text-gray-700">Workers</span>
-                        <span className="font-bold text-emerald-700">{users.filter((u: any) => u.role === 'WORKER').length}</span>
+                      <div className="flex items-center justify-between p-4 bg-[#f0fbf5] dark:bg-green-900/10 rounded-xl">
+                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Workers</span>
+                        <span className="font-bold text-[#00c853] dark:text-green-400 text-lg">{users.filter((u: any) => u.role === 'WORKER').length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-cyan-50 rounded-lg">
-                        <span className="text-sm text-gray-700">Vulnerable Users</span>
-                        <span className="font-bold text-cyan-700">{users.filter((u: any) => u.role === 'VULNERABLE').length}</span>
+                      <div className="flex items-center justify-between p-4 bg-[#eefbfe] dark:bg-blue-900/10 rounded-xl">
+                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Vulnerable Users</span>
+                        <span className="font-bold text-[#00b0ff] dark:text-blue-400 text-lg">{users.filter((u: any) => u.role === 'VULNERABLE').length}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                        <span className="text-sm text-gray-700">Pending Worker Signups</span>
-                        <span className="font-bold text-yellow-700">{workerSignupRequests.filter((r: any) => r.status === 'PENDING').length}</span>
+                      <div className="flex items-center justify-between p-4 bg-[#fff9eb] dark:bg-yellow-900/10 rounded-xl">
+                        <span className="text-sm font-medium text-[#494551] dark:text-gray-300">Pending Worker Signups</span>
+                        <span className="font-bold text-[#fbbd0a] dark:text-yellow-400 text-lg">{workerSignupRequests.filter((r: any) => r.status === 'PENDING').length}</span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Registration Status Overview */}
-                <Card className="border border-gray-200 shadow-md border-l-4 border-l-orange-500">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-orange-600" />
-                      Registration Overview
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Approval Rate</span>
-                        <span className="font-bold text-gray-900">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-sm rounded-2xl flex flex-col">
+                  <CardHeader className="border-b border-gray-100 dark:border-white/10 pb-4">
+                    <CardTitle className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2 text-gray-900 dark:text-white font-bold text-lg">
+                        <TrendingUp className="w-5 h-5 text-[#fbbd0a] dark:text-orange-400" />
+                        Registration Overview
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest block mb-1">Approval Rate</span>
+                        <span className="font-bold text-gray-900 dark:text-white text-xl block leading-none">
                           {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 flex flex-col flex-1 justify-center">
+                    <div className="space-y-10 w-full mb-6 mt-2">
+                      <div className="w-full bg-[#f2ecf4] dark:bg-gray-700 rounded-full h-3.5">
                         <div 
-                          className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                          className="bg-[#00c853] dark:bg-green-400 h-3.5 rounded-full transition-all duration-500 shadow-sm"
                           style={{ width: `${stats.total > 0 ? (stats.approved / stats.total) * 100 : 0}%` }}
                         />
                       </div>
-                      <div className="grid grid-cols-3 gap-2 pt-2">
-                        <div className="text-center p-2 bg-green-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Approved</p>
-                          <p className="text-lg font-bold text-green-700">{stats.approved}</p>
-                        </div>
-                        <div className="text-center p-2 bg-yellow-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Pending</p>
-                          <p className="text-lg font-bold text-yellow-700">{stats.pending}</p>
-                        </div>
-                        <div className="text-center p-2 bg-red-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Rejected</p>
-                          <p className="text-lg font-bold text-red-700">{stats.rejected}</p>
-                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-6 pt-4">
+                      <div className="text-center p-5 bg-[#f0fbf5] dark:bg-green-900/20 rounded-xl border border-[#e0f1e6] dark:border-green-900/40">
+                        <p className="text-xs font-bold text-[#00c853] dark:text-gray-400 uppercase tracking-widest mb-2">Approved</p>
+                        <p className="text-3xl font-bold text-[#00c853] dark:text-green-400">{stats.approved}</p>
+                      </div>
+                      <div className="text-center p-5 bg-[#fff9eb] dark:bg-yellow-900/20 rounded-xl border border-[#f5eed9] dark:border-yellow-900/40">
+                        <p className="text-xs font-bold text-[#fbbd0a] dark:text-gray-400 uppercase tracking-widest mb-2">Pending</p>
+                        <p className="text-3xl font-bold text-[#fbbd0a] dark:text-yellow-400">{stats.pending}</p>
+                      </div>
+                      <div className="text-center p-5 bg-[#ffeff1] dark:bg-red-900/20 rounded-xl border border-[#f5e4e6] dark:border-red-900/40">
+                        <p className="text-xs font-bold text-[#d32f2f] dark:text-gray-400 uppercase tracking-widest mb-2">Rejected</p>
+                        <p className="text-3xl font-bold text-[#d32f2f] dark:text-red-400">{stats.rejected}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Recent Activity */}
-              <Card className="border border-gray-200 shadow-md border-l-4 border-l-purple-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-purple-600" />
-                    Recent Activity
-                  </CardTitle>
-                  <CardDescription>Latest system activity and registrations</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {profiles.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                      <p>No recent activity</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-80 overflow-y-auto">
-                      {profiles.slice(0, 5).map((profile) => (
-                        <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-10 h-10">
-                              <AvatarFallback className="bg-purple-600 text-white text-sm">
-                                {profile.user.name.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium text-sm text-gray-900">{profile.user.name}</p>
-                              <p className="text-xs text-gray-600">
-                                {profile.barangay} • {new Date(profile.createdAt).toLocaleDateString()}
-                              </p>
+              {/* Bottom Details Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                {/* Recent Activity */}
+                <Card className="border border-[#422bc0]/20 shadow-sm rounded-2xl border-t-[6px] border-t-[#422bc0]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white font-bold">
+                      <Activity className="w-5 h-5 text-[#422bc0] dark:text-[#a084fb]" />
+                      Recent Activity
+                    </CardTitle>
+                    <CardDescription className="dark:text-gray-400">Latest system activity and registrations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {profiles.length === 0 ? (
+                      <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+                        <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                        <p className="font-semibold text-lg text-gray-500">No recent activity detected</p>
+                        <p className="text-sm italic">Latest system updates and registrations will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                        {profiles.slice(0, 5).map((profile) => (
+                          <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900/50 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-10 h-10">
+                                <AvatarFallback className="bg-purple-600 text-white text-sm">
+                                  {profile.user.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-sm text-gray-900 dark:text-white">{profile.user.name}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  {profile.barangay} • {new Date(profile.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
                             </div>
+                            {getStatusBadge(profile.registrationStatus)}
                           </div>
-                          {getStatusBadge(profile.registrationStatus)}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Total Distributions Widget relocated here to match grid */}
+                <Card className="border border-[#00c853]/20 shadow-sm rounded-2xl border-t-[6px] border-t-[#00c853]">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white font-bold">
+                      <Package className="w-5 h-5 text-[#00c853] dark:text-green-400" />
+                      Total Distributions
+                    </CardTitle>
+                    <span className="text-sm text-[#00c853] font-semibold cursor-pointer hover:underline" onClick={() => setActiveTab('distributions')}>View Log →</span>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-4">
+                      <div className="text-5xl font-bold text-[#00c853]">{distributions.length}</div>
+                      <div className="w-12 h-12 bg-[#e8f5e9] rounded-xl flex items-center justify-center">
+                        <Package className="w-6 h-6 text-[#00c853]" />
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-6 font-medium">Relief delivered to households recently.</p>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
 
@@ -1185,7 +1165,7 @@ export default function AdminDashboard() {
           {activeTab === 'registrations' && (
             <div className="space-y-6">
               {/* Pending Registrations Section */}
-              <Card className="border border-gray-200 shadow-md border-l-4 border-l-yellow-500">
+              <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-yellow-500">
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -1215,11 +1195,11 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
-                    <div className="text-center py-12 text-gray-500">Loading registrations...</div>
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading registrations...</div>
                   ) : profiles.filter(p => p.registrationStatus === 'PENDING').length === 0 ? (
                     <div className="text-center py-12">
                       <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-300" />
-                      <p className="text-gray-500 font-medium">No pending registrations</p>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">No pending registrations</p>
                       <p className="text-sm text-gray-400 mt-1">All registrations have been reviewed</p>
                     </div>
                   ) : (
@@ -1236,33 +1216,33 @@ export default function AdminDashboard() {
                         .map((profile) => (
                           <Card
                             key={profile.id}
-                            className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200 border-l-4 border-l-yellow-500"
+                            className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200 dark:border-slate-800 border-l-4 border-l-yellow-500"
                             onClick={() => setSelectedProfile(profile)}
                           >
                             <CardContent className="p-4">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
-                                    <h3 className="font-semibold text-lg text-gray-900">{profile.user.name}</h3>
+                                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{profile.user.name}</h3>
                                     <Badge className="bg-yellow-500"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>
                                   </div>
-                                  <div className="space-y-1 text-sm text-gray-600">
-                                    <p><span className="font-medium text-gray-700">Email:</span> {profile.user.email}</p>
+                                  <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                    <p><span className="font-medium text-gray-700 dark:text-gray-300">Email:</span> {profile.user.email}</p>
                                     <div className="flex items-start gap-1">
-                                      <span className="font-medium text-gray-700 flex-shrink-0">Location:</span>
+                                      <span className="font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">Location:</span>
                                       <span className="flex-1">
                                         {profile.address && <span className="block">{profile.address}</span>}
-                                        <span className="block font-medium text-gray-900">{profile.barangay}</span>
+                                        <span className="block font-medium text-gray-900 dark:text-white">{profile.barangay}</span>
                                       </span>
                                     </div>
-                                    <p><span className="font-medium text-gray-700">Vulnerability Types:</span> {safeParseVulnerabilityTypes(profile.vulnerabilityTypes).join(', ')}</p>
+                                    <p><span className="font-medium text-gray-700 dark:text-gray-300">Vulnerability Types:</span> {safeParseVulnerabilityTypes(profile.vulnerabilityTypes).join(', ')}</p>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-xs text-gray-500 mb-2">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                                     {new Date(profile.createdAt).toLocaleDateString()}
                                   </p>
-                                  <div className="flex items-center gap-1 text-sm text-gray-600">
+                                  <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
                                     <FileText className="w-4 h-4" />
                                     {profile.documents.length} document{profile.documents.length !== 1 ? 's' : ''}
                                   </div>
@@ -1277,7 +1257,7 @@ export default function AdminDashboard() {
               </Card>
 
               {/* Approved and Rejected Section */}
-              <Card className="border border-gray-200 shadow-md">
+              <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
                 <CardHeader>
                   <CardTitle>Approved & Rejected Registrations</CardTitle>
                   <CardDescription>
@@ -1288,7 +1268,7 @@ export default function AdminDashboard() {
                   {profiles.filter(p => p.registrationStatus !== 'PENDING').length === 0 ? (
                     <div className="text-center py-12">
                       <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <p className="text-gray-500 font-medium">No processed registrations yet</p>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">No processed registrations yet</p>
                       <p className="text-sm text-gray-400 mt-1">Approved and rejected registrations will appear here</p>
                     </div>
                   ) : (
@@ -1298,7 +1278,7 @@ export default function AdminDashboard() {
                         .map((profile) => (
                           <Card
                             key={profile.id}
-                            className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200 border-l-4"
+                            className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200 dark:border-slate-800 border-l-4"
                             style={{
                               borderLeftColor:
                                 profile.registrationStatus === 'APPROVED' ? '#9333ea' : '#ef4444'
@@ -1309,19 +1289,19 @@ export default function AdminDashboard() {
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
-                                    <h3 className="font-semibold text-lg text-gray-900">{profile.user.name}</h3>
+                                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{profile.user.name}</h3>
                                     {getStatusBadge(profile.registrationStatus)}
                                   </div>
-                                  <div className="space-y-1 text-sm text-gray-600">
-                                    <p><span className="font-medium text-gray-700">Email:</span> {profile.user.email}</p>
-                                    <p><span className="font-medium text-gray-700">Barangay:</span> {profile.barangay}</p>
+                                  <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                    <p><span className="font-medium text-gray-700 dark:text-gray-300">Email:</span> {profile.user.email}</p>
+                                    <p><span className="font-medium text-gray-700 dark:text-gray-300">Barangay:</span> {profile.barangay}</p>
                                     {profile.registrationStatus === 'REJECTED' && profile.rejectionReason && (
                                       <p className="text-red-600"><span className="font-medium">Reason:</span> {profile.rejectionReason}</p>
                                     )}
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {new Date(profile.createdAt).toLocaleDateString()}
                                   </p>
                                 </div>
@@ -1340,7 +1320,7 @@ export default function AdminDashboard() {
 
           {/* Profiles Tab */}
           {activeTab === 'profiles' && (
-            <Card className="border border-gray-200 shadow-md">
+            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
@@ -1378,11 +1358,11 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="text-center py-12 text-gray-500">Loading profiles...</div>
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading profiles...</div>
                 ) : filteredProfiles.length === 0 ? (
                   <div className="text-center py-12">
                     <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-gray-500 font-medium">No profiles found</p>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No profiles found</p>
                     <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filter</p>
                   </div>
                 ) : (
@@ -1390,7 +1370,7 @@ export default function AdminDashboard() {
                     {filteredProfiles.map((profile) => (
                       <Card
                         key={profile.id}
-                        className="hover:shadow-md transition-shadow border border-gray-200 border-l-4 cursor-pointer"
+                        className="hover:shadow-md transition-shadow border border-gray-200 dark:border-slate-800 border-l-4 cursor-pointer"
                         style={{
                           borderLeftColor:
                             profile.registrationStatus === 'PENDING' ? '#eab308' :
@@ -1403,19 +1383,19 @@ export default function AdminDashboard() {
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-semibold text-lg text-gray-900">{profile.user.name}</h3>
+                                <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{profile.user.name}</h3>
                                 {getStatusBadge(profile.registrationStatus)}
                               </div>
-                              <div className="space-y-1 text-sm text-gray-600">
-                                <p><span className="font-medium text-gray-700">Email:</span> {profile.user.email}</p>
+                              <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                <p><span className="font-medium text-gray-700 dark:text-gray-300">Email:</span> {profile.user.email}</p>
                                 <div className="flex items-start gap-1">
-                                  <span className="font-medium text-gray-700 flex-shrink-0">Location:</span>
+                                  <span className="font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">Location:</span>
                                   <span className="flex-1">
                                     {profile.address && <span className="block">{profile.address}</span>}
-                                    <span className="block font-medium text-gray-900">{profile.barangay}</span>
+                                    <span className="block font-medium text-gray-900 dark:text-white">{profile.barangay}</span>
                                   </span>
                                 </div>
-                                <p><span className="font-medium text-gray-700">Vulnerability Types:</span> {safeParseVulnerabilityTypes(profile.vulnerabilityTypes).join(', ')}</p>
+                                <p><span className="font-medium text-gray-700 dark:text-gray-300">Vulnerability Types:</span> {safeParseVulnerabilityTypes(profile.vulnerabilityTypes).join(', ')}</p>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
@@ -1431,7 +1411,7 @@ export default function AdminDashboard() {
                                 <UserCircle className="w-3 h-3" />
                                 View Profile
                               </Button>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {new Date(profile.createdAt).toLocaleDateString()}
                               </p>
                             </div>
@@ -1447,7 +1427,7 @@ export default function AdminDashboard() {
 
           {/* Map Tab */}
           {activeTab === 'map' && (
-            <Card className="border border-gray-200 shadow-md">
+            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
               <CardHeader>
                 <CardTitle>Vulnerable Population Map</CardTitle>
                 <CardDescription>
@@ -1455,7 +1435,7 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[600px] rounded-lg overflow-hidden border border-gray-200">
+                <div className="h-[600px] rounded-lg overflow-hidden border border-gray-200 dark:border-slate-800">
                   <VulnerableMap
                     points={mapPoints}
                     center={[12.1792, 125.5072]}
@@ -1469,7 +1449,7 @@ export default function AdminDashboard() {
 
           {/* Distributions Tab */}
           {activeTab === 'distributions' && (
-            <Card className="border border-gray-200 shadow-md">
+            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5 text-purple-600" />
@@ -1481,38 +1461,38 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 {isLoadingDistributions ? (
-                  <div className="text-center py-12 text-gray-500">Loading distributions...</div>
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading distributions...</div>
                 ) : distributions.length === 0 ? (
                   <div className="text-center py-12">
                     <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-gray-500 font-medium">No distributions recorded yet</p>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No distributions recorded yet</p>
                     <p className="text-sm text-gray-400 mt-1">Distributions will appear here once workers record them</p>
                   </div>
                 ) : (
                   <div className="space-y-4 max-h-[600px] overflow-y-auto">
                     {distributions.map((dist) => (
-                      <Card key={dist.id} className="hover:shadow-md transition-shadow border border-gray-200 border-l-4 border-l-purple-600">
+                      <Card key={dist.id} className="hover:shadow-md transition-shadow border border-gray-200 dark:border-slate-800 border-l-4 border-l-purple-600">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-semibold text-lg text-gray-900">{dist.distributionType}</h3>
+                                <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{dist.distributionType}</h3>
                                 <Badge className="bg-purple-600">✓ Delivered</Badge>
                               </div>
-                              <p className="text-sm text-gray-600 flex items-center gap-1">
+                              <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
                                 {new Date(dist.distributionDate).toLocaleString()}
                               </p>
-                              <p className="text-sm text-gray-600 mt-1">
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                                 <strong>Recipient:</strong> {dist.vulnerableProfile?.user?.name || 'Unknown'}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
                                 <strong>Location:</strong> {dist.vulnerableProfile?.barangay || 'Unknown'}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
                                 <strong>Distributed by:</strong> {dist.worker?.name || 'Unknown'}
                               </p>
-                              <div className="text-sm text-gray-700 mt-2">
+                              <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
                                 <strong>Items:</strong> {dist.itemsProvided}
                               </div>
                             </div>
@@ -1528,7 +1508,7 @@ export default function AdminDashboard() {
 
           {/* Users Tab */}
           {activeTab === 'users' && (
-            <Card className="border border-gray-200 shadow-md">
+            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -1556,7 +1536,7 @@ export default function AdminDashboard() {
                     }
                     
                     return (
-                      <div key={userItem.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div key={userItem.id} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg p-4 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex items-center gap-3 flex-1">
                             <Avatar className="w-10 h-10 flex-shrink-0">
@@ -1569,8 +1549,8 @@ export default function AdminDashboard() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-900 truncate">{userItem.name}</h4>
-                              <p className="text-sm text-gray-600 truncate">{userItem.email}</p>
+                              <h4 className="font-semibold text-gray-900 dark:text-white truncate">{userItem.name}</h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{userItem.email}</p>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <Badge className={
                                   userItem.role === 'admin' ? 'bg-purple-600' :
@@ -1579,21 +1559,21 @@ export default function AdminDashboard() {
                                   {userItem.role}
                                 </Badge>
                                 {userItem.phone && (
-                                  <span className="text-xs text-gray-500">{userItem.phone}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{userItem.phone}</span>
                                 )}
                               </div>
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               Created {new Date(userItem.createdAt).toLocaleDateString()}
                             </div>
                             {userItem.vulnerableProfile && (
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
                                 Profile: {userItem.vulnerableProfile.registrationStatus}
                               </div>
                             )}
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {userItem._count?.reliefDistributions || 0} distributions
                             </div>
                             {!isCurrentUser && (
@@ -1617,7 +1597,7 @@ export default function AdminDashboard() {
                   {users.length === 0 && (
                     <div className="text-center py-12">
                       <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <p className="text-gray-500 font-medium">No users found</p>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">No users found</p>
                       <p className="text-sm text-gray-400 mt-1">Click "Add User" to create one</p>
                     </div>
                   )}
@@ -1631,12 +1611,12 @@ export default function AdminDashboard() {
             <div className="grid gap-6">
               {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border border-gray-200 shadow-md border-l-4 border-l-purple-600">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-purple-600">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Registrations (30 days)</p>
-                        <p className="text-3xl font-bold text-gray-900">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Registrations (30 days)</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
                           {analytics?.registrationsByDate?.reduce((sum: any, item: any) => sum + item.count, 0) || 0}
                         </p>
                       </div>
@@ -1647,12 +1627,12 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="border border-gray-200 shadow-md border-l-4 border-l-emerald-600">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-emerald-600">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Distributions (30 days)</p>
-                        <p className="text-3xl font-bold text-gray-900">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Distributions (30 days)</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
                           {analytics?.distributionsByDate?.reduce((sum: any, item: any) => sum + item.count, 0) || 0}
                         </p>
                       </div>
@@ -1663,12 +1643,12 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="border border-gray-200 shadow-md border-l-4 border-l-blue-600">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-blue-600">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Active Users</p>
-                        <p className="text-3xl font-bold text-gray-900">{users.length}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Active Users</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">{users.length}</p>
                       </div>
                       <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                         <Activity className="w-6 h-6 text-blue-600" />
@@ -1677,12 +1657,12 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="border border-gray-200 shadow-md border-l-4 border-l-orange-600">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md border-l-4 border-l-orange-600">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">Pending Feedback</p>
-                        <p className="text-3xl font-bold text-gray-900">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Pending Feedback</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
                           {analytics?.feedbackStats?.find((f: any) => f.status === 'SUBMITTED')?.count || 0}
                         </p>
                       </div>
@@ -1696,7 +1676,7 @@ export default function AdminDashboard() {
 
               {/* Vulnerability Breakdown */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="border border-gray-200 shadow-md">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Shield className="w-5 h-5 text-purple-600" />
@@ -1708,19 +1688,19 @@ export default function AdminDashboard() {
                     {analytics?.vulnerabilityCounts ? (
                       <div className="space-y-3">
                         {Object.entries(analytics.vulnerabilityCounts).map(([type, count]: [string, any]) => (
-                          <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <span className="text-sm capitalize text-gray-700">{type.replace(/_/g, ' ')}</span>
+                          <div key={type} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
+                            <span className="text-sm capitalize text-gray-700 dark:text-gray-300">{type.replace(/_/g, ' ')}</span>
                             <Badge className="bg-purple-600">{count}</Badge>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-gray-500">Loading analytics data...</div>
+                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">Loading analytics data...</div>
                     )}
                   </CardContent>
                 </Card>
 
-                <Card className="border border-gray-200 shadow-md">
+                <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-emerald-600" />
@@ -1738,8 +1718,8 @@ export default function AdminDashboard() {
                           return (
                             <div key={barangay.barangay} className="space-y-1">
                               <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-700">{barangay.barangay}</span>
-                                <span className="font-medium text-gray-900">{percentage}%</span>
+                                <span className="text-gray-700 dark:text-gray-300">{barangay.barangay}</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{percentage}%</span>
                               </div>
                               <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div
@@ -1752,7 +1732,7 @@ export default function AdminDashboard() {
                         })}
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-gray-500">Loading analytics data...</div>
+                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">Loading analytics data...</div>
                     )}
                   </CardContent>
                 </Card>
@@ -1762,7 +1742,7 @@ export default function AdminDashboard() {
 
           {/* Feedback Tab */}
           {activeTab === 'feedback' && (
-            <Card className="border border-gray-200 shadow-md">
+            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
               <CardHeader>
                 <CardTitle>User Feedback Management</CardTitle>
                 <CardDescription>
@@ -1772,7 +1752,7 @@ export default function AdminDashboard() {
               <CardContent>
                 <div className={`space-y-4 max-h-[600px] ${customScrollbar}`}>
                   {feedbackList.map((feedback) => (
-                    <Card key={feedback.id} className="p-4 shadow-sm border border-gray-200">
+                    <Card key={feedback.id} className="p-4 shadow-sm border border-gray-200 dark:border-slate-800">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
@@ -1788,13 +1768,13 @@ export default function AdminDashboard() {
                               </Badge>
                               <Badge variant="outline">{feedback.feedbackType}</Badge>
                             </div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
                               {feedback.user.name} ({feedback.user.email})
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                               {feedback.message}
                             </p>
-                            <div className="text-xs text-gray-500 mt-2">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                               Submitted: {new Date(feedback.createdAt).toLocaleString()}
                             </div>
                           </div>
@@ -1814,8 +1794,8 @@ export default function AdminDashboard() {
                         </div>
 
                         {feedback.adminResponse && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="text-xs font-medium text-gray-600 mb-1">
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-800">
+                            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                               Admin Response ({new Date(feedback.adminResponseDate!).toLocaleString()}):
                             </div>
                             <p className="text-sm text-emerald-700 bg-emerald-50 p-2 rounded">
@@ -1829,7 +1809,7 @@ export default function AdminDashboard() {
                   {feedbackList.length === 0 && (
                     <div className="text-center py-12">
                       <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <p className="text-gray-500 font-medium">No feedback received yet</p>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">No feedback received yet</p>
                       <p className="text-sm text-gray-400 mt-1">Feedback from users will appear here</p>
                     </div>
                   )}
@@ -1843,8 +1823,8 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Announcements</h2>
-                  <p className="text-sm text-gray-500">Manage and view all announcements</p>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Announcements</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Manage and view all announcements</p>
                 </div>
                 <Button
                   onClick={() => setShowAnnouncementForm(true)}
@@ -1874,33 +1854,33 @@ export default function AdminDashboard() {
 
               <div className="space-y-6">
                 {/* Personal Information */}
-                <Card className="shadow-sm border border-gray-200">
+                <Card className="shadow-sm border border-gray-200 dark:border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-lg">Personal Information</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
-                    <div><span className="font-medium text-gray-700">Name:</span> {selectedProfile.user.name}</div>
-                    <div><span className="font-medium text-gray-700">Email:</span> {selectedProfile.user.email}</div>
+                    <div><span className="font-medium text-gray-700 dark:text-gray-300">Name:</span> {selectedProfile.user.name}</div>
+                    <div><span className="font-medium text-gray-700 dark:text-gray-300">Email:</span> {selectedProfile.user.email}</div>
                     {selectedProfile.birthDate && (
-                      <div><span className="font-medium text-gray-700">Date of Birth:</span> {new Date(selectedProfile.birthDate).toLocaleDateString()}</div>
+                      <div><span className="font-medium text-gray-700 dark:text-gray-300">Date of Birth:</span> {new Date(selectedProfile.birthDate).toLocaleDateString()}</div>
                     )}
                     {selectedProfile.gender && (
-                      <div><span className="font-medium text-gray-700">Gender:</span> {selectedProfile.gender}</div>
+                      <div><span className="font-medium text-gray-700 dark:text-gray-300">Gender:</span> {selectedProfile.gender}</div>
                     )}
                     {selectedProfile.emergencyContact && (
-                      <div><span className="font-medium text-gray-700">Emergency Contact:</span> {selectedProfile.emergencyContact} ({selectedProfile.emergencyPhone})</div>
+                      <div><span className="font-medium text-gray-700 dark:text-gray-300">Emergency Contact:</span> {selectedProfile.emergencyContact} ({selectedProfile.emergencyPhone})</div>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Vulnerability Information */}
-                <Card className="shadow-sm border border-gray-200">
+                <Card className="shadow-sm border border-gray-200 dark:border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-lg">Vulnerability Information</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div>
-                      <span className="font-medium text-gray-700">Vulnerability Types:</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Vulnerability Types:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {safeParseVulnerabilityTypes(selectedProfile.vulnerabilityTypes).map((type: string, i: number) => (
                           <Badge key={i} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">{type}</Badge>
@@ -1908,20 +1888,20 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     {selectedProfile.disabilityType && (
-                      <div><span className="font-medium text-gray-700">Disability Type:</span> {selectedProfile.disabilityType}</div>
+                      <div><span className="font-medium text-gray-700 dark:text-gray-300">Disability Type:</span> {selectedProfile.disabilityType}</div>
                     )}
                     {selectedProfile.disabilityIdNumber && (
-                      <div><span className="font-medium text-gray-700">PWD ID Number:</span> {selectedProfile.disabilityIdNumber}</div>
+                      <div><span className="font-medium text-gray-700 dark:text-gray-300">PWD ID Number:</span> {selectedProfile.disabilityIdNumber}</div>
                     )}
                     {selectedProfile.hasMedicalCondition && (
                       <div>
-                        <span className="font-medium text-gray-700">Medical Conditions:</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Medical Conditions:</span>
                         <p className="mt-1">{selectedProfile.medicalConditions || 'Not specified'}</p>
                       </div>
                     )}
                     {selectedProfile.needsAssistance && (
                       <div>
-                        <span className="font-medium text-gray-700">Assistance Needed:</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Assistance Needed:</span>
                         <p className="mt-1">{selectedProfile.assistanceType || 'Not specified'}</p>
                       </div>
                     )}
@@ -1929,16 +1909,16 @@ export default function AdminDashboard() {
                 </Card>
 
                 {/* Location Information */}
-                <Card className="shadow-sm border border-gray-200">
+                <Card className="shadow-sm border border-gray-200 dark:border-slate-800">
                   <CardHeader>
                     <CardTitle className="text-lg">Location Information</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
-                    <div><span className="font-medium text-gray-700">Barangay:</span> {selectedProfile.barangay}</div>
-                    <div><span className="font-medium text-gray-700">Address:</span> {selectedProfile.address}</div>
+                    <div><span className="font-medium text-gray-700 dark:text-gray-300">Barangay:</span> {selectedProfile.barangay}</div>
+                    <div><span className="font-medium text-gray-700 dark:text-gray-300">Address:</span> {selectedProfile.address}</div>
                     {selectedProfile.latitude && selectedProfile.longitude && (
                       <div>
-                        <span className="font-medium text-gray-700">Coordinates:</span> 
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Coordinates:</span> 
                         {selectedProfile.latitude.toFixed(6)}, {selectedProfile.longitude.toFixed(6)}
                       </div>
                     )}
@@ -1946,12 +1926,12 @@ export default function AdminDashboard() {
                 </Card>
 
                 {/* Registration Status */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
                   <div>
-                    <span className="font-medium text-gray-700">Current Status:</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Current Status:</span>
                     <div className="mt-1">{getStatusBadge(selectedProfile.registrationStatus)}</div>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     Registered: {new Date(selectedProfile.createdAt).toLocaleDateString()}
                   </div>
                 </div>
@@ -2103,11 +2083,11 @@ export default function AdminDashboard() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedFeedback && (
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
+              <div className="p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   <span className="font-medium">User:</span> {selectedFeedback.user.name}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   <span className="font-medium">Message:</span> {selectedFeedback.message}
                 </p>
               </div>
@@ -2243,7 +2223,7 @@ export default function AdminDashboard() {
           </DialogHeader>
           {selectedWorkerRequest && (
             <div className="space-y-4 py-4">
-              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg space-y-2">
                 <p><span className="font-medium">Name:</span> {selectedWorkerRequest.name}</p>
                 <p><span className="font-medium">Email:</span> {selectedWorkerRequest.email}</p>
                 <p><span className="font-medium">Phone:</span> {selectedWorkerRequest.phone || 'Not provided'}</p>
@@ -2277,22 +2257,22 @@ export default function AdminDashboard() {
       {/* Delete User Confirmation Dialog */}
       {deleteUserDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200">
+          <div className="bg-white dark:bg-slate-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200 dark:border-slate-800">
             <div className="flex flex-col gap-4">
               <div>
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Trash2 className="w-5 h-5 text-red-600" />
                   Delete User Account
                 </h3>
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                   Are you sure you want to delete this user account?
                 </p>
               </div>
               {selectedUserToDelete && (
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="font-medium text-gray-900">{selectedUserToDelete.name}</p>
-                  <p className="text-sm text-gray-600">{selectedUserToDelete.email}</p>
-                  <p className="text-sm text-gray-600">Role: {selectedUserToDelete.role}</p>
+                <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-md">
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedUserToDelete.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedUserToDelete.email}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Role: {selectedUserToDelete.role}</p>
                 </div>
               )}
               <p className="text-red-600 text-sm font-medium">
@@ -2304,7 +2284,7 @@ export default function AdminDashboard() {
                     setDeleteUserDialog(false)
                     setSelectedUserToDelete(null)
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-slate-800/50"
                 >
                   Cancel
                 </button>

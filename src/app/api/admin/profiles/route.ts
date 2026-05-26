@@ -124,7 +124,7 @@ export async function DELETE(request: NextRequest) {
     await db.vulnerabilityDocument.deleteMany({ where: { profileId } })
 
     // 2. Distribution records (if any)
-    await db.distributionRecord.deleteMany({ where: { profileId } }).catch(() => {})
+    await db.reliefDistribution.deleteMany({ where: { vulnerableProfileId: profileId } }).catch(() => {})
 
     // 3. Household record
     await db.household.deleteMany({ where: { vulnerableProfileId: profileId } })

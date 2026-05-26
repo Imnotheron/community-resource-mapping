@@ -1431,7 +1431,7 @@ export default function VulnerableRegistrationModal({
               </div>
               <div className="flex items-start gap-2">
                 <span className="font-medium text-slate-600 min-w-[100px]">Education:</span>
-                <span className="text-slate-900">{formData.educationalStatus}</span>
+                <span className="text-slate-900">{formData.educationalAttainment}</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="font-medium text-slate-600 min-w-[100px]">Employment:</span>

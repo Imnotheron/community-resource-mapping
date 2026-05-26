@@ -13,10 +13,10 @@ async function main() {
 
   // Create Admin Account
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@sampolicarpo.gov' },
+    where: { email: 'admin@crms.gov.ph' },
     update: {},
     create: {
-      email: 'admin@sampolicarpo.gov',
+      email: 'admin@crms.gov.ph',
       password: adminPassword,
       name: 'Admin User',
       role: 'ADMIN',
@@ -104,7 +104,7 @@ async function main() {
   console.log('📋 Test Accounts:')
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('👨‍💼 ADMIN:')
-  console.log('   Email: admin@sampolicarpo.gov')
+  console.log('   Email: admin@crms.gov.ph')
   console.log('   Password: admin123')
   console.log('')
   console.log('👷 WORKER:')

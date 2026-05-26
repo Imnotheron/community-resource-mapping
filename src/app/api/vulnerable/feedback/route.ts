@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { FeedbackType } from '@prisma/client'
+type FeedbackType = 'MESSAGE' | 'FEEDBACK' | 'REPORT'
 
 export async function POST(request: NextRequest) {
   try {

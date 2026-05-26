@@ -487,7 +487,7 @@ export default function VulnerableDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f8f2fa] dark:bg-[#1d1b20]">
       {/* Collapsible Sidebar */}
       <CollapsibleSidebar
         user={currentUser!}
@@ -502,59 +502,42 @@ export default function VulnerableDashboard() {
       />
 
       {/* Main Content Area */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-72'}`}>
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-[280px]'}`}>
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-40 shadow-sm">
+        <header className="bg-white dark:bg-[#1d1b20] border-b border-[#cbc4d2] dark:border-white/10 px-8 py-4 sticky top-0 z-40" style={{boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
           {/* Logos Row - Left, Center, Right */}
           <div className="grid grid-cols-3 items-center mb-2">
-            {/* Top Left - San Policarpo Logo */}
             <div className="flex justify-start">
-              <img
-                src="/logo-sampolicarpo.jpg"
-                alt="San Policarpo Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <img src="/logo-sampolicarpo.jpg" alt="San Policarpo Logo" className="h-12 md:h-14 w-auto object-contain" />
             </div>
-
-            {/* Middle - ESSU Logo */}
             <div className="flex justify-center">
-              <img
-                src="/logo-essu.jpg"
-                alt="ESSU Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <img src="/logo-essu.jpg" alt="ESSU Logo" className="h-12 md:h-14 w-auto object-contain" />
             </div>
-
-            {/* Top Right - DSWD Logo */}
             <div className="flex justify-end">
-              <img
-                src="/logo-dswd.png"
-                alt="DSWD Logo"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <img src="/logo-dswd.png" alt="DSWD Logo" className="h-12 md:h-14 w-auto object-contain" />
             </div>
           </div>
 
           {/* Dashboard Title and Actions */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Dashboard</h1>
-              <p className="text-sm text-gray-500">Welcome back, {profile?.firstName || 'User'}!</p>
+              <h1 className="text-[22px] font-semibold text-[#1d1b20] dark:text-white leading-tight">My Dashboard</h1>
+              <p className="text-sm text-[#7a7582] dark:text-[#9f99a8]">Welcome back, {profile?.firstName || 'User'}!</p>
             </div>
             <div className="flex items-center gap-4">
-              <Button
+              <button
                 onClick={handleOpenGeneralFeedbackModal}
-                className="bg-blue-600 hover:bg-blue-700 gap-2 shadow-lg"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
               >
                 <Send className="w-4 h-4" />
                 Give Feedback
-              </Button>
+              </button>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="p-6">
+        <main className="p-8">
           {/* Profile Tab - ONLY profile information */}
           {activeTab === 'profile' && (
             <div className="space-y-6 max-w-4xl mx-auto">

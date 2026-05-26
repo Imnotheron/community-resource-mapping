@@ -15,7 +15,6 @@ import {
   FileText,
   Map,
   MessageSquare,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -23,7 +22,9 @@ import {
   BarChart3,
   Shield,
   UserPlus,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
 export interface SidebarItem {
@@ -63,157 +64,169 @@ export function CollapsibleSidebar({
 }: CollapsibleSidebarProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(true)
 
-  // Use controlled state if provided, otherwise use internal state
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed
   const toggleCollapse = onToggleCollapse || (() => setInternalCollapsed(!internalCollapsed))
 
-  const getRoleColors = (role: string) => {
+  // Role-specific accent colors mapped to M3 tokens
+  const getRoleAccent = (role: string) => {
     switch (role) {
       case 'admin':
         return {
-          primary: 'bg-gradient-to-br from-purple-600 to-purple-700',
-          primaryHover: 'hover:from-purple-700 hover:to-purple-800',
-          accent: 'bg-purple-100 dark:bg-purple-900/30',
-          accentText: 'text-purple-600 dark:text-purple-400',
-          activeBg: 'bg-purple-500 text-white shadow-lg',
-          border: 'border-purple-500/30',
-          iconBg: 'bg-purple-500'
+          activeBg:    'bg-[#e1d4fd] text-[#4f378a] font-semibold border-l-4 border-[#4f378a]',
+          activeIcon:  'text-[#4f378a]',
+          avatarBg:    'bg-[#4f378a] text-white',
+          badgeBg:     'bg-[#4f378a] text-white',
+          rolePill:    'bg-[#e9ddff] text-[#4f378a]',
+          roleLabel:   'Admin Portal',
         }
       case 'worker':
         return {
-          primary: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
-          primaryHover: 'hover:from-emerald-700 hover:to-emerald-800',
-          accent: 'bg-emerald-100 dark:bg-emerald-900/30',
-          accentText: 'text-emerald-600 dark:text-emerald-400',
-          activeBg: 'bg-emerald-500 text-white shadow-lg',
-          border: 'border-emerald-500/30',
-          iconBg: 'bg-emerald-500'
+          activeBg:    'bg-emerald-100 text-emerald-800 font-semibold border-l-4 border-emerald-600',
+          activeIcon:  'text-emerald-700',
+          avatarBg:    'bg-emerald-600 text-white',
+          badgeBg:     'bg-emerald-600 text-white',
+          rolePill:    'bg-emerald-50 text-emerald-700',
+          roleLabel:   'Worker Portal',
         }
       case 'vulnerable':
         return {
-          primary: 'bg-gradient-to-br from-blue-600 to-blue-700',
-          primaryHover: 'hover:from-blue-700 hover:to-blue-800',
-          accent: 'bg-blue-100 dark:bg-blue-900/30',
-          accentText: 'text-blue-600 dark:text-blue-400',
-          activeBg: 'bg-blue-500 text-white shadow-lg',
-          border: 'border-blue-500/30',
-          iconBg: 'bg-blue-500'
+          activeBg:    'bg-blue-100 text-blue-800 font-semibold border-l-4 border-blue-600',
+          activeIcon:  'text-blue-700',
+          avatarBg:    'bg-blue-600 text-white',
+          badgeBg:     'bg-blue-600 text-white',
+          rolePill:    'bg-blue-50 text-blue-700',
+          roleLabel:   'My Portal',
         }
       default:
         return {
-          primary: 'bg-gradient-to-br from-slate-600 to-slate-700',
-          primaryHover: 'hover:from-slate-700 hover:to-slate-800',
-          accent: 'bg-slate-100 dark:bg-slate-900/30',
-          accentText: 'text-slate-600 dark:text-slate-400',
-          activeBg: 'bg-slate-500 text-white shadow-lg',
-          border: 'border-slate-500/30',
-          iconBg: 'bg-slate-500'
+          activeBg:    'bg-[#e1d4fd] text-[#4f378a] font-semibold border-l-4 border-[#4f378a]',
+          activeIcon:  'text-[#4f378a]',
+          avatarBg:    'bg-[#4f378a] text-white',
+          badgeBg:     'bg-[#4f378a] text-white',
+          rolePill:    'bg-[#e9ddff] text-[#4f378a]',
+          roleLabel:   'Portal',
         }
     }
   }
 
-  const colors = getRoleColors(role)
+  const accent = getRoleAccent(role)
 
   return (
     <div
-      className={`fixed left-0 top-0 h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 z-50 transition-all duration-300 ease-in-out shadow-xl ${
-        isCollapsed ? 'w-20' : 'w-72'
-      }`}
+      className={`fixed left-0 top-0 h-full z-50 flex flex-col justify-between transition-all duration-300 ease-in-out
+        bg-white dark:bg-[#1d1b20]
+        border-r border-[#cbc4d2] dark:border-white/10
+        shadow-organic
+        ${isCollapsed ? 'w-20' : 'w-[280px]'}
+      `}
     >
-      {/* User Profile Section - At the Top */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+      {/* ── Branding Row ── */}
+      <div>
+        <div className="px-4 pt-5 pb-4 border-b border-[#cbc4d2] dark:border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#e9ddff] dark:bg-[#4f378a]/30 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-5 h-5 text-[#4f378a] dark:text-[#cfbcff]" />
+            </div>
+            {!isCollapsed && (
+              <div>
+                <p className="text-[#4f378a] dark:text-[#cfbcff] font-semibold text-[15px] leading-tight">
+                  {accent.roleLabel}
+                </p>
+                <p className="text-[#7a7582] text-[11px] uppercase tracking-wider">
+                  CommMap System
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── User avatar ── */}
         <div
-          className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 p-2 rounded-xl transition-colors"
+          className="flex items-center gap-3 cursor-pointer px-4 py-3 mx-2 mt-3 rounded-lg hover:bg-[#f2ecf4] dark:hover:bg-white/5 transition-colors"
           onClick={onProfileClick}
         >
-          <Avatar className="w-12 h-12 border-2 border-slate-200 dark:border-slate-700">
+          <Avatar className="w-9 h-9 border border-[#cbc4d2] flex-shrink-0">
             <AvatarImage src={user.profilePicture || undefined} alt={user.name} />
-            <AvatarFallback className={`${colors.primary} text-white font-semibold text-lg`}>
+            <AvatarFallback className={`${accent.avatarBg} font-semibold text-sm`}>
               {user.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-900 dark:text-white text-sm truncate">
+              <p className="font-semibold text-[#1d1b20] dark:text-white text-sm truncate">
                 {user.name}
               </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 capitalize truncate">
-                {user.role}
-              </p>
+              <p className="text-xs text-[#7a7582] capitalize truncate">{user.role}</p>
             </div>
           )}
         </div>
+
+        {/* ── Navigation ── */}
+        <nav className="mt-3 px-2 space-y-0.5">
+          {items.map((item) => {
+            const Icon = item.icon
+            const isActive = activeTab === item.id
+
+            return (
+              <Tooltip key={item.id} delayDuration={isCollapsed ? 0 : 800}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTabChange(item.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-all duration-150
+                      ${isActive
+                        ? accent.activeBg
+                        : 'text-[#494551] dark:text-[#cbc4d2] hover:bg-[#f2ecf4] dark:hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? accent.activeIcon : 'text-[#7a7582] dark:text-[#9f99a8]'}`} />
+                    {!isCollapsed && (
+                      <span className="flex-1 text-left truncate">{item.label}</span>
+                    )}
+                    {item.badge && Number(item.badge) > 0 && !isCollapsed && (
+                      <span className={`${accent.badgeBg} text-xs px-2 py-0.5 rounded-full`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                )}
+              </Tooltip>
+            )
+          })}
+        </nav>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2">
-        {items.map((item) => {
-          const Icon = item.icon
-          const isActive = activeTab === item.id
-
-          return (
-            <Tooltip key={item.id} delayDuration={isCollapsed ? 0 : 500}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onTabChange(item.id)}
-                  disabled={isCollapsed}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? colors.activeBg
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  } ${isCollapsed ? 'cursor-not-allowed opacity-50' : ''}`}
-                >
-                  <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
-                  {!isCollapsed && (
-                    <span className="font-medium text-sm flex-1 text-left truncate">
-                      {item.label}
-                    </span>
-                  )}
-                  {item.badge && !isCollapsed && (
-                    <span className={`${colors.iconBg} text-white text-xs px-2 py-0.5 rounded-full`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" hidden={true}>
-              </TooltipContent>
-            </Tooltip>
-          )
-        })}
-      </nav>
-
-      {/* Logout Button */}
-      <div className="p-3 border-t border-slate-200 dark:border-slate-800">
-        <Tooltip delayDuration={isCollapsed ? 0 : 500}>
+      {/* ── Footer: Logout ── */}
+      <div className="border-t border-[#cbc4d2] dark:border-white/10 p-2">
+        <Tooltip delayDuration={isCollapsed ? 0 : 800}>
           <TooltipTrigger asChild>
             <button
               onClick={onLogout}
-              disabled={isCollapsed}
-              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 ${isCollapsed ? 'cursor-not-allowed opacity-50' : ''}`}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-[#ba1a1a] dark:text-[#ffb4ab] hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
             >
               <LogOut className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && (
-                <span className="font-medium text-sm">Logout</span>
-              )}
+              {!isCollapsed && <span>Sign Out</span>}
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right" hidden={true}>
-          </TooltipContent>
+          {isCollapsed && (
+            <TooltipContent side="right">Sign Out</TooltipContent>
+          )}
         </Tooltip>
       </div>
 
-      {/* Collapse/Expand Button - In the Middle of Sidebar (Outside Boundary) */}
+      {/* ── Collapse Toggle ── */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-50">
         <button
           onClick={toggleCollapse}
-          className="h-12 w-6 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-md hover:shadow-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 flex items-center justify-center"
+          className="h-8 w-4 rounded-full border border-[#cbc4d2] dark:border-white/20 bg-white dark:bg-[#2b2930] shadow-sm hover:bg-[#f2ecf4] dark:hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
         >
-          {isCollapsed ? (
-            <Menu className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-          ) : (
-            <X className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-          )}
+          {isCollapsed
+            ? <ChevronRight className="w-3 h-3 text-[#7a7582]" />
+            : <ChevronLeft className="w-3 h-3 text-[#7a7582]" />
+          }
         </button>
       </div>
     </div>

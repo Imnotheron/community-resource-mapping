@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { FeedbackType, FeedbackStatus } from '@prisma/client'
+type FeedbackType = 'MESSAGE' | 'FEEDBACK' | 'REPORT' | 'BUG_REPORT' | 'FEATURE_REQUEST' | 'COMPLIMENT' | 'SUGGESTION' | 'SERVICE_COMPLAINT' | 'OTHER'
 
 // GET - List all feedback with pagination and filters
 export async function GET(request: NextRequest) {
