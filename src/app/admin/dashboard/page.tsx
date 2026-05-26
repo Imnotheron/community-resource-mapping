@@ -1427,24 +1427,35 @@ export default function AdminDashboard() {
 
           {/* Map Tab */}
           {activeTab === 'map' && (
-            <Card className="border border-gray-200 dark:border-slate-800 shadow-md">
-              <CardHeader>
-                <CardTitle>Vulnerable Population Map</CardTitle>
-                <CardDescription>
-                  Geographic distribution with heatmaps (Green=Received, Red=Not Received)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[600px] rounded-lg overflow-hidden border border-gray-200 dark:border-slate-800">
+            <div className="space-y-6">
+              {/* Page heading */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <div>
+                  <h2 className="text-[32px] font-bold text-[#1d1b20] dark:text-white leading-tight">Vulnerable Population Map</h2>
+                  <p className="text-[#494551] dark:text-[#a09ba8] text-base mt-2">Real-time demographic and distribution monitoring for San Policarpo.</p>
+                </div>
+                {/* Status Overview Pill */}
+                <div className="mt-4 sm:mt-0 flex items-center justify-between gap-3 px-5 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full shadow-sm">
+                  <div className="flex items-center">
+                    <div className="w-5 h-5 rounded-full bg-red-600 -mr-2 z-10 border border-white"></div>
+                    <div className="w-5 h-5 rounded-full bg-[#00c853] z-20 border border-white"></div>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    Status Overview: <span className="text-[#00c853]">62% Distribution Rate</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Map Container */}
+              <div className="h-[750px] rounded-[32px] overflow-hidden shadow-lg border-4 border-white/50 relative">
                   <VulnerableMap
                     points={mapPoints}
                     center={[12.1792, 125.5072]}
-                    zoom={12}
+                    zoom={13}
                     showHeatmap={true}
                   />
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Distributions Tab */}
