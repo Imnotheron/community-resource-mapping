@@ -1,8 +1,10 @@
 'use client'
 
-import { ReactNode, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Sidebar, NavItem } from './sidebar'
+import { Sidebar } from './sidebar'
+import type { NavItem } from './sidebar'
 import { MobileNav } from './mobile-nav'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
@@ -51,7 +53,7 @@ const viewVariants = {
 }
 
 function formatWorkspace(role: string) {
-  return role
+  return String(role || 'Dashboard')
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase())
@@ -115,6 +117,7 @@ export function AppShell({
                     className="h-full w-full object-contain"
                   />
                 </div>
+
                 <div className="min-w-0">
                   <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                     {formatWorkspace(userRole)} Portal
@@ -152,6 +155,7 @@ export function AppShell({
                       className="h-full w-full object-contain"
                     />
                   </div>
+
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
                       {formatWorkspace(userRole)} Workspace
