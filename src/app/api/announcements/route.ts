@@ -2,209 +2,403 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendAnnouncementEmail } from '@/lib/email'
+import { sendAnnouncementEmailNotifications } from '@/lib/announcement-email'
 
-// Priority order for sorting
-const PRIORITY_ORDER = {
-  'URGENT': 0,
-  'HIGH': 1,
-  'NORMAL': 2,
-  'LOW': 3
+const ANNOUNCEMENT_TYPES = new Set([
+  'GENERAL',
+  'EMERGENCY',
+  'RELIEF',
+  'MEETING',
+  'HEALTH',
+  'WEATHER',
+  'SYSTEM',
+])
+
+const PRIORITIES = new Set(['LOW', 'NORMAL', 'HIGH', 'URGENT'])
+const TARGET_ROLES = new Set(['ALL', 'ADMIN', 'WORKER', 'VULNERABLE'])
+
+type AnnouncementRow = {
+  id: string
+  title: string
+  content: string
+  type: string
+  targetRole: string | null
+  eventDate: string | Date | null
+  eventTime: string | null
+  location: string | null
+  isActive: boolean | number | string
+  priority: string
+  createdBy: string
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
-// GET /api/announcements
+function createId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID().replace(/-/g, '')
+  }
+
+  return `ann_${Date.now()}_${Math.random().toString(36).slice(2)}`
+}
+
+function cleanText(value: unknown) {
+  return String(value || '').trim()
+}
+
+function toIsoDate(value: unknown) {
+  const text = cleanText(value)
+  if (!text) return null
+
+  const date = new Date(text)
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toISOString()
+}
+
+function normalizeType(value: unknown) {
+  const normalized = cleanText(value).toUpperCase().replace(/[\s-]+/g, '_')
+  return ANNOUNCEMENT_TYPES.has(normalized) ? normalized : 'GENERAL'
+}
+
+function normalizePriority(value: unknown) {
+  const normalized = cleanText(value).toUpperCase().replace(/[\s-]+/g, '_')
+  return PRIORITIES.has(normalized) ? normalized : 'NORMAL'
+}
+
+function normalizeTargetRole(value: unknown) {
+  const raw = cleanText(value).toUpperCase()
+  if (!raw || raw === 'EVERYONE' || raw === 'ALL USERS' || raw === 'ALL') return 'ALL'
+  if (raw.includes('WORKER')) return 'WORKER'
+  if (raw.includes('CITIZEN') || raw.includes('VULNERABLE')) return 'VULNERABLE'
+  if (raw.includes('ADMIN')) return 'ADMIN'
+
+  const normalized = raw.replace(/[\s-]+/g, '_')
+  return TARGET_ROLES.has(normalized) ? normalized : 'ALL'
+}
+
+function normalizeTime(value: unknown) {
+  const text = cleanText(value)
+  if (!text) return null
+
+  // Accept browser input type="time" values like HH:mm or HH:mm:ss.
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(text)) return text.slice(0, 5)
+
+  return text.slice(0, 30)
+}
+
+function normalizeRow(row: AnnouncementRow) {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    type: row.type || 'GENERAL',
+    targetRole: row.targetRole || 'ALL',
+    eventDate: row.eventDate ? new Date(row.eventDate).toISOString() : null,
+    eventTime: row.eventTime || null,
+    location: row.location || null,
+    isActive: row.isActive === true || row.isActive === 1 || row.isActive === '1',
+    priority: row.priority || 'NORMAL',
+    createdBy: row.createdBy,
+    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+  }
+}
+
+async function getColumns(tableName: string) {
+  const columns = await db.$queryRawUnsafe<Array<{ name: string }>>(
+    `PRAGMA table_info("${tableName}")`
+  )
+
+  return new Set(columns.map((column) => column.name))
+}
+
+async function ensureAnnouncementTable() {
+  await db.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "Announcement" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "content" TEXT NOT NULL,
+      "type" TEXT NOT NULL DEFAULT 'GENERAL',
+      "targetRole" TEXT,
+      "eventDate" DATETIME,
+      "eventTime" TEXT,
+      "location" TEXT,
+      "isActive" BOOLEAN NOT NULL DEFAULT true,
+      "priority" TEXT NOT NULL DEFAULT 'NORMAL',
+      "createdBy" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  const columns = await getColumns('Announcement')
+
+  const addColumn = async (name: string, sql: string) => {
+    if (!columns.has(name)) {
+      await db.$executeRawUnsafe(`ALTER TABLE "Announcement" ADD COLUMN ${sql}`)
+    }
+  }
+
+  await addColumn('type', '"type" TEXT NOT NULL DEFAULT \'GENERAL\'')
+  await addColumn('targetRole', '"targetRole" TEXT')
+  await addColumn('eventDate', '"eventDate" DATETIME')
+  await addColumn('eventTime', '"eventTime" TEXT')
+  await addColumn('location', '"location" TEXT')
+  await addColumn('isActive', '"isActive" BOOLEAN NOT NULL DEFAULT true')
+  await addColumn('priority', '"priority" TEXT NOT NULL DEFAULT \'NORMAL\'')
+  await addColumn('createdBy', '"createdBy" TEXT NOT NULL DEFAULT \'SYSTEM\'')
+  await addColumn('createdAt', '"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP')
+  await addColumn('updatedAt', '"updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP')
+}
+
+async function createNotificationsForTarget(announcement: {
+  id: string
+  title: string
+  content: string
+  targetRole: string
+}) {
+  // Notifications are a convenience, not a blocker. If the current schema is older,
+  // the announcement should still be created successfully.
+  try {
+    const notificationColumns = await getColumns('Notification')
+    if (!notificationColumns.has('userId')) return
+
+    const users = await db.user.findMany({
+      where:
+        announcement.targetRole === 'ALL'
+          ? {}
+          : { role: announcement.targetRole },
+      select: { id: true },
+      take: 500,
+    })
+
+    if (users.length === 0) return
+
+    await db.notification.createMany({
+      data: users.map((user) => ({
+        userId: user.id,
+        type: 'ANNOUNCEMENT',
+        title: announcement.title,
+        message: announcement.content,
+        status: 'PENDING',
+      })),
+      skipDuplicates: true,
+    })
+  } catch (error) {
+    console.warn('Announcement created, but notification fan-out was skipped:', error)
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userRole = searchParams.get('userRole') as 'ADMIN' | 'WORKER' | 'VULNERABLE' | null
+    await ensureAnnouncementTable()
 
-    const where = userRole
-      ? {
-          isActive: true,
-          OR: [
-            { targetRole: null }, // Goes to all users
-            { targetRole: userRole as any } // Goes to specific role
-          ]
-        }
-      : { isActive: true }
+    const requestedRole = normalizeTargetRole(
+      request.nextUrl.searchParams.get('userRole') || request.nextUrl.searchParams.get('role') || 'ALL'
+    )
+    const includeInactive = request.nextUrl.searchParams.get('includeInactive') === 'true'
 
-    const announcements = await db.announcement.findMany({
-      where,
-      orderBy: [
-        { priority: 'asc' }, // Will be handled by custom sort
-        { createdAt: 'desc' }
-      ]
-    })
-
-    // Custom sort by priority
-    const sortedAnnouncements = announcements.sort((a, b) => {
-      const priorityA = PRIORITY_ORDER[a.priority as keyof typeof PRIORITY_ORDER]
-      const priorityB = PRIORITY_ORDER[b.priority as keyof typeof PRIORITY_ORDER]
-      return priorityA - priorityB
-    })
+    const rows = await db.$queryRawUnsafe<AnnouncementRow[]>(
+      `
+        SELECT
+          "id",
+          "title",
+          "content",
+          "type",
+          "targetRole",
+          "eventDate",
+          "eventTime",
+          "location",
+          "isActive",
+          "priority",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        FROM "Announcement"
+        WHERE
+          (${includeInactive ? '1 = 1' : '"isActive" = true'})
+          AND (
+            "targetRole" IS NULL
+            OR "targetRole" = ''
+            OR "targetRole" = 'ALL'
+            OR "targetRole" = ?
+            OR ? = 'ADMIN'
+          )
+        ORDER BY
+          CASE "priority"
+            WHEN 'URGENT' THEN 1
+            WHEN 'HIGH' THEN 2
+            WHEN 'NORMAL' THEN 3
+            WHEN 'LOW' THEN 4
+            ELSE 5
+          END,
+          "createdAt" DESC
+      `,
+      requestedRole,
+      requestedRole
+    )
 
     return NextResponse.json({
       success: true,
-      announcements: sortedAnnouncements
+      announcements: rows.map(normalizeRow),
     })
-  } catch (error) {
-    console.error('Error fetching announcements:', error)
+  } catch (error: any) {
+    console.error('Failed to load announcements:', error)
+
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch announcements' },
+      {
+        success: false,
+        message: error?.message || 'Failed to load announcements.',
+        details: String(error),
+      },
       { status: 500 }
     )
   }
 }
 
-// POST /api/announcements (Admin/Worker only)
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const {
+    await ensureAnnouncementTable()
+
+    const body = await request.json().catch(() => ({}))
+
+    const title = cleanText(body.title)
+    const content = cleanText(body.content)
+    const type = normalizeType(body.type)
+    const priority = normalizePriority(body.priority)
+    const targetRole = normalizeTargetRole(body.targetRole || body.audience)
+    const eventDate = toIsoDate(body.eventDate)
+    const eventTime = normalizeTime(body.eventTime)
+    const location = cleanText(body.location) || null
+    const createdBy =
+      cleanText(body.createdBy || body.requesterId || body.adminId) ||
+      cleanText(request.headers.get('x-user-id')) ||
+      'SYSTEM'
+    const shouldSendEmail = body.sendEmail !== false
+
+    if (title.length < 3) {
+      return NextResponse.json(
+        { success: false, message: 'Announcement title must be at least 3 characters.' },
+        { status: 400 }
+      )
+    }
+
+    if (content.length < 5) {
+      return NextResponse.json(
+        { success: false, message: 'Announcement content must be at least 5 characters.' },
+        { status: 400 }
+      )
+    }
+
+    const id = createId()
+    const now = new Date().toISOString()
+
+    await db.$executeRawUnsafe(
+      `
+        INSERT INTO "Announcement" (
+          "id",
+          "title",
+          "content",
+          "type",
+          "targetRole",
+          "eventDate",
+          "eventTime",
+          "location",
+          "isActive",
+          "priority",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?)
+      `,
+      id,
       title,
       content,
       type,
-      targetRole = null,
-      eventDate = null,
-      eventTime = null,
-      location = null,
-      priority = 'NORMAL',
-      createdBy
-    } = body
+      targetRole,
+      eventDate,
+      eventTime,
+      location,
+      priority,
+      createdBy,
+      now,
+      now
+    )
 
-    // Validation
-    if (!title || !content || !type || !createdBy) {
-      return NextResponse.json(
-        { success: false, error: 'Title, content, type, and createdBy are required' },
-        { status: 400 }
-      )
-    }
+    const rows = await db.$queryRawUnsafe<AnnouncementRow[]>(
+      `
+        SELECT
+          "id",
+          "title",
+          "content",
+          "type",
+          "targetRole",
+          "eventDate",
+          "eventTime",
+          "location",
+          "isActive",
+          "priority",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        FROM "Announcement"
+        WHERE "id" = ?
+        LIMIT 1
+      `,
+      id
+    )
 
-    // Validate announcement type
-    const validTypes = ['RELIEF_DISTRIBUTION', 'MEETING', 'GENERAL', 'EMERGENCY', 'IMPORTANT']
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid announcement type' },
-        { status: 400 }
-      )
-    }
+    const announcement = normalizeRow(rows[0])
 
-    // Validate priority
-    const validPriorities = ['LOW', 'NORMAL', 'HIGH', 'URGENT']
-    if (!validPriorities.includes(priority)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid priority' },
-        { status: 400 }
-      )
-    }
-
-    // Validate targetRole if provided
-    if (targetRole && !['ADMIN', 'WORKER', 'VULNERABLE'].includes(targetRole)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid target role' },
-        { status: 400 }
-      )
-    }
-
-    // Verify creator is Admin or Worker
-    const creator = await db.user.findUnique({
-      where: { id: createdBy }
+    await createNotificationsForTarget({
+      id: announcement.id,
+      title: announcement.title,
+      content: announcement.content,
+      targetRole: announcement.targetRole || 'ALL',
     })
 
-    if (!creator || (creator.role !== 'ADMIN' && creator.role !== 'WORKER')) {
-      return NextResponse.json(
-        { success: false, error: 'Only ADMIN and WORKER roles can create announcements' },
-        { status: 403 }
-      )
-    }
-
-    // Create announcement
-    const announcement = await db.announcement.create({
-      data: {
-        title,
-        content,
-        type: type as any,
-        targetRole: targetRole as any,
-        eventDate: eventDate ? new Date(eventDate) : null,
-        eventTime,
-        location,
-        priority: priority as any,
-        createdBy
-      }
-    })
-
-    // Create notifications for targeted users
-    const usersWhere = targetRole
-      ? { role: targetRole as any }
-      : { role: { in: ['ADMIN', 'WORKER', 'VULNERABLE'] as any[] } }
-
-    const targetUsers = await db.user.findMany({
-      where: usersWhere,
-      select: { id: true }
-    })
-
-    // Create notifications in batch
-    const notifications = targetUsers.map((user) => ({
-      userId: user.id,
-      type: 'ANNOUNCEMENT' as any,
-      title,
-      message: content,
-      status: 'SENT' as any,
-      sentViaEmail: false,
-      sentViaSms: false
-    }))
-
-    if (notifications.length > 0) {
-      await db.notification.createMany({
-        data: notifications
-      })
-    }
-
-    // Send email notifications in the background (don't block response)
-    const targetUsersWithEmail = await db.user.findMany({
-      where: usersWhere,
-      select: { email: true, name: true }
-    })
-
-    // Fire-and-forget: send emails asynchronously (only if Brevo is configured)
-    if (process.env.BREVO_SMTP_LOGIN && process.env.BREVO_SMTP_KEY) {
-      Promise.allSettled(
-        targetUsersWithEmail.map(user => {
-          if (!user.email) return Promise.resolve()
-          return sendAnnouncementEmail(user.email, user.name || 'User', {
-            title,
-            content,
-            type,
-            eventDate: eventDate || null,
-            eventTime: eventTime || null,
-            location: location || null
-          })
+    const emailNotification = shouldSendEmail
+      ? await sendAnnouncementEmailNotifications({
+          id: announcement.id,
+          title: announcement.title,
+          content: announcement.content,
+          type: announcement.type,
+          priority: announcement.priority,
+          targetRole: announcement.targetRole || 'ALL',
+          eventDate: announcement.eventDate,
+          eventTime: announcement.eventTime,
+          location: announcement.location,
+          createdAt: announcement.createdAt,
         })
-      ).then(results => {
-        const sent = results.filter(r => r.status === 'fulfilled').length
-        const failed = results.filter(r => r.status === 'rejected').length
-        console.log(`📧 Announcement emails: ${sent} sent, ${failed} failed`)
-        if (failed > 0) {
-          const errors = results
-            .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-            .map(r => r.reason?.message || r.reason)
-          console.error('❌ Announcement email errors:', errors)
+      : {
+          configured: false,
+          skipped: true,
+          sent: 0,
+          failed: 0,
+          attempted: 0,
+          recipients: 0,
+          skippedNoEmail: 0,
+          message: 'Email notification was disabled for this request.',
         }
-      })
-    } else {
-      console.warn('⚠️ Announcement emails skipped — Brevo SMTP not configured.')
-    }
 
-    return NextResponse.json({
-      success: true,
-      announcement,
-      notificationsCreated: notifications.length,
-      message: 'Announcement created successfully and notifications sent'
-    }, { status: 201 })
-  } catch (error) {
-    console.error('Error creating announcement:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to create announcement' },
+      {
+        success: true,
+        message: 'Announcement published successfully.',
+        announcement,
+        emailNotification,
+      },
+      { status: 201 }
+    )
+  } catch (error: any) {
+    console.error('Failed to create announcement:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: error?.message || 'Failed to create announcement.',
+        details: String(error),
+      },
       { status: 500 }
     )
   }

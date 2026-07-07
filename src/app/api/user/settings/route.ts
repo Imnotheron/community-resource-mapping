@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
-// GET - Fetch user settings
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get('x-user-id')
@@ -25,8 +24,11 @@ export async function GET(request: NextRequest) {
         phone: true,
         role: true,
         profilePicture: true,
-        preferences: true
-      }
+        temporaryPasswordIssued: true,
+        passwordChangedAt: true,
+        onboardingReminderDismissedAt: true,
+        preferences: true,
+      },
     })
 
     if (!user) {
@@ -36,8 +38,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Parse preferences JSON
     let preferences = {}
+
     if (user.preferences) {
       try {
         preferences = JSON.parse(user.preferences)
@@ -50,11 +52,12 @@ export async function GET(request: NextRequest) {
       success: true,
       user: {
         ...user,
-        theme: (preferences as any).theme || 'light'
-      }
+        theme: (preferences as any).theme || 'light',
+      },
     })
   } catch (error) {
     console.error('Error fetching user settings:', error)
+
     return NextResponse.json(
       { success: false, message: 'Failed to fetch user settings' },
       { status: 500 }
@@ -62,7 +65,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT - Update user settings
 export async function PUT(request: NextRequest) {
   try {
     const userId = request.headers.get('x-user-id')
@@ -76,11 +78,9 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
 
-    // Check if it's a password change request
     if (body.currentPassword && body.newPassword) {
       const { currentPassword, newPassword } = body
 
-      // Validate new password
       if (newPassword.length < 6) {
         return NextResponse.json(
           { success: false, error: 'Password must be at least 6 characters' },
@@ -88,9 +88,8 @@ export async function PUT(request: NextRequest) {
         )
       }
 
-      // Get current user
       const user = await db.user.findUnique({
-        where: { id: userId }
+        where: { id: userId },
       })
 
       if (!user) {
@@ -100,8 +99,8 @@ export async function PUT(request: NextRequest) {
         )
       }
 
-      // Verify current password
       const isValidPassword = await bcrypt.compare(currentPassword, user.password)
+
       if (!isValidPassword) {
         return NextResponse.json(
           { success: false, error: 'Current password is incorrect' },
@@ -109,29 +108,30 @@ export async function PUT(request: NextRequest) {
         )
       }
 
-      // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 10)
 
-      // Update password
       await db.user.update({
         where: { id: userId },
-        data: { password: hashedPassword }
+        data: {
+          password: hashedPassword,
+          temporaryPasswordIssued: false,
+          passwordChangedAt: new Date(),
+          onboardingReminderDismissedAt: null,
+        },
       })
 
       return NextResponse.json({
         success: true,
-        message: 'Password changed successfully'
+        message: 'Password changed successfully',
       })
     }
 
-    // Handle profile updates (name, phone, theme)
     const updates: any = {}
     let preferences = {}
 
-    // Get current preferences
     const currentUser = await db.user.findUnique({
       where: { id: userId },
-      select: { preferences: true }
+      select: { preferences: true },
     })
 
     if (currentUser?.preferences) {
@@ -142,23 +142,19 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Update name if provided
     if (body.name !== undefined) {
       updates.name = body.name
     }
 
-    // Update phone if provided
     if (body.phone !== undefined) {
       updates.phone = body.phone
     }
 
-    // Update theme preference if provided
     if (body.theme !== undefined) {
-      (preferences as any).theme = body.theme
+      ;(preferences as any).theme = body.theme
       updates.preferences = JSON.stringify(preferences)
     }
 
-    // Update user
     const updatedUser = await db.user.update({
       where: { id: userId },
       data: updates,
@@ -169,19 +165,23 @@ export async function PUT(request: NextRequest) {
         phone: true,
         role: true,
         profilePicture: true,
-        preferences: true
-      }
+        temporaryPasswordIssued: true,
+        passwordChangedAt: true,
+        onboardingReminderDismissedAt: true,
+        preferences: true,
+      },
     })
 
     return NextResponse.json({
       success: true,
       user: {
         ...updatedUser,
-        theme: (preferences as any).theme || 'light'
-      }
+        theme: (preferences as any).theme || 'light',
+      },
     })
   } catch (error) {
     console.error('Error updating user settings:', error)
+
     return NextResponse.json(
       { success: false, error: 'Failed to update user settings' },
       { status: 500 }

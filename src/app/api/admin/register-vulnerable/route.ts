@@ -119,7 +119,10 @@ export async function POST(request: NextRequest) {
         email: emailAddress,
         password: hashedPassword,
         role: 'VULNERABLE',
-        phone: mobileNumber
+        phone: mobileNumber,
+        temporaryPasswordIssued: true,
+        passwordChangedAt: null,
+        onboardingReminderDismissedAt: null
       }
     })
 

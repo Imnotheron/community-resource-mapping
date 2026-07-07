@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
         email: emailAddress,
         role: 'VULNERABLE',
         phone: mobileNumber,
-        password: hashedPassword
+        password: hashedPassword,
+        temporaryPasswordIssued: true,
+        passwordChangedAt: null,
+        onboardingReminderDismissedAt: null
       }
     })
 
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
     // Send welcome email with credentials (fire-and-forget — don't block the response)
     // We pass defaultPassword here BEFORE it's hashed, as we can't recover it later
     if (user.email) {
-      sendWelcomeEmail(user.email, user.name || 'User', 'VULNERABLE').catch(err =>
+      sendWelcomeEmail(user.email, user.name || 'User', 'VULNERABLE', defaultPassword).catch(err =>
         console.error('Failed to send welcome email to vulnerable user:', err)
       )
     }

@@ -1,209 +1,266 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import {
-  LayoutDashboard,
-  Users,
-  User,
-  Map,
-  Package,
-  FileText,
-  MessageSquare,
-  LogOut,
-  Menu,
-  X,
-  Shield,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { ChevronRight, LogOut, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type UserRole = 'ADMIN' | 'WORKER' | 'VULNERABLE'
-
-export interface SidebarItem {
+export interface NavItem {
   id: string
   label: string
-  icon: any
-  roles: UserRole[]
+  icon: LucideIcon
 }
-
-const sidebarItems: SidebarItem[] = [
-  { id: 'dashboard',      label: 'Dashboard',          icon: LayoutDashboard, roles: ['ADMIN', 'WORKER', 'VULNERABLE'] },
-  { id: 'users',          label: 'Users',               icon: Users,           roles: ['ADMIN'] },
-  { id: 'registrations',  label: 'Registrations',       icon: User,            roles: ['ADMIN'] },
-  { id: 'profiles',       label: 'Vulnerable Profiles', icon: Users,           roles: ['ADMIN', 'WORKER'] },
-  { id: 'distributions',  label: 'Distributions',       icon: Package,         roles: ['ADMIN', 'WORKER', 'VULNERABLE'] },
-  { id: 'map',            label: 'Map View',             icon: Map,             roles: ['ADMIN', 'WORKER'] },
-  { id: 'announcements',  label: 'Announcements',        icon: FileText,        roles: ['ADMIN', 'VULNERABLE'] },
-  { id: 'feedback',       label: 'Feedback',             icon: MessageSquare,   roles: ['ADMIN', 'VULNERABLE'] },
-  { id: 'analytics',      label: 'Analytics',            icon: LayoutDashboard, roles: ['ADMIN'] },
-]
 
 interface SidebarProps {
-  user: {
-    id: string
-    name: string
-    email: string
-    role: string
-    profilePicture?: string | null
-  }
-  activeTab: string
-  onTabChange: (tab: string) => void
+  items: NavItem[]
+  activeView: string
+  onNavigate: (view: string) => void
   onLogout: () => void
-  onProfileClick: () => void
-  collapsed?: boolean
-  onToggleCollapse?: () => void
+  onProfile?: () => void
+  userName?: string
+  userEmail?: string
+  userRole?: string
+  userPhoto?: string | null
 }
 
-export default function Sidebar({
-  user,
-  activeTab,
-  onTabChange,
-  onLogout,
-  onProfileClick,
-  collapsed = false,
-  onToggleCollapse
-}: SidebarProps) {
-
-  const getRoleAccent = (role: string) => {
-    const r = role.toUpperCase()
-    switch (r) {
-      case 'VULNERABLE':
-        return {
-          activeBg:   'bg-blue-100 text-blue-800 border-l-4 border-blue-600 font-semibold',
-          activeIcon: 'text-blue-700',
-          avatarBg:   'bg-blue-600 text-white',
-          roleLabel:  'Vulnerable Portal',
-        }
-      case 'WORKER':
-        return {
-          activeBg:   'bg-emerald-100 text-emerald-800 border-l-4 border-emerald-600 font-semibold',
-          activeIcon: 'text-emerald-700',
-          avatarBg:   'bg-emerald-600 text-white',
-          roleLabel:  'Worker Portal',
-        }
-      case 'ADMIN':
-      default:
-        return {
-          activeBg:   'bg-[#e1d4fd] text-[#4f378a] border-l-4 border-[#4f378a] font-semibold',
-          activeIcon: 'text-[#4f378a]',
-          avatarBg:   'bg-[#4f378a] text-white',
-          roleLabel:  'Admin Portal',
-        }
-    }
-  }
-
-  const accent = getRoleAccent(user.role)
-  const userRole = user.role.toUpperCase() as UserRole
-  const filteredItems = sidebarItems.filter(item => item.roles.includes(userRole))
+function getInitials(name?: string) {
+  if (!name) return 'AU'
 
   return (
-    <div
-      className={cn(
-        'fixed left-0 top-0 h-full z-50 flex flex-col justify-between transition-all duration-300 ease-in-out',
-        'bg-white dark:bg-[#1d1b20]',
-        'border-r border-[#cbc4d2] dark:border-white/10 shadow-organic',
-        collapsed ? 'w-20' : 'w-[280px]'
-      )}
-    >
-      {/* ── Branding ── */}
-      <div>
-        <div className="px-4 pt-5 pb-4 border-b border-[#cbc4d2] dark:border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[#e9ddff] dark:bg-[#4f378a]/30 flex items-center justify-center flex-shrink-0">
-              <Shield className="w-5 h-5 text-[#4f378a] dark:text-[#cfbcff]" />
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'AU'
+  )
+}
+
+function formatRole(role?: string) {
+  if (!role) return 'ADMIN'
+
+  return role.replace(/_/g, ' ').toUpperCase()
+}
+
+function shortEmail(email?: string) {
+  if (!email) return 'admin@crms.gov.ph'
+  if (email.length <= 22) return email
+
+  const [name, domain] = email.split('@')
+
+  if (!domain) return `${email.slice(0, 18)}...`
+
+  return `${name.slice(0, 10)}...@${domain.slice(0, 8)}...`
+}
+
+export function Sidebar({
+  items,
+  activeView,
+  onNavigate,
+  onLogout,
+  onProfile,
+  userName = 'Admin User',
+  userEmail = 'admin@crms.gov.ph',
+  userRole = 'ADMIN',
+  userPhoto,
+}: SidebarProps) {
+  const initials = getInitials(userName)
+
+  return (
+    <aside className="hidden h-dvh w-[230px] shrink-0 overflow-hidden border-r border-slate-200 bg-white xl:flex xl:flex-col">
+      <style>{`
+        .crms-sidebar-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .crms-sidebar-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="shrink-0 px-3 pb-2 pt-3">
+          <div className="mb-3 flex items-center gap-2.5 px-1">
+            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <img
+                src="/san-policarpo-logo.png"
+                alt="San Policarpo Logo"
+                className="h-8 w-8 object-contain"
+                onError={(event) => {
+                  const img = event.currentTarget
+
+                  if (img.dataset.fallback === '1') {
+                    img.src = '/logo-sampolicarpo.png'
+                    img.dataset.fallback = '2'
+                    return
+                  }
+
+                  if (img.dataset.fallback === '2') {
+                    img.src = '/logos/san-policarpo-logo.png'
+                    img.dataset.fallback = '3'
+                    return
+                  }
+
+                  if (img.dataset.fallback === '3') {
+                    img.style.display = 'none'
+
+                    const fallback = img.nextElementSibling as HTMLElement | null
+
+                    if (fallback) {
+                      fallback.style.display = 'grid'
+                    }
+
+                    return
+                  }
+
+                  img.src = '/logo-sampolicarpo.jpg'
+                  img.dataset.fallback = '1'
+                }}
+              />
+
+              <span
+                className="hidden h-full w-full place-items-center bg-emerald-50 text-[10px] font-semibold text-emerald-700"
+                style={{ display: 'none' }}
+              >
+                CRMS
+              </span>
             </div>
-            {!collapsed && (
-              <div>
-                <p className="text-[#4f378a] dark:text-[#cfbcff] font-semibold text-[15px] leading-tight">
-                  {accent.roleLabel}
-                </p>
-                <p className="text-[#7a7582] text-[11px] uppercase tracking-wider">CommMap System</p>
-              </div>
-            )}
+
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold leading-tight text-slate-900">
+                Community Resource
+              </p>
+              <p className="truncate text-xs font-medium leading-tight text-slate-500">
+                Mapping System
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* ── User Avatar ── */}
-        <div
-          onClick={onProfileClick}
-          className="flex items-center gap-3 cursor-pointer px-4 py-3 mx-2 mt-3 rounded-lg hover:bg-[#f2ecf4] dark:hover:bg-white/5 transition-colors"
-        >
-          <Avatar className="w-9 h-9 border border-[#cbc4d2] flex-shrink-0">
-            <AvatarImage src={user.profilePicture || undefined} alt={user.name} />
-            <AvatarFallback className={`${accent.avatarBg} font-semibold text-sm`}>
-              {user.name?.charAt(0).toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-[#1d1b20] dark:text-white text-sm truncate">{user.name}</p>
-              <p className="text-xs text-[#7a7582] capitalize truncate">{user.role}</p>
+          <button
+            type="button"
+            onClick={onProfile}
+            className="group flex w-full items-center gap-2.5 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-2.5 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50"
+          >
+            <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-semibold text-white shadow-sm">
+              {userPhoto ? (
+                <img
+                  src={userPhoto}
+                  alt={userName}
+                  className="h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none'
+
+                    const fallback = event.currentTarget
+                      .nextElementSibling as HTMLElement | null
+
+                    if (fallback) {
+                      fallback.style.display = 'grid'
+                    }
+                  }}
+                />
+              ) : null}
+
+              <span
+                className="hidden h-full w-full place-items-center"
+                style={{ display: userPhoto ? 'none' : 'grid' }}
+              >
+                {initials}
+              </span>
+
+              <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
             </div>
-          )}
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold text-slate-900">
+                {userName}
+              </p>
+              <p className="truncate text-[11px] font-medium text-slate-500">
+                {shortEmail(userEmail)}
+              </p>
+
+              <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                <ShieldCheck className="h-2.5 w-2.5" />
+                {formatRole(userRole)}
+              </div>
+            </div>
+
+            {onProfile && (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-emerald-600 transition group-hover:translate-x-0.5" />
+            )}
+          </button>
         </div>
 
-        {/* ── Nav Items ── */}
-        <nav className="mt-3 px-2 space-y-0.5">
-          {filteredItems.map((item) => {
+        <nav className="crms-sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
+          {items.map((item) => {
             const Icon = item.icon
-            const isActive = activeTab === item.id
+            const isActive = item.id === activeView
+
             return (
-              <Tooltip key={item.id} delayDuration={collapsed ? 0 : 800}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onTabChange(item.id)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-all duration-150',
-                      isActive
-                        ? accent.activeBg
-                        : 'text-[#494551] dark:text-[#cbc4d2] hover:bg-[#f2ecf4] dark:hover:bg-white/5'
-                    )}
-                  >
-                    <Icon className={cn('w-5 h-5 flex-shrink-0', isActive ? accent.activeIcon : 'text-[#7a7582] dark:text-[#9f99a8]')} />
-                    {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
-                  </button>
-                </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right">{item.label}</TooltipContent>
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate(item.id)}
+                className={cn(
+                  'group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition',
+                  isActive
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 )}
-              </Tooltip>
+              >
+                <span
+                  className={cn(
+                    'grid h-8 w-8 shrink-0 place-items-center rounded-lg transition',
+                    isActive
+                      ? 'bg-white/15 text-white'
+                      : 'bg-slate-100 text-slate-500 group-hover:bg-white'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                  {item.label}
+                </span>
+
+                {isActive && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                )}
+              </button>
             )
           })}
         </nav>
-      </div>
 
-      {/* ── Footer: Sign Out ── */}
-      <div className="border-t border-[#cbc4d2] dark:border-white/10 p-2">
-        <Tooltip delayDuration={collapsed ? 0 : 800}>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-[#ba1a1a] dark:text-[#ffb4ab] hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-            >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span>Sign Out</span>}
-            </button>
-          </TooltipTrigger>
-          {collapsed && <TooltipContent side="right">Sign Out</TooltipContent>}
-        </Tooltip>
-      </div>
+        <div className="shrink-0 border-t border-slate-200 bg-white px-3 pb-3 pt-2.5">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="group flex w-full items-center gap-2.5 rounded-xl border border-red-100 bg-red-50 p-2.5 text-left transition hover:border-red-200 hover:bg-red-100"
+          >
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-red-500 shadow-sm">
+              <LogOut className="h-4 w-4" />
+            </span>
 
-      {/* ── Collapse Toggle ── */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-50">
-        <button
-          onClick={onToggleCollapse}
-          className="h-8 w-4 rounded-full border border-[#cbc4d2] dark:border-white/20 bg-white dark:bg-[#2b2930] shadow-sm hover:bg-[#f2ecf4] dark:hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
-        >
-          {collapsed
-            ? <ChevronRight className="w-3 h-3 text-[#7a7582]" />
-            : <ChevronLeft className="w-3 h-3 text-[#7a7582]" />
-          }
-        </button>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-semibold text-red-600">
+                Sign out
+              </span>
+              <span className="block text-[11px] font-medium text-red-400">
+                Secure sign out
+              </span>
+            </span>
+
+            <ChevronRight className="h-3.5 w-3.5 text-red-500 transition group-hover:translate-x-0.5" />
+          </button>
+
+          <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-medium text-slate-500">
+            <span>San Policarpo Operations</span>
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          </div>
+        </div>
       </div>
-    </div>
+    </aside>
   )
 }
+
+export default Sidebar

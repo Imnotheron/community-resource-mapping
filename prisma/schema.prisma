@@ -9,24 +9,50 @@ datasource db {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  email               String               @unique
-  password            String
-  name                String
-  role                String
-  phone               String?
-  profilePicture      String?
-  preferences         String?
-  lastActive          DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  generalFeedback     Feedback[]
-  fieldNotes          FieldNote[]
-  assignedAsWorker    Household[]
-  notifications       Notification[]
-  reliefDistributions ReliefDistribution[]
-  feedback            ReliefFeedback[]
-  vulnerableProfile   VulnerableProfile?
+  id                             String                        @id @default(cuid())
+  email                          String                        @unique
+  password                       String
+  name                           String
+  role                           String
+  phone                          String?
+  profilePicture                 String?
+  preferences                    String?
+  lastActive                     DateTime?
+  isOnline                       Boolean                       @default(false)
+  lastSeenAt                     DateTime?
+
+  // Account setup recommendations
+  temporaryPasswordIssued        Boolean                       @default(false)
+  passwordChangedAt              DateTime?
+  onboardingReminderDismissedAt  DateTime?
+
+  createdAt                      DateTime                      @default(now())
+  updatedAt                      DateTime                      @updatedAt
+  generalFeedback                Feedback[]
+  fieldNotes                     FieldNote[]
+  assignedAsWorker               Household[]
+  notifications                  Notification[]
+  reliefDistributions            ReliefDistribution[]
+  feedback                       ReliefFeedback[]
+  vulnerableProfile              VulnerableProfile?
+  vulnerableRegistrationDrafts   VulnerableRegistrationDraft[]
+}
+
+model VulnerableRegistrationDraft {
+  id          String   @id @default(cuid())
+  adminId     String
+  title       String
+  formData    String
+  currentStep Int      @default(0)
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model VulnerableProfile {
@@ -102,8 +128,8 @@ model Household {
   notes               String?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  vulnerableProfile   VulnerableProfile?   @relation(fields: [vulnerableProfileId], references: [id])
   assignedWorker      User?                @relation(fields: [assignedWorkerId], references: [id])
+  vulnerableProfile   VulnerableProfile?   @relation(fields: [vulnerableProfileId], references: [id])
   reliefDistributions ReliefDistribution[]
 }
 
@@ -121,9 +147,9 @@ model ReliefDistribution {
   rejectionReason     String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
-  worker              User               @relation(fields: [workerId], references: [id])
-  vulnerableProfile   VulnerableProfile? @relation(fields: [vulnerableProfileId], references: [id])
   household           Household?         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  vulnerableProfile   VulnerableProfile? @relation(fields: [vulnerableProfileId], references: [id])
+  worker              User               @relation(fields: [workerId], references: [id])
   feedback            ReliefFeedback[]
 }
 
@@ -138,8 +164,8 @@ model ReliefFeedback {
   adminResponseDate    DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   reliefDistribution   ReliefDistribution @relation(fields: [reliefDistributionId], references: [id], onDelete: Cascade)
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CommunityResource {

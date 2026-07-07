@@ -1,0 +1,15 @@
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+async function test() {
+  try {
+    const count = await prisma.user.count();
+    console.log('User count:', count);
+    const users = await prisma.user.findMany();
+    console.log('Users:', users.length);
+  } catch (e) {
+    console.error('Error:', e);
+  } finally {
+    await prisma.();
+  }
+}
+test().catch(console.error);

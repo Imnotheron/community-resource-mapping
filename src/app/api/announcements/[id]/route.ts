@@ -3,138 +3,176 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// PUT /api/announcements/[id] (Admin/Worker only - creator only)
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type RouteParams = {
+  params: Promise<{ id?: string }> | { id?: string }
+}
+
+type AnnouncementRow = {
+  id: string
+  title: string
+  content: string
+  type: string
+  targetRole: string | null
+  eventDate: string | Date | null
+  eventTime: string | null
+  location: string | null
+  isActive: boolean | number | string
+  priority: string
+  createdBy: string
+  createdAt: string | Date
+  updatedAt: string | Date
+}
+
+async function readParams(params: RouteParams['params']) {
+  return await Promise.resolve(params)
+}
+
+function getIdFromRequest(request: NextRequest, params: { id?: string }) {
+  if (params.id) return params.id
+  const parts = request.nextUrl.pathname.split('/').filter(Boolean)
+  return parts[parts.length - 1] || ''
+}
+
+function normalizeRow(row: AnnouncementRow) {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    type: row.type || 'GENERAL',
+    targetRole: row.targetRole || 'ALL',
+    eventDate: row.eventDate ? new Date(row.eventDate).toISOString() : null,
+    eventTime: row.eventTime || null,
+    location: row.location || null,
+    isActive: row.isActive === true || row.isActive === 1 || row.isActive === '1',
+    priority: row.priority || 'NORMAL',
+    createdBy: row.createdBy,
+    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+  }
+}
+
+async function ensureAnnouncementTable() {
+  await db.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "Announcement" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "content" TEXT NOT NULL,
+      "type" TEXT NOT NULL DEFAULT 'GENERAL',
+      "targetRole" TEXT,
+      "eventDate" DATETIME,
+      "eventTime" TEXT,
+      "location" TEXT,
+      "isActive" BOOLEAN NOT NULL DEFAULT true,
+      "priority" TEXT NOT NULL DEFAULT 'NORMAL',
+      "createdBy" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params
-    const body = await request.json()
+    await ensureAnnouncementTable()
 
-    // Get existing announcement
-    const existingAnnouncement = await db.announcement.findUnique({
-      where: { id }
-    })
+    const resolvedParams = await readParams(params)
+    const id = getIdFromRequest(request, resolvedParams)
 
-    if (!existingAnnouncement) {
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: 'Announcement not found' },
+        { success: false, message: 'Announcement ID is required.' },
+        { status: 400 }
+      )
+    }
+
+    const rows = await db.$queryRawUnsafe<AnnouncementRow[]>(
+      `
+        SELECT
+          "id",
+          "title",
+          "content",
+          "type",
+          "targetRole",
+          "eventDate",
+          "eventTime",
+          "location",
+          "isActive",
+          "priority",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        FROM "Announcement"
+        WHERE "id" = ?
+        LIMIT 1
+      `,
+      id
+    )
+
+    if (!rows[0]) {
+      return NextResponse.json(
+        { success: false, message: 'Announcement not found.' },
         { status: 404 }
       )
     }
 
-    // Verify the requester is the creator
-    if (existingAnnouncement.createdBy !== body.createdBy) {
-      return NextResponse.json(
-        { success: false, error: 'Only the creator can edit this announcement' },
-        { status: 403 }
-      )
-    }
-
-    // Verify creator is still Admin or Worker
-    const creator = await db.user.findUnique({
-      where: { id: body.createdBy }
-    })
-
-    if (!creator || (creator.role !== 'ADMIN' && creator.role !== 'WORKER')) {
-      return NextResponse.json(
-        { success: false, error: 'Only ADMIN and WORKER roles can update announcements' },
-        { status: 403 }
-      )
-    }
-
-    // Update announcement
-    const updatedAnnouncement = await db.announcement.update({
-      where: { id },
-      data: {
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.content !== undefined && { content: body.content }),
-        ...(body.type !== undefined && { type: body.type }),
-        ...(body.targetRole !== undefined && { targetRole: body.targetRole }),
-        ...(body.eventDate !== undefined && { eventDate: body.eventDate ? new Date(body.eventDate) : null }),
-        ...(body.eventTime !== undefined && { eventTime: body.eventTime }),
-        ...(body.location !== undefined && { location: body.location }),
-        ...(body.priority !== undefined && { priority: body.priority }),
-        ...(body.isActive !== undefined && { isActive: body.isActive })
-      }
-    })
-
     return NextResponse.json({
       success: true,
-      announcement: updatedAnnouncement,
-      message: 'Announcement updated successfully'
+      announcement: normalizeRow(rows[0]),
     })
-  } catch (error) {
-    console.error('Error updating announcement:', error)
+  } catch (error: any) {
+    console.error('Failed to load announcement:', error)
+
     return NextResponse.json(
-      { success: false, error: 'Failed to update announcement' },
+      {
+        success: false,
+        message: error?.message || 'Failed to load announcement.',
+        details: String(error),
+      },
       { status: 500 }
     )
   }
 }
 
-// DELETE /api/announcements/[id] (Admin only - creator or any admin)
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params
-    const { searchParams } = new URL(request.url)
-    const requesterId = searchParams.get('requesterId')
+    await ensureAnnouncementTable()
 
-    if (!requesterId) {
+    const resolvedParams = await readParams(params)
+    const id = getIdFromRequest(request, resolvedParams)
+
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: 'Requester ID is required' },
+        { success: false, message: 'Announcement ID is required.' },
         { status: 400 }
       )
     }
 
-    // Get existing announcement
-    const existingAnnouncement = await db.announcement.findUnique({
-      where: { id }
-    })
+    const now = new Date().toISOString()
 
-    if (!existingAnnouncement) {
-      return NextResponse.json(
-        { success: false, error: 'Announcement not found' },
-        { status: 404 }
-      )
-    }
-
-    // Verify requester is Admin or the creator
-    const requester = await db.user.findUnique({
-      where: { id: requesterId }
-    })
-
-    if (!requester) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
-    }
-
-    if (requester.role !== 'ADMIN' && existingAnnouncement.createdBy !== requesterId) {
-      return NextResponse.json(
-        { success: false, error: 'Only the creator or an admin can delete this announcement' },
-        { status: 403 }
-      )
-    }
-
-    // Delete announcement
-    await db.announcement.delete({
-      where: { id }
-    })
+    const result = await db.$executeRawUnsafe(
+      `
+        UPDATE "Announcement"
+        SET "isActive" = false, "updatedAt" = ?
+        WHERE "id" = ?
+      `,
+      now,
+      id
+    )
 
     return NextResponse.json({
       success: true,
-      message: 'Announcement deleted successfully'
+      message: 'Announcement deleted successfully.',
+      affected: Number(result || 0),
     })
-  } catch (error) {
-    console.error('Error deleting announcement:', error)
+  } catch (error: any) {
+    console.error('Failed to delete announcement:', error)
+
     return NextResponse.json(
-      { success: false, error: 'Failed to delete announcement' },
+      {
+        success: false,
+        message: error?.message || 'Failed to delete announcement.',
+        details: String(error),
+      },
       { status: 500 }
     )
   }

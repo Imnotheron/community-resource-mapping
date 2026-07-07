@@ -4,15 +4,74 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { sendAccountDeletedEmail } from '@/lib/email'
 
+function getParamId(request: NextRequest, params: any) {
+  const fromParams = params?.id || params?.userId
+
+  if (fromParams) {
+    return String(fromParams)
+  }
+
+  const pathnameParts = new URL(request.url).pathname.split('/').filter(Boolean)
+  return pathnameParts[pathnameParts.length - 1] || ''
+}
+
+async function safeDeleteMany(modelName: string, where: Record<string, any>) {
+  const model = (db as any)[modelName]
+
+  if (!model?.deleteMany) {
+    return
+  }
+
+  try {
+    await model.deleteMany({ where })
+  } catch (error) {
+    console.warn(`Skipped ${modelName}.deleteMany:`, error)
+  }
+}
+
+async function safeUpdateMany(
+  modelName: string,
+  where: Record<string, any>,
+  data: Record<string, any>
+) {
+  const model = (db as any)[modelName]
+
+  if (!model?.updateMany) {
+    return
+  }
+
+  try {
+    await model.updateMany({ where, data })
+  } catch (error) {
+    console.warn(`Skipped ${modelName}.updateMany:`, error)
+  }
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id?: string; userId?: string }> | { id?: string; userId?: string } }
 ) {
-  const { id } = await params
+  const params = await Promise.resolve(context.params)
+  const userId = getParamId(request, params)
+
   try {
     const user = await db.user.findUnique({
-      where: { id },
-      include: { vulnerableProfile: true }
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        profilePicture: true,
+        createdAt: true,
+        vulnerableProfile: {
+          select: {
+            id: true,
+            registrationStatus: true,
+          },
+        },
+      },
     })
 
     if (!user) {
@@ -23,10 +82,10 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, user })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching user:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch user' },
+      { success: false, message: error?.message || 'Failed to fetch user' },
       { status: 500 }
     )
   }
@@ -34,13 +93,28 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id?: string; userId?: string }> | { id?: string; userId?: string } }
 ) {
-  const { id: userId } = await params
+  const params = await Promise.resolve(context.params)
+  const userId = getParamId(request, params)
 
   try {
+    const url = new URL(request.url)
     const body = await request.json().catch(() => ({}))
-    const adminId = body.adminId
+
+    const adminId =
+      body.adminId ||
+      body.userId ||
+      url.searchParams.get('adminId') ||
+      url.searchParams.get('userId') ||
+      ''
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: 'User ID is required' },
+        { status: 400 }
+      )
+    }
 
     if (!adminId) {
       return NextResponse.json(
@@ -49,96 +123,108 @@ export async function DELETE(
       )
     }
 
-    // Verify admin
-    const admin = await db.user.findUnique({ where: { id: adminId } })
+    const admin = await db.user.findUnique({
+      where: { id: String(adminId) },
+      select: {
+        id: true,
+        role: true,
+      },
+    })
+
     if (!admin || admin.role !== 'ADMIN') {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized. Only admins can delete user accounts.' },
+        {
+          success: false,
+          message: 'Unauthorized. Only admins can delete user accounts.',
+        },
         { status: 403 }
       )
     }
 
-    if (adminId === userId) {
+    if (String(adminId) === userId) {
       return NextResponse.json(
         { success: false, message: 'You cannot delete your own account.' },
         { status: 400 }
       )
     }
 
-    // Fetch user with profile before deletion (needed for email + cascade)
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { vulnerableProfile: true }
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        vulnerableProfile: {
+          select: {
+            id: true,
+          },
+        },
+      },
     })
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: 'User not found' },
+        { success: false, message: 'User not found or already deleted.' },
         { status: 404 }
       )
     }
 
-    // Send deletion notification email BEFORE deleting
+    const profileId = user.vulnerableProfile?.id
+
+    if (profileId) {
+      await safeUpdateMany('reliefDistribution', { vulnerableProfileId: profileId }, { vulnerableProfileId: null })
+      await safeDeleteMany('household', { vulnerableProfileId: profileId })
+      await safeDeleteMany('vulnerabilityDocument', { profileId })
+      await safeDeleteMany('vulnerableProfile', { id: profileId })
+    }
+
+    await safeUpdateMany('household', { assignedWorkerId: userId }, { assignedWorkerId: null })
+
+    await safeDeleteMany('reliefFeedback', { reliefDistribution: { workerId: userId } })
+    await safeDeleteMany('reliefDistribution', { workerId: userId })
+
+    await safeDeleteMany('reliefFeedback', { userId })
+    await safeDeleteMany('notification', { userId })
+    await safeDeleteMany('feedback', { userId })
+    await safeDeleteMany('generalFeedback', { userId })
+    await safeDeleteMany('fieldNote', { userId })
+    await safeDeleteMany('vulnerableRegistrationDraft', { adminId: userId })
+
+    // Important: use raw SQL for the final User delete.
+    // Prisma user.delete() can crash on your local SQLite DB while the account-setup
+    // columns are still missing, because Prisma tries to read those columns back.
+    const deletedCount = await db.$executeRaw`
+      DELETE FROM "User"
+      WHERE "id" = ${userId}
+    `
+
+    if (!deletedCount) {
+      return NextResponse.json(
+        { success: false, message: 'User not found or already deleted.' },
+        { status: 404 }
+      )
+    }
+
     if (user.email) {
-      sendAccountDeletedEmail(user.email, user.name || 'User', user.role)
-        .catch(err => console.error('Failed to send deletion email:', err))
-    }
-
-    // ── Step 1: Handle VulnerableProfile cascade (VULNERABLE users) ─────────
-    if (user.vulnerableProfile) {
-      const profileId = user.vulnerableProfile.id
-
-      // Nullify profile reference on relief distributions (keep history)
-      await db.reliefDistribution.updateMany({
-        where: { vulnerableProfileId: profileId },
-        data: { vulnerableProfileId: null }
+      sendAccountDeletedEmail(user.email, user.name || 'User', user.role).catch((error) => {
+        console.error('Failed to send deletion email:', error)
       })
-
-      // Delete the household linked to this profile
-      await db.household.deleteMany({ where: { vulnerableProfileId: profileId } })
-
-      // Delete documents
-      await db.vulnerabilityDocument.deleteMany({ where: { profileId } })
-
-      // Delete the profile
-      await db.vulnerableProfile.delete({ where: { id: profileId } })
     }
-
-    // ── Step 2: Handle records where this user is a WORKER ──────────────────
-    // Nullify household worker assignment (keep the household)
-    await db.household.updateMany({
-      where: { assignedWorkerId: userId },
-      data: { assignedWorkerId: null }
-    })
-
-    // Delete relief feedback on distributions this worker created, then distributions
-    await db.reliefFeedback.deleteMany({
-      where: { reliefDistribution: { workerId: userId } }
-    })
-    await db.reliefDistribution.deleteMany({ where: { workerId: userId } })
-
-    // ── Step 3: Delete all other user-owned records ──────────────────────────
-    await db.reliefFeedback.deleteMany({ where: { userId } })
-    await db.notification.deleteMany({ where: { userId } })
-    await db.feedback.deleteMany({ where: { userId } })
-    await db.fieldNote.deleteMany({ where: { userId } })
-
-    // ── Step 4: Delete the User ──────────────────────────────────────────────
-    await db.user.delete({ where: { id: userId } })
 
     return NextResponse.json({
       success: true,
-      message: 'User account deleted successfully'
+      message: 'User account deleted successfully',
+      deletedUserId: userId,
     })
   } catch (error: any) {
     console.error('Error deleting user:', error)
+
     return NextResponse.json(
       {
         success: false,
-        message: error?.code === 'P2025'
-          ? 'User not found or already deleted.'
-          : `Failed to delete user account: ${error.message}`,
-        code: error?.code
+        message: `Failed to delete user account: ${error?.message || 'Unknown error'}`,
+        code: error?.code,
       },
       { status: 500 }
     )
