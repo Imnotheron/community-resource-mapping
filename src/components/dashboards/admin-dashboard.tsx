@@ -958,6 +958,26 @@ function UserManagementAvatar({ user }: { user: any }) {
   );
 }
 
+
+function AccountSetupBadge({ user }: { user: any }) {
+  if (user?.vulnerableProfile) {
+    return (
+      <StatusBadge
+        status={user.vulnerableProfile.registrationStatus}
+      />
+    );
+  }
+
+  return (
+    <Badge
+      variant="outline"
+      className="w-fit border-blue-200 bg-blue-50 font-semibold text-blue-700"
+    >
+      Account Created
+    </Badge>
+  );
+}
+
 // =================== USERS ===================
 type UserRoleFilter = "ALL" | "ADMIN" | "WORKER" | "VULNERABLE";
 type PresenceFilter = "ALL" | "ONLINE_NOW" | "ONLINE_TODAY" | "NOT_ONLINE_TODAY" | "OFFLINE";
@@ -1319,27 +1339,35 @@ function UsersView() {
                       {formatDate(u.createdAt)}
                     </TableCell>
                     <TableCell>
-                      {u.vulnerableProfile ? (
-                        <StatusBadge
-                          status={u.vulnerableProfile.registrationStatus}
-                        />
-                      ) : (
-                        <Badge variant="secondary">Active</Badge>
-                      )}
+                      <AccountSetupBadge user={u} />
                     </TableCell>
                     <TableCell>
                       <OnlineStatusBadge user={u} />
                     </TableCell>
                     <TableCell className="text-right">
-                      {u.role !== "ADMIN" && (
+                      {u.id !== getAdminId() ? (
                         <Button
+                          type="button"
                           size="sm"
                           variant="ghost"
                           onClick={() => requestDeleteUser(u)}
                           className="text-destructive"
+                          aria-label={`Delete ${u.name || u.email || "user"}`}
+                          title={
+                            normalizeRole(u.role) === "ADMIN"
+                              ? "Delete this Administrator account"
+                              : "Delete this user account"
+                          }
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="border-slate-200 bg-slate-50 text-[10px] font-semibold text-slate-500"
+                        >
+                          Current account
+                        </Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -1414,7 +1442,7 @@ function DeleteUserConfirmDialog({
                   Delete this account?
                 </DialogTitle>
                 <DialogDescription className="text-sm leading-relaxed text-slate-600">
-                  This action will permanently remove the selected user and related account access. This cannot be undone.
+                  This action permanently removes the selected account and related access. Accounts may be deleted whether password setup is pending or complete. The current Administrator and the last remaining Administrator are protected.
                 </DialogDescription>
               </DialogHeader>
             </div>
