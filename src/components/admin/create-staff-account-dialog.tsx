@@ -5,9 +5,8 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   Copy,
-  Eye,
-  EyeOff,
   Loader2,
+  MailCheck,
   ShieldCheck,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -24,7 +23,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { apiFetch } from '@/lib/api-client'
+import {
+  apiFetch,
+  getStoredUser,
+} from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 
 type StaffRole = 'ADMIN' | 'WORKER'
@@ -53,23 +55,25 @@ export function CreateStaffAccountDialog({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [adminPassword, setAdminPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(
+    null,
+  )
+  const [formStatus, setFormStatus] = useState<string | null>(
+    null,
+  )
   const [createdAccount, setCreatedAccount] =
     useState<CreatedAccount | null>(null)
 
   useEffect(() => {
-    if (open) return
+    if (open || submitting) return
 
-    if (!submitting) {
-      setRole('WORKER')
-      setName('')
-      setEmail('')
-      setPhone('')
-      setAdminPassword('')
-      setShowPassword(false)
-    }
+    setRole('WORKER')
+    setName('')
+    setEmail('')
+    setPhone('')
+    setFormError(null)
+    setFormStatus(null)
   }, [open, submitting])
 
   function closeCreateDialog(nextOpen: boolean) {
@@ -81,24 +85,53 @@ export function CreateStaffAccountDialog({
     const cleanName = name.trim()
     const cleanEmail = email.trim().toLowerCase()
     const cleanPhone = phone.trim()
+    const currentUser = getStoredUser()
+
+    setFormError(null)
+    setFormStatus(null)
 
     if (!cleanName || !cleanEmail) {
-      toast.error('Complete the required details', {
-        description:
-          'Enter the staff member’s full name and email address.',
-      })
+      setFormError(
+        'Enter the staff member’s full name and email address.',
+      )
       return
     }
 
-    if (!adminPassword) {
-      toast.error('Administrator password required', {
-        description:
-          'Re-enter your own password to authorize this account.',
-      })
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!emailPattern.test(cleanEmail)) {
+      setFormError('Enter a valid email address.')
+      return
+    }
+
+    if (!currentUser?.id) {
+      setFormError(
+        'Your signed-in session could not be found. Sign out, sign in again, and retry.',
+      )
+      return
+    }
+
+    if (
+      String(currentUser.role).toLowerCase() !== 'admin'
+    ) {
+      setFormError(
+        'Only an Administrator can create staff accounts.',
+      )
       return
     }
 
     setSubmitting(true)
+    setFormStatus(
+      role === 'ADMIN'
+        ? 'Creating administrator account and temporary password…'
+        : 'Creating worker account and temporary password…',
+    )
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(
+      () => controller.abort(),
+      20_000,
+    )
 
     try {
       const data = await apiFetch<{
@@ -117,27 +150,29 @@ export function CreateStaffAccountDialog({
       }>('/api/admin/create-staff', {
         method: 'POST',
         useUserHeader: true,
+        userId: currentUser.id,
+        signal: controller.signal,
         body: JSON.stringify({
           name: cleanName,
           email: cleanEmail,
           phone: cleanPhone,
           role,
-          adminPassword,
+          adminId: currentUser.id,
         }),
       })
 
       setCreatedAccount({
         name: data.user?.name || cleanName,
         email: data.user?.email || cleanEmail,
-        phone: data.user?.phone || cleanPhone || null,
+        phone:
+          data.user?.phone || cleanPhone || null,
         role: data.user?.role || role,
-        emailSent: Boolean(
-          data.notification?.emailSent,
-        ),
+        emailSent: Boolean(data.notification?.emailSent),
         temporaryPassword:
           data.temporaryPassword || null,
       })
 
+      setFormStatus(null)
       onOpenChange(false)
       await onCreated()
 
@@ -145,13 +180,25 @@ export function CreateStaffAccountDialog({
         role === 'ADMIN'
           ? 'Administrator account created'
           : 'Worker account created',
+        {
+          description: data.message,
+        },
       )
     } catch (error: any) {
+      const message =
+        error?.name === 'AbortError'
+          ? 'The server took too long to respond. Check the Users list before retrying.'
+          : error?.message ||
+            'The account could not be created.'
+
+      setFormStatus(null)
+      setFormError(message)
+
       toast.error('Account creation failed', {
-        description:
-          error?.message || 'Please try again.',
+        description: message,
       })
     } finally {
+      window.clearTimeout(timer)
       setSubmitting(false)
     }
   }
@@ -171,18 +218,14 @@ export function CreateStaffAccountDialog({
 
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={closeCreateDialog}
-      >
+      <Dialog open={open} onOpenChange={closeCreateDialog}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>
-              Create Staff Account
-            </DialogTitle>
+            <DialogTitle>Create Staff Account</DialogTitle>
             <DialogDescription>
-              Create either a field-worker account or
-              another administrator account.
+              Every new Administrator or Worker receives a
+              generated temporary password and is prompted to
+              change it after signing in.
             </DialogDescription>
           </DialogHeader>
 
@@ -212,6 +255,28 @@ export function CreateStaffAccountDialog({
               </div>
             </div>
 
+            {(formError || formStatus) && (
+              <div
+                role={formError ? 'alert' : 'status'}
+                aria-live="polite"
+                className={cn(
+                  'rounded-xl border px-4 py-3 text-sm leading-6',
+                  formError
+                    ? 'border-red-300 bg-red-50 text-red-800'
+                    : 'border-blue-200 bg-blue-50 text-blue-800',
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  {formStatus ? (
+                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
+                  <span>{formError || formStatus}</span>
+                </div>
+              </div>
+            )}
+
             {role === 'ADMIN' && (
               <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -220,10 +285,10 @@ export function CreateStaffAccountDialog({
                     Full system access
                   </p>
                   <p className="mt-1 text-xs leading-5">
-                    Administrators can manage users,
-                    approve records, publish announcements,
-                    view reports, and access sensitive
-                    municipal information.
+                    Administrators can manage users, approve
+                    records, publish announcements, view
+                    reports, and access sensitive municipal
+                    information.
                   </p>
                 </div>
               </div>
@@ -231,9 +296,7 @@ export function CreateStaffAccountDialog({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="staff-name">
-                  Full name
-                </Label>
+                <Label htmlFor="staff-name">Full name</Label>
                 <Input
                   id="staff-name"
                   value={name}
@@ -264,9 +327,7 @@ export function CreateStaffAccountDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="staff-phone">
-                  Phone
-                </Label>
+                <Label htmlFor="staff-phone">Phone</Label>
                 <Input
                   id="staff-phone"
                   value={phone}
@@ -276,71 +337,27 @@ export function CreateStaffAccountDialog({
                   autoComplete="tel"
                   disabled={submitting}
                   placeholder="+63 9XX XXX XXXX"
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === 'Enter' &&
+                      !submitting
+                    ) {
+                      event.preventDefault()
+                      void submit()
+                    }
+                  }}
                 />
               </div>
+            </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="admin-password">
-                  Your administrator password
-                </Label>
-
-                <div className="relative">
-                  <Input
-                    id="admin-password"
-                    type={
-                      showPassword
-                        ? 'text'
-                        : 'password'
-                    }
-                    value={adminPassword}
-                    onChange={(event) =>
-                      setAdminPassword(
-                        event.target.value,
-                      )
-                    }
-                    autoComplete="current-password"
-                    disabled={submitting}
-                    className="pr-11"
-                    placeholder="Confirm this privileged action"
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === 'Enter' &&
-                        !submitting
-                      ) {
-                        event.preventDefault()
-                        void submit()
-                      }
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowPassword(
-                        (current) => !current,
-                      )
-                    }
-                    disabled={submitting}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                    aria-label={
-                      showPassword
-                        ? 'Hide administrator password'
-                        : 'Show administrator password'
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Your password is verified by the server
-                  and is never stored in this form.
-                </p>
-              </div>
+            <div className="flex gap-3 rounded-xl border bg-muted/50 p-4">
+              <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <p className="text-xs leading-5 text-muted-foreground">
+                The welcome email contains the temporary
+                password and instructs the user to change it.
+                After login, the system displays a mandatory
+                password-change reminder.
+              </p>
             </div>
           </div>
 
@@ -348,9 +365,7 @@ export function CreateStaffAccountDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
-                closeCreateDialog(false)
-              }
+              onClick={() => closeCreateDialog(false)}
               disabled={submitting}
             >
               Cancel
@@ -358,9 +373,13 @@ export function CreateStaffAccountDialog({
 
             <Button
               type="button"
-              onClick={() => void submit()}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                void submit()
+              }}
               disabled={submitting}
-              className="gap-2"
+              className="relative z-10 gap-2"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -382,9 +401,7 @@ export function CreateStaffAccountDialog({
       <Dialog
         open={Boolean(createdAccount)}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setCreatedAccount(null)
-          }
+          if (!nextOpen) setCreatedAccount(null)
         }}
       >
         <DialogContent className="sm:max-w-lg">
@@ -402,8 +419,9 @@ export function CreateStaffAccountDialog({
                 </DialogTitle>
 
                 <DialogDescription>
-                  The account is active and can sign
-                  in using the registered email.
+                  The account is active and will be reminded
+                  to replace the temporary password after
+                  signing in.
                 </DialogDescription>
               </DialogHeader>
 
@@ -420,35 +438,29 @@ export function CreateStaffAccountDialog({
                   </p>
                 </div>
 
-                <div
-                  className={cn(
-                    'rounded-xl border p-4 text-sm',
-                    createdAccount.emailSent
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-amber-300 bg-amber-50 text-amber-900',
-                  )}
-                >
-                  {createdAccount.emailSent
-                    ? 'Login instructions and the temporary password were sent by email.'
-                    : 'The account was created, but email delivery failed. Give the temporary password to the user through a secure channel.'}
-                </div>
+                {createdAccount.emailSent ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                    The temporary password and login
+                    instructions were sent to the user’s
+                    email address.
+                  </div>
+                ) : (
+                  <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">
+                    <p className="text-sm">
+                      Email was not confirmed. Copy this
+                      temporary password and deliver it
+                      securely.
+                    </p>
 
-                {!createdAccount.emailSent &&
-                  createdAccount.temporaryPassword && (
-                    <div className="rounded-xl border border-amber-300 bg-background p-4">
-                      <Label>
-                        One-time temporary password
-                      </Label>
-
-                      <div className="mt-2 flex gap-2">
+                    {createdAccount.temporaryPassword && (
+                      <div className="flex gap-2">
                         <Input
                           value={
                             createdAccount.temporaryPassword
                           }
                           readOnly
-                          className="font-mono"
+                          className="bg-white font-mono font-semibold"
                         />
-
                         <Button
                           type="button"
                           variant="outline"
@@ -461,21 +473,15 @@ export function CreateStaffAccountDialog({
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
-
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        This password is shown only because
-                        the email was not delivered.
-                      </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="sm:justify-center">
                 <Button
                   type="button"
-                  onClick={() =>
-                    setCreatedAccount(null)
-                  }
+                  onClick={() => setCreatedAccount(null)}
                   className="min-w-28"
                 >
                   Done
@@ -534,9 +540,7 @@ function RoleChoice({
         </div>
 
         <div>
-          <p className="font-semibold">
-            {title}
-          </p>
+          <p className="font-semibold">{title}</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             {description}
           </p>

@@ -1,13 +1,25 @@
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 import bcrypt from 'bcryptjs'
-import { randomInt } from 'crypto'
+import { randomInt, randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
 
 type StaffRole = 'ADMIN' | 'WORKER'
+
+type AdministratorRow = {
+  id: string
+  name: string
+  email: string
+  role: string
+}
+
+type UserColumn = {
+  name: string
+}
 
 function normalizeRole(value: unknown): StaffRole | null {
   const role = String(value || '').trim().toUpperCase()
@@ -46,8 +58,13 @@ function generateTemporaryPassword() {
     characters.push(randomCharacter(all))
   }
 
-  for (let index = characters.length - 1; index > 0; index -= 1) {
+  for (
+    let index = characters.length - 1;
+    index > 0;
+    index -= 1
+  ) {
     const swapIndex = randomInt(0, index + 1)
+
     ;[characters[index], characters[swapIndex]] = [
       characters[swapIndex],
       characters[index],
@@ -57,82 +74,104 @@ function generateTemporaryPassword() {
   return characters.join('')
 }
 
-async function requireCurrentAdmin(
-  request: NextRequest,
-  adminPassword: string,
-) {
-  const adminId =
-    request.headers.get('x-user-id') ||
-    request.nextUrl.searchParams.get('userId')
+async function getUserColumns() {
+  const columns = await db.$queryRaw<UserColumn[]>`
+    PRAGMA table_info("User")
+  `
 
-  if (!adminId) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          error: 'Administrator session is required',
-        },
-        { status: 401 },
-      ),
-    }
+  return new Set(columns.map((column) => column.name))
+}
+
+async function ensureOnboardingColumns() {
+  let columns = await getUserColumns()
+
+  if (!columns.has('temporaryPasswordIssued')) {
+    await db.$executeRawUnsafe(`
+      ALTER TABLE "User"
+      ADD COLUMN "temporaryPasswordIssued"
+      BOOLEAN NOT NULL DEFAULT false
+    `)
   }
 
-  const administrator = await db.user.findUnique({
-    where: { id: adminId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      password: true,
-    },
-  })
+  columns = await getUserColumns()
 
+  if (!columns.has('passwordChangedAt')) {
+    await db.$executeRawUnsafe(`
+      ALTER TABLE "User"
+      ADD COLUMN "passwordChangedAt" DATETIME
+    `)
+  }
+
+  columns = await getUserColumns()
+
+  if (!columns.has('onboardingReminderDismissedAt')) {
+    await db.$executeRawUnsafe(`
+      ALTER TABLE "User"
+      ADD COLUMN "onboardingReminderDismissedAt" DATETIME
+    `)
+  }
+}
+
+async function findAdministrator(adminId: string) {
+  const rows = await db.$queryRaw<AdministratorRow[]>`
+    SELECT
+      "id",
+      "name",
+      "email",
+      "role"
+    FROM "User"
+    WHERE "id" = ${adminId}
+    LIMIT 1
+  `
+
+  return rows[0] || null
+}
+
+async function sendWelcomeEmailWithTimeout(
+  email: string,
+  name: string,
+  role: StaffRole,
+  temporaryPassword: string,
+) {
   if (
-    !administrator ||
-    String(administrator.role).toUpperCase() !== 'ADMIN'
+    !process.env.BREVO_SMTP_LOGIN ||
+    !process.env.BREVO_SMTP_KEY
   ) {
     return {
-      error: NextResponse.json(
-        {
-          success: false,
-          error: 'Only an administrator can create staff accounts',
-        },
-        { status: 403 },
-      ),
+      success: false,
+      message: 'Email is not configured.',
     }
   }
 
-  if (!adminPassword) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          error: 'Enter your current administrator password',
-        },
-        { status: 400 },
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<{
+    success: false
+    message: string
+  }>((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve({
+        success: false,
+        message: 'Email delivery timed out.',
+      })
+    }, 6000)
+  })
+
+  try {
+    return await Promise.race([
+      sendWelcomeEmail(
+        email,
+        name,
+        role,
+        temporaryPassword,
       ),
+      timeoutPromise,
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
     }
   }
-
-  const passwordIsValid = await bcrypt.compare(
-    adminPassword,
-    administrator.password,
-  )
-
-  if (!passwordIsValid) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          error: 'Your administrator password is incorrect',
-        },
-        { status: 401 },
-      ),
-    }
-  }
-
-  return { administrator }
 }
 
 export async function POST(request: NextRequest) {
@@ -143,42 +182,46 @@ export async function POST(request: NextRequest) {
     const email = cleanText(body.email).toLowerCase()
     const phone = cleanText(body.phone)
     const role = normalizeRole(body.role)
-    const adminPassword = String(body.adminPassword || '')
 
-    const authorization = await requireCurrentAdmin(
-      request,
-      adminPassword,
-    )
+    const adminId =
+      request.headers.get('x-user-id') ||
+      cleanText(body.adminId) ||
+      request.nextUrl.searchParams.get('userId') ||
+      ''
 
-    if ('error' in authorization) {
-      return authorization.error
+    if (!adminId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Administrator session is required. Sign in again and retry.',
+        },
+        { status: 401 },
+      )
+    }
+
+    const administrator = await findAdministrator(adminId)
+
+    if (
+      !administrator ||
+      String(administrator.role).toUpperCase() !== 'ADMIN'
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Only an Administrator can create staff accounts.',
+        },
+        { status: 403 },
+      )
     }
 
     if (!name || !email || !role) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Name, email, and account role are required',
-        },
-        { status: 400 },
-      )
-    }
-
-    if (name.length > 120) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'The name is too long',
-        },
-        { status: 400 },
-      )
-    }
-
-    if (phone.length > 40) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'The phone number is too long',
+          error:
+            'Name, email, and account role are required.',
         },
         { status: 400 },
       )
@@ -190,95 +233,127 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Enter a valid email address',
+          error: 'Enter a valid email address.',
         },
         { status: 400 },
       )
     }
 
-    const existingUser = await db.user.findUnique({
-      where: { email },
-      select: { id: true },
-    })
-
-    if (existingUser) {
+    if (name.length > 120) {
       return NextResponse.json(
         {
           success: false,
-          error: 'A user with this email already exists',
+          error: 'The name is too long.',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (phone.length > 40) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'The phone number is too long.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const existingRows = await db.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "User"
+      WHERE lower("email") = lower(${email})
+      LIMIT 1
+    `
+
+    if (existingRows.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'A user with this email already exists.',
         },
         { status: 409 },
       )
     }
 
+    await ensureOnboardingColumns()
+
+    const userId = randomUUID()
     const temporaryPassword = generateTemporaryPassword()
-    const passwordHash = await bcrypt.hash(
-      temporaryPassword,
-      12,
-    )
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12)
+    const now = new Date()
 
-    const createdUser = await db.user.create({
-      data: {
-        name,
-        email,
-        phone: phone || null,
-        role,
-        password: passwordHash,
-        temporaryPasswordIssued: true,
-        passwordChangedAt: null,
-        onboardingReminderDismissedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        profilePicture: true,
-        createdAt: true,
-      },
-    })
+    await db.$executeRaw`
+      INSERT INTO "User" (
+        "id",
+        "email",
+        "password",
+        "name",
+        "role",
+        "phone",
+        "temporaryPasswordIssued",
+        "passwordChangedAt",
+        "onboardingReminderDismissedAt",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${userId},
+        ${email},
+        ${passwordHash},
+        ${name},
+        ${role},
+        ${phone || null},
+        true,
+        NULL,
+        NULL,
+        ${now},
+        ${now}
+      )
+    `
 
-    const emailResult = await sendWelcomeEmail(
+    const emailResult = await sendWelcomeEmailWithTimeout(
       email,
       name,
       role,
       temporaryPassword,
-    ).catch((error) => {
-      console.error(
-        `Failed to send ${role} welcome email:`,
-        error,
-      )
+    )
 
-      return {
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Email delivery failed',
-      }
-    })
+    const emailSent = Boolean(emailResult?.success)
 
     return NextResponse.json(
       {
         success: true,
-        message: emailResult?.success
+        message: emailSent
           ? `${
               role === 'ADMIN' ? 'Administrator' : 'Worker'
-            } account created. Login instructions were sent by email.`
+            } account created. The temporary password was sent by email.`
           : `${
               role === 'ADMIN' ? 'Administrator' : 'Worker'
-            } account created, but the welcome email was not delivered.`,
-        user: createdUser,
-        notification: {
-          emailSent: Boolean(emailResult?.success),
+            } account created. Email was not confirmed, so copy the temporary password shown on screen.`,
+        user: {
+          id: userId,
+          name,
+          email,
+          phone: phone || null,
+          role,
+          profilePicture: null,
+          temporaryPasswordIssued: true,
+          passwordChangedAt: null,
+          onboardingReminderDismissedAt: null,
+          createdAt: now,
         },
-        temporaryPassword: emailResult?.success
+        notification: {
+          emailSent,
+          message:
+            emailResult?.message || 'Email was not confirmed.',
+        },
+        temporaryPassword: emailSent
           ? null
           : temporaryPassword,
         createdBy: {
-          id: authorization.administrator.id,
-          name: authorization.administrator.name,
+          id: administrator.id,
+          name: administrator.name,
         },
       },
       { status: 201 },
@@ -289,7 +364,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to create the staff account',
+        error: 'Failed to create the staff account.',
         ...(process.env.NODE_ENV !== 'production'
           ? {
               details:

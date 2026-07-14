@@ -3,6 +3,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
+import { TemporaryPasswordReminder } from '@/components/auth/temporary-password-reminder'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -140,19 +141,30 @@ function AppShellContent() {
     )
   }
 
+  const passwordReminder = (
+    <TemporaryPasswordReminder
+      user={user}
+      onUserUpdated={refreshUser}
+    />
+  )
+
   if (mode === 'profile') {
     return (
-      <Suspense
-        fallback={
-          <ViewLoader label="Loading profile…" />
-        }
-      >
-        <ProfileView
-          user={user}
-          onBack={() => setMode('dashboard')}
-          onUserUpdated={refreshUser}
-        />
-      </Suspense>
+      <>
+        <Suspense
+          fallback={
+            <ViewLoader label="Loading profile…" />
+          }
+        >
+          <ProfileView
+            user={user}
+            onBack={() => setMode('dashboard')}
+            onUserUpdated={refreshUser}
+          />
+        </Suspense>
+
+        {passwordReminder}
+      </>
     )
   }
 
@@ -168,48 +180,60 @@ function AppShellContent() {
 
   if (normalizedRole === 'admin') {
     return (
-      <Suspense
-        fallback={
-          <ViewLoader label="Loading admin dashboard…" />
-        }
-      >
-        <AdminDashboard
-          user={user}
-          onLogout={handleLogout}
-          onProfile={handleProfile}
-        />
-      </Suspense>
+      <>
+        <Suspense
+          fallback={
+            <ViewLoader label="Loading admin dashboard…" />
+          }
+        >
+          <AdminDashboard
+            user={user}
+            onLogout={handleLogout}
+            onProfile={handleProfile}
+          />
+        </Suspense>
+
+        {passwordReminder}
+      </>
     )
   }
 
   if (normalizedRole === 'worker') {
     return (
+      <>
+        <Suspense
+          fallback={
+            <ViewLoader label="Loading worker dashboard…" />
+          }
+        >
+          <WorkerDashboard
+            user={user}
+            onLogout={handleLogout}
+            onProfile={handleProfile}
+          />
+        </Suspense>
+
+        {passwordReminder}
+      </>
+    )
+  }
+
+  return (
+    <>
       <Suspense
         fallback={
-          <ViewLoader label="Loading worker dashboard…" />
+          <ViewLoader label="Loading portal…" />
         }
       >
-        <WorkerDashboard
+        <VulnerableDashboard
           user={user}
           onLogout={handleLogout}
           onProfile={handleProfile}
         />
       </Suspense>
-    )
-  }
 
-  return (
-    <Suspense
-      fallback={
-        <ViewLoader label="Loading portal…" />
-      }
-    >
-      <VulnerableDashboard
-        user={user}
-        onLogout={handleLogout}
-        onProfile={handleProfile}
-      />
-    </Suspense>
+      {passwordReminder}
+    </>
   )
 }
 

@@ -12,6 +12,10 @@ export interface AuthUser {
   phone?: string | null
   theme?: 'light' | 'dark'
   accent?: 'emerald' | 'teal' | 'green' | 'amber'
+  registrationStatus?: string | null
+  temporaryPasswordIssued?: boolean
+  passwordChangedAt?: string | null
+  onboardingReminderDismissedAt?: string | null
 }
 
 const USER_KEY = 'crms_user'
