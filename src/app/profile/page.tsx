@@ -1,9 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+
 import { ProfileView } from '@/components/profile-view'
-import { AccentProvider } from '@/components/providers/theme-provider'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 export default function ProfilePage() {
@@ -18,11 +18,22 @@ export default function ProfilePage() {
     )
   }
 
-  const backPath = user.role === 'admin' ? '/admin/dashboard' : user.role === 'worker' ? '/worker/dashboard' : '/vulnerable/dashboard'
+  const normalizedRole = String(
+    user.role || '',
+  ).toLowerCase()
+
+  const backPath =
+    normalizedRole === 'admin'
+      ? '/admin/dashboard'
+      : normalizedRole === 'worker'
+        ? '/worker/dashboard'
+        : '/vulnerable/dashboard'
 
   return (
-    <AccentProvider>
-      <ProfileView user={user} onBack={() => router.push(backPath)} onUserUpdated={refreshUser} />
-    </AccentProvider>
+    <ProfileView
+      user={user}
+      onBack={() => router.push(backPath)}
+      onUserUpdated={refreshUser}
+    />
   )
 }

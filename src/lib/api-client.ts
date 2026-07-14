@@ -9,17 +9,33 @@ export interface AuthUser {
   name: string
   role: 'admin' | 'worker' | 'vulnerable'
   profilePicture?: string | null
+  phone?: string | null
+  theme?: 'light' | 'dark'
+  accent?: 'emerald' | 'teal' | 'green' | 'amber'
 }
 
 const USER_KEY = 'crms_user'
 const TOKEN_KEY = 'crms_token'
 const LEGACY_USER_KEY = 'user'
 const LEGACY_TOKEN_KEY = 'token'
+const AUTH_CHANGED_EVENT = 'crms-auth-changed'
+
+function dispatchAuthChanged() {
+  if (typeof window === 'undefined') return
+
+  window.dispatchEvent(
+    new CustomEvent(AUTH_CHANGED_EVENT),
+  )
+}
 
 export function getStoredUser(): AuthUser | null {
   if (typeof window === 'undefined') return null
+
   try {
-    const raw = localStorage.getItem(USER_KEY) || localStorage.getItem(LEGACY_USER_KEY)
+    const raw =
+      localStorage.getItem(USER_KEY) ||
+      localStorage.getItem(LEGACY_USER_KEY)
+
     return raw ? (JSON.parse(raw) as AuthUser) : null
   } catch {
     return null
@@ -28,14 +44,26 @@ export function getStoredUser(): AuthUser | null {
 
 export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY)
+
+  return (
+    localStorage.getItem(TOKEN_KEY) ||
+    localStorage.getItem(LEGACY_TOKEN_KEY)
+  )
 }
 
-export function setStoredUser(user: AuthUser, token: string) {
+export function setStoredUser(
+  user: AuthUser,
+  token: string,
+) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
   localStorage.setItem(TOKEN_KEY, token)
-  localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user))
+  localStorage.setItem(
+    LEGACY_USER_KEY,
+    JSON.stringify(user),
+  )
   localStorage.setItem(LEGACY_TOKEN_KEY, token)
+
+  dispatchAuthChanged()
 }
 
 export function clearStoredUser() {
@@ -43,6 +71,8 @@ export function clearStoredUser() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(LEGACY_USER_KEY)
   localStorage.removeItem(LEGACY_TOKEN_KEY)
+
+  dispatchAuthChanged()
 }
 
 type FetchOptions = RequestInit & {
@@ -52,73 +82,117 @@ type FetchOptions = RequestInit & {
   userId?: string
 }
 
-/**
- * Universal API fetch wrapper.
- * - GET/DELETE: appends userId as query param when available
- * - POST/PUT: injects userId/adminId/createdBy into body when the route needs it
- * - /api/user/* routes use the x-user-id header instead
- * - Always sets Authorization: Bearer <token> for cookie-friendly middleware
- */
 export async function apiFetch<T = any>(
   url: string,
-  options: FetchOptions = {}
+  options: FetchOptions = {},
 ): Promise<T> {
-  const { useUserHeader = false, userId, ...fetchOpts } = options
+  const {
+    useUserHeader = false,
+    userId,
+    ...fetchOpts
+  } = options
+
   const user = getStoredUser()
   const token = getStoredToken()
   const effectiveUserId = userId ?? user?.id
 
-  const isFormData = typeof FormData !== 'undefined' && fetchOpts.body instanceof FormData
+  const isFormData =
+    typeof FormData !== 'undefined' &&
+    fetchOpts.body instanceof FormData
+
   const headers: Record<string, string> = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(isFormData
+      ? {}
+      : { 'Content-Type': 'application/json' }),
     ...(fetchOpts.headers as Record<string, string>),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
   if (useUserHeader && effectiveUserId) {
     headers['x-user-id'] = effectiveUserId
   }
 
-  // Body injection for POST/PUT
   let body = fetchOpts.body
-  if (body && typeof body === 'string' && effectiveUserId) {
+
+  if (
+    body &&
+    typeof body === 'string' &&
+    effectiveUserId
+  ) {
     try {
       const parsed = JSON.parse(body)
-      if (!('userId' in parsed) && !('adminId' in parsed) && !('createdBy' in parsed) && !('workerId' in parsed) && !('requesterId' in parsed)) {
-        // Heuristic: routes that need identity will read userId/adminId/createdBy/workerId
-        // We attach userId by default; specific routes can still override via explicit body field
+
+      if (
+        !('userId' in parsed) &&
+        !('adminId' in parsed) &&
+        !('createdBy' in parsed) &&
+        !('workerId' in parsed) &&
+        !('requesterId' in parsed)
+      ) {
         parsed.userId = effectiveUserId
         body = JSON.stringify(parsed)
       }
     } catch {
-      // non-JSON body (FormData) — leave as is
+      // Non-JSON body — leave unchanged.
     }
-  } else if (fetchOpts.method === 'POST' && !body && effectiveUserId && !useUserHeader) {
-    body = JSON.stringify({ userId: effectiveUserId })
+  } else if (
+    fetchOpts.method === 'POST' &&
+    !body &&
+    effectiveUserId &&
+    !useUserHeader
+  ) {
+    body = JSON.stringify({
+      userId: effectiveUserId,
+    })
   }
 
-  // Query param injection for GET/DELETE
   let finalUrl = url
-  if (effectiveUserId && (fetchOpts.method === 'GET' || fetchOpts.method === 'DELETE' || !fetchOpts.method)) {
-    const sep = finalUrl.includes('?') ? '&' : '?'
-    if (!finalUrl.includes('userId=') && !finalUrl.includes('adminId=')) {
-      finalUrl = `${finalUrl}${sep}userId=${effectiveUserId}`
+
+  if (
+    effectiveUserId &&
+    (fetchOpts.method === 'GET' ||
+      fetchOpts.method === 'DELETE' ||
+      !fetchOpts.method)
+  ) {
+    const separator = finalUrl.includes('?') ? '&' : '?'
+
+    if (
+      !finalUrl.includes('userId=') &&
+      !finalUrl.includes('adminId=')
+    ) {
+      finalUrl = `${finalUrl}${separator}userId=${effectiveUserId}`
     }
   }
 
-  const res = await fetch(finalUrl, { ...fetchOpts, headers, body })
+  const response = await fetch(finalUrl, {
+    ...fetchOpts,
+    headers,
+    body,
+  })
+
   let data: any
-  const ct = res.headers.get('content-type') || ''
-  if (ct.includes('application/json')) {
-    data = await res.json()
+  const contentType =
+    response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    data = await response.json()
   } else {
-    data = await res.text()
+    data = await response.text()
   }
-  if (!res.ok) {
-    const msg =
-      (data && typeof data === 'object' && (data.error || data.message)) ||
+
+  if (!response.ok) {
+    const message =
+      (data &&
+        typeof data === 'object' &&
+        (data.error || data.message)) ||
       (typeof data === 'string' && data) ||
-      `Request failed (${res.status})`
-    throw new Error(msg)
+      `Request failed (${response.status})`
+
+    throw new Error(message)
   }
+
   return data as T
 }

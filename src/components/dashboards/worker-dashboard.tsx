@@ -5,9 +5,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, Package, PackagePlus, UserPlus, NotebookPen, Megaphone,
-  Loader2, Check, Users as UsersIcon, BookOpen,
+  Loader2, Check, Users as UsersIcon, BookOpen, Printer,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
+import { DailyReportsView } from '@/components/reports/daily-reports-view'
 import { NavItem } from '@/components/layout/sidebar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'register-vulnerable', label: 'Register Citizen', icon: UserPlus },
   { id: 'field-notes', label: 'Field Notes', icon: NotebookPen },
   { id: 'announcements', label: 'Announcements', icon: Megaphone },
+  { id: 'reports', label: 'Daily Reports', icon: Printer },
   { id: 'guide', label: 'User Guide', icon: BookOpen },
 ]
 
@@ -63,6 +65,7 @@ export function WorkerDashboard({ user, onLogout, onProfile }: WorkerDashboardPr
       {view === 'register-vulnerable' && <RegisterVulnerableView workerId={user.id} />}
       {view === 'field-notes' && <FieldNotesView workerId={user.id} />}
       {view === 'announcements' && <WorkerAnnouncementsView />}
+      {view === 'reports' && <DailyReportsView user={user} />}
       {view === 'guide' && <RoleManual role={user.role} />}
     </AppShell>
   )

@@ -1,6 +1,8 @@
 "use client";
 
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal';
+import { CreateStaffAccountDialog } from "@/components/admin/create-staff-account-dialog";
+import { ApprovalCenter } from "@/components/admin/approval-center";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
 import dynamic from "next/dynamic";
@@ -27,8 +29,10 @@ import {
   MapPin,
   Siren,
   Activity,
+  Printer,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { DailyReportsView } from "@/components/reports/daily-reports-view";
 import { NavItem } from "@/components/layout/sidebar";
 import {
   Card,
@@ -40,6 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -114,6 +119,7 @@ const VulnerableMap = dynamic(
 
 const NAV_ITEMS: NavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "approval-center", label: "Approval Center", icon: ShieldCheck },
   { id: "registrations", label: "Registrations", icon: UserCheck },
   { id: "users", label: "Users", icon: Users },
   { id: "distributions", label: "Relief Approval", icon: Package },
@@ -121,6 +127,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "feedback", label: "Feedback", icon: MessageSquare },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "map", label: "Vulnerable Map", icon: MapIcon },
+  { id: "reports", label: "Daily Reports", icon: Printer },
   { id: "guide", label: "User Guide", icon: BookOpen },
 ];
 
@@ -176,6 +183,7 @@ export function AdminDashboard({
       userPhoto={getUserPhoto(user)}
     >
       {view === "overview" && <OverviewView />}
+      {view === "approval-center" && <ApprovalCenter admin={user} />}
       {view === "registrations" && <RegistrationsView />}
       {view === "users" && <UsersView />}
       {view === "distributions" && <DistributionsView />}
@@ -183,6 +191,7 @@ export function AdminDashboard({
       {view === "feedback" && <FeedbackView />}
       {view === "analytics" && <AnalyticsView />}
       {view === "map" && <MapView />}
+      {view === "reports" && <DailyReportsView user={user} />}
       {view === "guide" && <RoleManual role={user.role || "ADMIN"} />}
     </AppShell>
   );
@@ -913,6 +922,42 @@ function OnlineStatusBadge({ user }: { user: any }) {
   );
 }
 
+
+function userInitials(user: any) {
+  return String(user?.name || user?.email || "User")
+    .split(/\\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function UserManagementAvatar({ user }: { user: any }) {
+  const picture =
+    user?.profilePicture ||
+    user?.profileImage ||
+    user?.profilePhoto ||
+    user?.photoUrl ||
+    user?.avatarUrl ||
+    null;
+
+  return (
+    <Avatar className="h-10 w-10 border border-slate-200 bg-slate-100 shadow-sm">
+      {picture ? (
+        <AvatarImage
+          src={picture}
+          alt={user?.name || "User profile"}
+          className="object-cover"
+        />
+      ) : null}
+      <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+        {userInitials(user)}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 // =================== USERS ===================
 type UserRoleFilter = "ALL" | "ADMIN" | "WORKER" | "VULNERABLE";
 type PresenceFilter = "ALL" | "ONLINE_NOW" | "ONLINE_TODAY" | "NOT_ONLINE_TODAY" | "OFFLINE";
@@ -1145,7 +1190,14 @@ function UsersView() {
             </Select>
           </div>
 
-          <Button onClick={() => setShowCreate(true)}>Create Worker</Button>
+          <Button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="gap-2"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Create Account
+          </Button>
         </div>
       </div>
 
@@ -1222,7 +1274,7 @@ function UsersView() {
             <Table key={`users-table-${roleFilter}-${presenceFilter}-${filterAnimationKey}`}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Phone</TableHead>
@@ -1239,7 +1291,19 @@ function UsersView() {
                     className="crms-user-row-reveal transition-colors hover:bg-emerald-50/35"
                     style={{ animationDelay: `${Math.min(index, 8) * 48}ms` }}
                   >
-                    <TableCell className="font-medium">{u.name}</TableCell>
+                    <TableCell>
+                      <div className="flex min-w-[220px] items-center gap-3">
+                        <UserManagementAvatar user={u} />
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-foreground">
+                            {u.name}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {u.profilePicture ? "Profile photo uploaded" : "Initials avatar"}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {u.email}
                     </TableCell>
@@ -1286,10 +1350,10 @@ function UsersView() {
         </CardContent>
       </Card>
 
-      <CreateWorkerDialog
+      <CreateStaffAccountDialog
         open={showCreate}
         onOpenChange={setShowCreate}
-        onCreated={load}
+        onCreated={() => load(false)}
       />
 
       <DeleteUserConfirmDialog

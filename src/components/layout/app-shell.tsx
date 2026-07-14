@@ -91,7 +91,7 @@ export function AppShell({
 
   return (
     <>
-      <div className="h-dvh overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.13),transparent_34%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_30%),#f8fafc] text-slate-950">
+      <div className="crms-dashboard-theme h-dvh overflow-hidden bg-background text-foreground">
         <div className="flex h-full min-h-0 overflow-hidden">
           <Sidebar
             items={items}
