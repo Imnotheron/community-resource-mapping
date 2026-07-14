@@ -1119,8 +1119,10 @@ function UsersView() {
     setDeletingUser(true);
 
     try {
-      await apiFetch(`/api/admin/users/${deleteTarget.id}`, {
+      const result = await apiFetch(`/api/admin/users/${deleteTarget.id}`, {
         method: "DELETE",
+        useUserHeader: true,
+        userId: getAdminId() || undefined,
         body: JSON.stringify({ adminId: getAdminId() }),
       });
 
@@ -1128,7 +1130,9 @@ function UsersView() {
         currentUsers.filter((user) => user.id !== deleteTarget.id),
       );
       toast.success("User deleted", {
-        description: `${deleteTarget.name || deleteTarget.email || "The user"} was removed successfully.`,
+        description: result?.emailDelivery?.sent
+          ? `${deleteTarget.name || deleteTarget.email || "The user"} was removed and the deletion email was sent.`
+          : `${deleteTarget.name || deleteTarget.email || "The user"} was removed, but the deletion email was not sent: ${result?.emailDelivery?.message || "Email delivery failed."}`,
       });
       setDeleteTarget(null);
       load(false);
