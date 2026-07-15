@@ -3,7 +3,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
-import { TemporaryPasswordReminder } from '@/components/auth/temporary-password-reminder'
+import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -141,39 +141,36 @@ function AppShellContent() {
     )
   }
 
-  const passwordReminder = (
-    <TemporaryPasswordReminder
-      user={user}
-      onUserUpdated={refreshUser}
-    />
-  )
-
-  if (mode === 'profile') {
-    return (
-      <>
-        <Suspense
-          fallback={
-            <ViewLoader label="Loading profile…" />
-          }
-        >
-          <ProfileView
-            user={user}
-            onBack={() => setMode('dashboard')}
-            onUserUpdated={refreshUser}
-          />
-        </Suspense>
-
-        {passwordReminder}
-      </>
-    )
-  }
-
   const handleLogout = async () => {
     await logout()
     setMode('landing')
   }
 
   const handleProfile = () => setMode('profile')
+
+  if (mode === 'profile') {
+    return (
+      <Suspense
+        fallback={
+          <ViewLoader label="Loading profile…" />
+        }
+      >
+        <ProfileView
+          user={user}
+          onBack={() => setMode('dashboard')}
+          onUserUpdated={refreshUser}
+        />
+      </Suspense>
+    )
+  }
+
+  const setupReminder = (
+    <AccountSetupReminder
+      user={user}
+      onOpenProfile={handleProfile}
+    />
+  )
+
   const normalizedRole = String(
     user.role || '',
   ).toLowerCase()
@@ -193,7 +190,7 @@ function AppShellContent() {
           />
         </Suspense>
 
-        {passwordReminder}
+        {setupReminder}
       </>
     )
   }
@@ -213,7 +210,7 @@ function AppShellContent() {
           />
         </Suspense>
 
-        {passwordReminder}
+        {setupReminder}
       </>
     )
   }
@@ -232,7 +229,7 @@ function AppShellContent() {
         />
       </Suspense>
 
-      {passwordReminder}
+      {setupReminder}
     </>
   )
 }

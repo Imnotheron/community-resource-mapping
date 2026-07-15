@@ -6,7 +6,6 @@ import './globals.css'
 import ClickSpark from '@/components/effects/ClickSpark'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AccentProvider } from '@/components/providers/theme-provider'
-import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -115,7 +114,6 @@ export default function RootLayout({
             >
               <TooltipProvider>
                 {children}
-                <AccountSetupReminder />
               </TooltipProvider>
             </ClickSpark>
           </AccentProvider>
