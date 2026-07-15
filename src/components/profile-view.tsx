@@ -67,19 +67,19 @@ const FONT_SIZE_OPTIONS: Array<{
   {
     id: 'small',
     label: 'Small',
-    description: 'More content on screen.',
+    description: 'Smaller text, controls, and spacing.',
     sample: 'Aa',
   },
   {
     id: 'medium',
     label: 'Default',
-    description: 'Balanced and recommended.',
+    description: 'Current balanced interface size.',
     sample: 'Aa',
   },
   {
     id: 'large',
     label: 'Large',
-    description: 'Easier to read.',
+    description: 'Larger text, controls, and spacing.',
     sample: 'Aa',
   },
 ]
@@ -505,8 +505,9 @@ export function ProfileView({
       setSavedAccount(nextAccount)
 
       // Commit only after the API accepted the selected
-      // theme and accent. This updates the dashboard
-      // synchronously and refresh-safe browser cache.
+      // theme, accent, and interface size. This updates
+      // every account view synchronously and keeps a
+      // refresh-safe browser cache.
       commitAppearance(
         theme,
         accent,
@@ -532,7 +533,7 @@ export function ProfileView({
 
       toast.success('Profile settings saved', {
         description:
-          'Your changes are now active across the dashboard.',
+          'Your changes are now active across the whole account.',
       })
 
       onBack()
@@ -733,6 +734,7 @@ export function ProfileView({
             <CardDescription>
               Theme changes brightness. Accent
               changes buttons and highlights.
+              Interface size scales the whole account.
             </CardDescription>
           </CardHeader>
 
@@ -816,7 +818,7 @@ export function ProfileView({
           
             <div>
               <Label className="mb-3 block">
-                Font size
+                Text and interface size
               </Label>
 
               <div className="grid gap-3 sm:grid-cols-3">
@@ -868,7 +870,7 @@ export function ProfileView({
               </div>
 
               <p className="mt-3 text-xs text-muted-foreground">
-                This setting is saved to your account and restored after refresh, sign-in, or opening CRMS on another device.
+                Saved per account and applied to every dashboard page, navigation item, form, dialog, card, control, and label after refresh or sign-in.
               </p>
             </div>
           </CardContent>

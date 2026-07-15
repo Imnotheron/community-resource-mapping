@@ -37,13 +37,29 @@ const ACCENT_STORAGE_KEY = 'crms-accent'
 const FONT_SIZE_STORAGE_KEY = 'crms-font-size'
 const AUTH_CHANGED_EVENT = 'crms-auth-changed'
 
-const FONT_ROOT_SIZES: Record<
+const BASE_ROOT_FONT_SIZE = '16px'
+
+/**
+ * Scale the complete interface instead of changing only text.
+ *
+ * These ratios intentionally match the previous 15/16/17px
+ * typography choices:
+ * - Small: 15 / 16 = 0.9375
+ * - Default: 1
+ * - Large: 17 / 16 = 1.0625
+ *
+ * Keeping the root font at 16px prevents text from being scaled
+ * twice. CSS zoom then scales text, spacing, cards, controls,
+ * icons, dialogs, fixed pixel dimensions, and portal content
+ * together.
+ */
+const UI_SCALE_VALUES: Record<
   FontSizePreference,
   string
 > = {
-  small: '15px',
-  medium: '16px',
-  large: '17px',
+  small: '0.9375',
+  medium: '1',
+  large: '1.0625',
 }
 
 const ACCENT_VARS: Record<
@@ -253,8 +269,21 @@ function applyAppearance(
   root.dataset.theme = theme
   root.dataset.accent = accent
   root.dataset.fontSize = fontSize
-  root.style.fontSize =
-    FONT_ROOT_SIZES[fontSize]
+  root.dataset.interfaceSize = fontSize
+
+  // Keep rem calculations stable, then scale the complete
+  // document. The provider wraps every CRMS route and role,
+  // so this includes dashboards, navigation, forms, modals,
+  // toasts, sheets, tables, maps, and profile settings.
+  root.style.fontSize = BASE_ROOT_FONT_SIZE
+  root.style.setProperty(
+    '--crms-ui-scale',
+    UI_SCALE_VALUES[fontSize],
+  )
+  root.style.setProperty(
+    'zoom',
+    UI_SCALE_VALUES[fontSize],
+  )
 
   for (const [property, value] of Object.entries(variables)) {
     root.style.setProperty(property, value)
