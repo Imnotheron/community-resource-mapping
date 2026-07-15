@@ -1,53 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { AlertTriangle, Loader2, MapPin } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  MapPin,
+} from 'lucide-react'
 
-// Keep this address picker visually synchronized with src/components/maps/vulnerable-map.tsx.
-// Use the same theme name there and here.
-type MapTheme = 'coolGray' | 'blueprint' | 'emeraldMist' | 'darkMode' | 'satellite'
-const MAP_THEME: MapTheme = 'blueprint'
-
-const SAN_POLICARPO_CENTER = {
-  lat: 12.1792,
-  lng: 125.5072,
-}
-
-const SAN_POLICARPO_LIMITS = {
-  // Expanded practical boundary for all 17 San Policarpo barangays,
-  // including Natividad and Tabo.
-  south: 12.125,
-  west: 125.375,
-  north: 12.285,
-  east: 125.625,
-}
-
-const SAN_POLICARPO_BOUNDS: [[number, number], [number, number]] = [
-  [SAN_POLICARPO_LIMITS.west, SAN_POLICARPO_LIMITS.south],
-  [SAN_POLICARPO_LIMITS.east, SAN_POLICARPO_LIMITS.north],
-]
-
-const SAN_POLICARPO_BARANGAYS = [
-  'Alugan',
-  'Bahay',
-  'Bangon',
-  'Baras (Lipata)',
-  'Binogawan',
-  'Cajagwayan',
-  'Japunan',
-  'Natividad',
-  'Pangpang',
-  'Santa Cruz',
-  'Tabo',
-  'Tan-awan (Tanauawan)',
-  'Barangay No. 1 (Poblacion)',
-  'Barangay No. 2 (Poblacion)',
-  'Barangay No. 3 (Poblacion)',
-  'Barangay No. 4 (Poblacion)',
-  'Barangay No. 5 (Poblacion)',
-]
+import {
+  SAN_POLICARPO_BOUNDS,
+  SAN_POLICARPO_CENTER,
+  isWithinSanPolicarpoServiceEnvelope,
+} from '@/lib/san-policarpo-geography'
 
 type PickedAddress = {
   latitude: string
@@ -63,7 +36,9 @@ type PickedAddress = {
 interface AddressPickerMapProps {
   lat?: number | null
   lng?: number | null
-  onSelect: (address: PickedAddress) => void
+  onSelect: (
+    address: PickedAddress,
+  ) => void
 }
 
 type MarkerPosition = {
@@ -71,371 +46,376 @@ type MarkerPosition = {
   lng: number
 }
 
-const MAP_THEMES: Record<
-  MapTheme,
-  {
-    sourceId: string
-    layerId: string
-    tiles: string[]
-    attribution: string
-    paint: Record<string, number>
+type ReverseGeocodePayload = {
+  success: boolean
+  code?: string
+  message?: string
+  warning?: string
+  verified?: boolean
+  address?: PickedAddress
+}
+
+class AddressLookupError extends Error {
+  code?: string
+
+  constructor(
+    message: string,
+    code?: string,
+  ) {
+    super(message)
+    this.name =
+      'AddressLookupError'
+    this.code = code
   }
-> = {
-  coolGray: {
-    sourceId: 'cartoLight',
-    layerId: 'carto-light-base',
-    tiles: [
-      'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-    ],
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    paint: {
-      'raster-opacity': 1,
-      'raster-saturation': -0.55,
-      'raster-contrast': 0.06,
-      'raster-brightness-min': 0.04,
-      'raster-brightness-max': 0.98,
-    },
-  },
-  blueprint: {
-    sourceId: 'cartoVoyager',
-    layerId: 'carto-voyager-blueprint',
-    tiles: [
-      'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-    ],
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    paint: {
-      'raster-opacity': 1,
-      'raster-saturation': -0.25,
-      'raster-contrast': 0.02,
-      'raster-brightness-min': 0.02,
-      'raster-brightness-max': 0.95,
-    },
-  },
-  emeraldMist: {
-    sourceId: 'cartoLightEmerald',
-    layerId: 'carto-light-emerald',
-    tiles: [
-      'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-    ],
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    paint: {
-      'raster-opacity': 1,
-      'raster-saturation': -0.35,
-      'raster-contrast': 0.03,
-      'raster-brightness-min': 0.06,
-      'raster-brightness-max': 1,
-      'raster-hue-rotate': 18,
-    },
-  },
-  darkMode: {
-    sourceId: 'cartoDark',
-    layerId: 'carto-dark-base',
-    tiles: [
-      'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    ],
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    paint: {
-      'raster-opacity': 0.96,
-      'raster-saturation': -0.2,
-      'raster-contrast': 0.06,
-      'raster-brightness-min': 0.02,
-      'raster-brightness-max': 0.86,
-    },
-  },
-  satellite: {
-    sourceId: 'esriWorldImagery',
-    layerId: 'esri-world-imagery',
-    tiles: [
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    ],
-    attribution: 'Tiles &copy; Esri',
-    paint: {
-      'raster-opacity': 0.9,
-      'raster-saturation': -0.12,
-      'raster-contrast': 0.02,
-      'raster-brightness-min': 0.04,
-      'raster-brightness-max': 0.94,
-    },
-  },
 }
 
-function createMapStyle(themeName: MapTheme) {
-  const theme = MAP_THEMES[themeName]
-
-  return {
-    version: 8,
-    sources: {
-      [theme.sourceId]: {
-        type: 'raster',
-        tiles: theme.tiles,
-        tileSize: 256,
-        attribution: theme.attribution,
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    cartoVoyager: {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      ],
+      tileSize: 256,
+      attribution:
+        '&copy; OpenStreetMap contributors &copy; CARTO',
+    },
+  },
+  layers: [
+    {
+      id: 'carto-voyager',
+      type: 'raster',
+      source: 'cartoVoyager',
+      paint: {
+        'raster-opacity': 1,
+        'raster-saturation': -0.25,
+        'raster-contrast': 0.02,
+        'raster-brightness-min': 0.02,
+        'raster-brightness-max': 0.95,
       },
     },
-    layers: [
-      {
-        id: theme.layerId,
-        type: 'raster',
-        source: theme.sourceId,
-        paint: theme.paint,
-      },
-    ],
-  } as any
-}
+  ],
+} as any
 
-function isWithinSanPolicarpo(lat: number, lng: number) {
-  return (
-    lat >= SAN_POLICARPO_LIMITS.south &&
-    lat <= SAN_POLICARPO_LIMITS.north &&
-    lng >= SAN_POLICARPO_LIMITS.west &&
-    lng <= SAN_POLICARPO_LIMITS.east
-  )
-}
-
-function getSafePosition(lat?: number | null, lng?: number | null): MarkerPosition {
+function getSafePosition(
+  lat?: number | null,
+  lng?: number | null,
+): MarkerPosition {
   if (
     typeof lat === 'number' &&
-    Number.isFinite(lat) &&
     typeof lng === 'number' &&
-    Number.isFinite(lng) &&
-    isWithinSanPolicarpo(lat, lng)
+    isWithinSanPolicarpoServiceEnvelope(
+      lat,
+      lng,
+    )
   ) {
     return { lat, lng }
   }
 
-  return SAN_POLICARPO_CENTER
-}
-
-function normalize(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/barangay|brgy\.?|poblacion|\(|\)|\.|-|_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function toTitleCase(value: string) {
-  return value
-    .toLowerCase()
-    .split(' ')
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
-
-function getBarangayFromAddress(address: any, displayName: string) {
-  const directCandidates = [
-    address.village,
-    address.hamlet,
-    address.suburb,
-    address.neighbourhood,
-    address.quarter,
-    address.city_district,
-    address.locality,
-  ].filter(Boolean)
-
-  const displayParts = String(displayName || '')
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-
-  const candidates = [...directCandidates, ...displayParts]
-
-  for (const barangay of SAN_POLICARPO_BARANGAYS) {
-    const normalizedBarangay = normalize(barangay)
-
-    for (const candidate of candidates) {
-      const normalizedCandidate = normalize(String(candidate))
-
-      if (!normalizedCandidate) continue
-      if (normalizedCandidate === normalizedBarangay) return barangay
-      if (normalizedCandidate.includes(normalizedBarangay)) return barangay
-      if (normalizedBarangay.includes(normalizedCandidate)) return barangay
-    }
-  }
-
-  const firstUsefulDisplayPart = displayParts.find((part) => {
-    const cleaned = normalize(part)
-    return (
-      cleaned &&
-      !cleaned.includes('san policarpo') &&
-      !cleaned.includes('eastern samar') &&
-      !cleaned.includes('philippines') &&
-      !cleaned.includes('region') &&
-      !cleaned.match(/^\d+$/)
-    )
-  })
-
-  return firstUsefulDisplayPart ? toTitleCase(firstUsefulDisplayPart.replace(/^brgy\.\s*/i, '')) : ''
-}
-
-function normalizeAddress(raw: any, lat: number, lng: number): PickedAddress {
-  const address = raw?.address || raw || {}
-  const displayName = raw?.display_name || raw?.displayName || ''
-
-  const roadLike =
-    address.road ||
-    address.pedestrian ||
-    address.path ||
-    address.footway ||
-    address.residential ||
-    address.street ||
-    ''
-
-  const street = roadLike ? toTitleCase(String(roadLike)) : ''
-  const barangay = getBarangayFromAddress(address, displayName)
-
-  const municipality =
-    address.municipality ||
-    address.town ||
-    address.city ||
-    address.county ||
-    'San Policarpo'
-
-  const province =
-    address.state ||
-    address.province ||
-    address.region ||
-    'Eastern Samar'
-
   return {
-    latitude: String(lat),
-    longitude: String(lng),
-    houseNumber: address.house_number || '',
-    street,
-    barangay,
-    municipality: toTitleCase(String(municipality || 'San Policarpo')),
-    province: toTitleCase(String(province || 'Eastern Samar')),
-    displayName,
+    ...SAN_POLICARPO_CENTER,
   }
 }
 
-async function reverseGeocode(lat: number, lng: number): Promise<PickedAddress> {
+async function reverseGeocode(
+  lat: number,
+  lng: number,
+  signal: AbortSignal,
+) {
   const response = await fetch(
-    `/api/geocoding/reverse?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
-    { cache: 'no-store' }
+    `/api/geocoding/reverse?lat=${encodeURIComponent(
+      lat,
+    )}&lng=${encodeURIComponent(
+      lng,
+    )}`,
+    {
+      cache: 'no-store',
+      signal,
+    },
   )
 
-  const data = await response.json().catch(() => null)
+  const data =
+    (await response
+      .json()
+      .catch(() => null)) as
+      | ReverseGeocodePayload
+      | null
 
-  if (!response.ok || !data?.success) {
-    throw new Error(data?.message || 'Unable to get address from map')
+  if (
+    !response.ok ||
+    !data?.success ||
+    !data.address
+  ) {
+    throw new AddressLookupError(
+      data?.message ||
+        'Unable to verify this map location.',
+      data?.code,
+    )
   }
 
-  if (data.address) {
-    return normalizeAddress(data.address, lat, lng)
+  return {
+    address: data.address,
+    warning: data.warning || '',
   }
-
-  return normalizeAddress(data.result, lat, lng)
 }
 
 function createPickerMarkerElement() {
-  const el = document.createElement('div')
-  el.className = 'crms-address-picker-marker'
-  el.innerHTML = `
+  const element =
+    document.createElement('div')
+
+  element.className =
+    'crms-address-picker-marker'
+  element.innerHTML = `
     <div class="crms-address-picker-marker__pin">
       <div class="crms-address-picker-marker__dot"></div>
     </div>
     <div class="crms-address-picker-marker__shadow"></div>
   `
-  return el
+
+  return element
 }
 
-export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<maplibregl.Map | null>(null)
-  const markerRef = useRef<maplibregl.Marker | null>(null)
-  const onSelectRef = useRef(onSelect)
+export default function AddressPickerMap({
+  lat,
+  lng,
+  onSelect,
+}: AddressPickerMapProps) {
+  const mapContainerRef =
+    useRef<HTMLDivElement>(null)
+  const mapRef =
+    useRef<maplibregl.Map | null>(
+      null,
+    )
+  const markerRef =
+    useRef<maplibregl.Marker | null>(
+      null,
+    )
+  const onSelectRef =
+    useRef(onSelect)
+  const requestNumberRef =
+    useRef(0)
+  const activeRequestRef =
+    useRef<AbortController | null>(
+      null,
+    )
 
-  const initialPosition = useMemo(() => getSafePosition(lat, lng), [lat, lng])
+  const initialPosition =
+    useMemo(
+      () =>
+        getSafePosition(lat, lng),
+      [lat, lng],
+    )
 
-  const [position, setPosition] = useState<MarkerPosition>(initialPosition)
-  const [loadingAddress, setLoadingAddress] = useState(false)
-  const [lastAddress, setLastAddress] = useState('')
-  const [lastError, setLastError] = useState('')
+  const lastValidPositionRef =
+    useRef<MarkerPosition>(
+      initialPosition,
+    )
+
+  const [
+    ,
+    setPosition,
+  ] = useState<MarkerPosition>(
+    initialPosition,
+  )
+  const [
+    loadingAddress,
+    setLoadingAddress,
+  ] = useState(false)
+  const [
+    lastAddress,
+    setLastAddress,
+  ] = useState('')
+  const [
+    lastError,
+    setLastError,
+  ] = useState('')
+  const [
+    lastWarning,
+    setLastWarning,
+  ] = useState('')
 
   useEffect(() => {
-    onSelectRef.current = onSelect
+    onSelectRef.current =
+      onSelect
   }, [onSelect])
 
-  const pickPosition = useCallback(async (nextPosition: MarkerPosition) => {
-    if (!isWithinSanPolicarpo(nextPosition.lat, nextPosition.lng)) {
-      setLastAddress('')
-      setLastError('Please select a location inside San Policarpo, Eastern Samar only.')
+  const restoreLastValidPosition =
+    useCallback(() => {
+      const previous =
+        lastValidPositionRef.current
 
-      const map = mapRef.current
-      const marker = markerRef.current
-      marker?.setLngLat([SAN_POLICARPO_CENTER.lng, SAN_POLICARPO_CENTER.lat])
-      map?.easeTo({
-        center: [SAN_POLICARPO_CENTER.lng, SAN_POLICARPO_CENTER.lat],
-        zoom: Math.max(map.getZoom(), 13),
+      setPosition(previous)
+
+      markerRef.current?.setLngLat([
+        previous.lng,
+        previous.lat,
+      ])
+
+      mapRef.current?.easeTo({
+        center: [
+          previous.lng,
+          previous.lat,
+        ],
+        zoom: Math.max(
+          mapRef.current.getZoom(),
+          14.4,
+        ),
         duration: 360,
         essential: true,
       })
-      setPosition(SAN_POLICARPO_CENTER)
+    }, [])
+
+  const pickPosition =
+    useCallback(
+      async (
+        nextPosition: MarkerPosition,
+      ) => {
+        if (
+          !isWithinSanPolicarpoServiceEnvelope(
+            nextPosition.lat,
+            nextPosition.lng,
+          )
+        ) {
+          setLastAddress('')
+          setLastWarning('')
+          setLastError(
+            'Please select a location inside San Policarpo, Eastern Samar.',
+          )
+          restoreLastValidPosition()
+          return
+        }
+
+        activeRequestRef.current?.abort()
+
+        const controller =
+          new AbortController()
+        activeRequestRef.current =
+          controller
+
+        const requestNumber =
+          ++requestNumberRef.current
+
+        setPosition(nextPosition)
+        setLoadingAddress(true)
+        setLastAddress('')
+        setLastError('')
+        setLastWarning('')
+
+        markerRef.current?.setLngLat([
+          nextPosition.lng,
+          nextPosition.lat,
+        ])
+
+        mapRef.current?.stop()
+        mapRef.current?.easeTo({
+          center: [
+            nextPosition.lng,
+            nextPosition.lat,
+          ],
+          zoom: Math.max(
+            mapRef.current.getZoom(),
+            15,
+          ),
+          duration: 420,
+          essential: true,
+        })
+
+        try {
+          const result =
+            await reverseGeocode(
+              nextPosition.lat,
+              nextPosition.lng,
+              controller.signal,
+            )
+
+          if (
+            requestNumber !==
+            requestNumberRef.current
+          ) {
+            return
+          }
+
+          lastValidPositionRef.current =
+            nextPosition
+
+          setLastAddress(
+            result.address.displayName,
+          )
+          setLastWarning(
+            result.warning,
+          )
+          setLastError('')
+
+          onSelectRef.current(
+            result.address,
+          )
+        } catch (error: any) {
+          if (
+            error?.name ===
+            'AbortError'
+          ) {
+            return
+          }
+
+          if (
+            requestNumber !==
+            requestNumberRef.current
+          ) {
+            return
+          }
+
+          setLastAddress('')
+          setLastWarning('')
+          setLastError(
+            error?.message ||
+              'Unable to verify this address. Move the marker or enter it manually.',
+          )
+
+          /**
+           * Do not save rejected coordinates and do not overwrite the form
+           * with the hard-coded municipality. Return the marker to the last
+           * verified point.
+           */
+          restoreLastValidPosition()
+        } finally {
+          if (
+            requestNumber ===
+            requestNumberRef.current
+          ) {
+            setLoadingAddress(false)
+          }
+        }
+      },
+      [
+        restoreLastValidPosition,
+      ],
+    )
+
+  useEffect(() => {
+    if (
+      !mapContainerRef.current ||
+      mapRef.current
+    ) {
       return
     }
 
-    setPosition(nextPosition)
-    setLoadingAddress(true)
-    setLastAddress('')
-    setLastError('')
-
-    markerRef.current?.setLngLat([nextPosition.lng, nextPosition.lat])
-
-    const map = mapRef.current
-    map?.stop()
-    map?.easeTo({
-      center: [nextPosition.lng, nextPosition.lat],
-      zoom: Math.max(map.getZoom(), 15),
-      duration: 420,
-      essential: true,
-    })
-
-    try {
-      const result = await reverseGeocode(nextPosition.lat, nextPosition.lng)
-      setLastAddress(result.displayName || `${result.barangay}, ${result.municipality}, ${result.province}`)
-      onSelectRef.current(result)
-    } catch (error: any) {
-      setLastError(error?.message || 'Unable to auto-fill address. You can still type it manually.')
-      onSelectRef.current({
-        latitude: String(nextPosition.lat),
-        longitude: String(nextPosition.lng),
-        houseNumber: '',
-        street: '',
-        barangay: '',
-        municipality: 'San Policarpo',
-        province: 'Eastern Samar',
-        displayName: '',
-      })
-    } finally {
-      setLoadingAddress(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return
-
     const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: createMapStyle(MAP_THEME),
-      center: [initialPosition.lng, initialPosition.lat],
+      container:
+        mapContainerRef.current,
+      style: MAP_STYLE,
+      center: [
+        initialPosition.lng,
+        initialPosition.lat,
+      ],
       zoom: 14.4,
       minZoom: 11.2,
       maxZoom: 18,
-      maxBounds: SAN_POLICARPO_BOUNDS,
+      maxBounds:
+        SAN_POLICARPO_BOUNDS,
       attributionControl: false,
       dragRotate: false,
       pitchWithRotate: false,
@@ -445,56 +425,81 @@ export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMa
     mapRef.current = map
 
     map.addControl(
-      new maplibregl.NavigationControl({
-        showCompass: false,
-        visualizePitch: false,
-      }),
-      'bottom-right'
+      new maplibregl.NavigationControl(
+        {
+          showCompass: false,
+          visualizePitch: false,
+        },
+      ),
+      'bottom-right',
     )
 
     map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-      }),
-      'bottom-left'
+      new maplibregl.AttributionControl(
+        { compact: true },
+      ),
+      'bottom-left',
     )
 
-    const marker = new maplibregl.Marker({
-      element: createPickerMarkerElement(),
-      draggable: true,
-      anchor: 'bottom',
-    })
-      .setLngLat([initialPosition.lng, initialPosition.lat])
-      .addTo(map)
+    const marker =
+      new maplibregl.Marker({
+        element:
+          createPickerMarkerElement(),
+        draggable: true,
+        anchor: 'bottom',
+      })
+        .setLngLat([
+          initialPosition.lng,
+          initialPosition.lat,
+        ])
+        .addTo(map)
 
     markerRef.current = marker
 
     marker.on('dragend', () => {
-      const lngLat = marker.getLngLat()
-      pickPosition({ lat: lngLat.lat, lng: lngLat.lng })
+      const lngLat =
+        marker.getLngLat()
+
+      void pickPosition({
+        lat: lngLat.lat,
+        lng: lngLat.lng,
+      })
     })
 
     map.on('click', (event) => {
-      pickPosition({ lat: event.lngLat.lat, lng: event.lngLat.lng })
-    })
-
-    const resizeObserver = new ResizeObserver(() => {
-      window.requestAnimationFrame(() => {
-        map.resize()
+      void pickPosition({
+        lat: event.lngLat.lat,
+        lng: event.lngLat.lng,
       })
     })
 
-    resizeObserver.observe(mapContainerRef.current)
+    const resizeObserver =
+      new ResizeObserver(() => {
+        window.requestAnimationFrame(
+          () => map.resize(),
+        )
+      })
+
+    resizeObserver.observe(
+      mapContainerRef.current,
+    )
 
     map.once('load', () => {
       map.resize()
-      map.fitBounds(SAN_POLICARPO_BOUNDS, {
-        padding: 36,
-        duration: 0,
-      })
+      map.fitBounds(
+        SAN_POLICARPO_BOUNDS,
+        {
+          padding: 36,
+          duration: 0,
+        },
+      )
+
       window.setTimeout(() => {
         map.easeTo({
-          center: [initialPosition.lng, initialPosition.lat],
+          center: [
+            initialPosition.lng,
+            initialPosition.lat,
+          ],
           zoom: 14.4,
           duration: 420,
           essential: true,
@@ -502,26 +507,56 @@ export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMa
       }, 120)
     })
 
-    const timers = [80, 250, 650].map((delay) => window.setTimeout(() => map.resize(), delay))
+    const timers = [
+      80,
+      250,
+      650,
+    ].map((delay) =>
+      window.setTimeout(
+        () => map.resize(),
+        delay,
+      ),
+    )
 
     return () => {
-      timers.forEach((timer) => window.clearTimeout(timer))
+      activeRequestRef.current?.abort()
+      timers.forEach((timer) =>
+        window.clearTimeout(timer),
+      )
       resizeObserver.disconnect()
       marker.remove()
       map.remove()
       markerRef.current = null
       mapRef.current = null
     }
-  }, [initialPosition.lat, initialPosition.lng, pickPosition])
+  }, [
+    initialPosition.lat,
+    initialPosition.lng,
+    pickPosition,
+  ])
 
   useEffect(() => {
-    const safePosition = getSafePosition(lat, lng)
-    setPosition(safePosition)
+    const safePosition =
+      getSafePosition(lat, lng)
 
-    markerRef.current?.setLngLat([safePosition.lng, safePosition.lat])
+    setPosition(safePosition)
+    lastValidPositionRef.current =
+      safePosition
+
+    markerRef.current?.setLngLat([
+      safePosition.lng,
+      safePosition.lat,
+    ])
+
     mapRef.current?.easeTo({
-      center: [safePosition.lng, safePosition.lat],
-      zoom: Math.max(mapRef.current.getZoom(), 14.4),
+      center: [
+        safePosition.lng,
+        safePosition.lat,
+      ],
+      zoom: Math.max(
+        mapRef.current.getZoom(),
+        14.4,
+      ),
       duration: 360,
       essential: true,
     })
@@ -535,7 +570,7 @@ export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMa
         }
 
         .crms-address-picker-map .maplibregl-control-container {
-          font-family: "Inter", "Geist Sans", "SF Pro Display", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+          font-family: "Inter", "Geist Sans", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
         }
 
         .crms-address-picker-map .maplibregl-ctrl-group {
@@ -557,8 +592,6 @@ export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMa
           background: rgba(255, 255, 255, 0.82);
           color: #64748b;
           font-size: 10px;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
-          backdrop-filter: blur(12px);
         }
 
         .crms-address-picker-marker {
@@ -596,7 +629,6 @@ export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMa
           height: 11px;
           border-radius: 999px;
           background: white;
-          box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.08);
         }
 
         .crms-address-picker-marker__shadow {
@@ -613,38 +645,51 @@ export default function AddressPickerMap({ lat, lng, onSelect }: AddressPickerMa
       `}</style>
 
       <div className="relative h-[340px] w-full overflow-hidden bg-slate-100">
-        <div ref={mapContainerRef} className="crms-address-picker-map h-full w-full" />
+        <div
+          ref={mapContainerRef}
+          className="crms-address-picker-map h-full w-full"
+        />
 
         <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-[calc(100%-2rem)] rounded-2xl border border-white/75 bg-white/[0.92] px-4 py-3 shadow-[0_18px_50px_rgba(15,23,42,0.13)] backdrop-blur-xl">
           <p className="text-[9px] font-medium uppercase leading-none tracking-[0.18em] text-slate-500">
             San Policarpo Map Picker
           </p>
           <p className="mt-1.5 text-sm font-semibold leading-snug tracking-tight text-slate-950">
-            Click or drag marker to select address
+            Click or drag the marker to verify an address
           </p>
         </div>
       </div>
 
-      <div className="border-t border-slate-200 bg-gradient-to-r from-white via-emerald-50/35 to-sky-50/35 px-4 py-3 text-sm text-slate-600">
+      <div className="border-t border-slate-200 bg-gradient-to-r from-white via-emerald-50/35 to-sky-50/35 px-4 py-3 text-sm">
         {loadingAddress ? (
           <span className="inline-flex items-center gap-2 font-medium text-slate-600">
             <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
-            Getting address from selected map point...
+            Verifying municipality and barangay...
           </span>
         ) : lastError ? (
-          <span className="inline-flex items-center gap-2 font-medium text-amber-700">
-            <AlertTriangle className="h-4 w-4" />
-            {lastError}
+          <span className="inline-flex items-start gap-2 font-medium text-red-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{lastError}</span>
           </span>
         ) : lastAddress ? (
-          <span className="inline-flex items-start gap-2 font-medium text-slate-700">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-            <span>{lastAddress}</span>
-          </span>
+          <div className="space-y-1.5">
+            <span className="inline-flex items-start gap-2 font-medium text-slate-700">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{lastAddress}</span>
+            </span>
+
+            {lastWarning && (
+              <p className="pl-6 text-xs font-medium text-amber-700">
+                {lastWarning}
+              </p>
+            )}
+          </div>
         ) : (
           <span className="inline-flex items-start gap-2 font-medium text-slate-500">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-            <span>Click the map or drag the marker. Address fields will auto-fill, but you can still edit them manually.</span>
+            <span>
+              Select a point. Only a location verified for San Policarpo will update the form.
+            </span>
           </span>
         )}
       </div>

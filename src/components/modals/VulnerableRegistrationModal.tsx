@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
 
 const AddressPickerMap = dynamic(() => import('@/components/maps/address-picker-map'), {
   ssr: false,
@@ -196,27 +197,7 @@ const STEPS: {
     { key: 'review', title: 'Review & Submit', short: 'Review', icon: CheckCircle2 },
   ]
 
-const BARANGAYS = [
-  'Barangay No. 1 (Poblacion)',
-  'Barangay No. 2 (Poblacion)',
-  'Baras',
-  'Aurog',
-  'Bahay',
-  'Bingay',
-  'Barobaybay',
-  'Cabugawan',
-  'Camanhagay',
-  'Canaptan',
-  'Capiñahan',
-  'Jangtud',
-  'Japunan',
-  'Mabini',
-  'Maragano',
-  'Oleras',
-  'Pangpang',
-  'Sukailang',
-  'Tan-awan',
-]
+const BARANGAYS = SAN_POLICARPO_BARANGAYS
 
 function getEmptyForm(): FormState {
   return {
@@ -1087,7 +1068,7 @@ export default function VulnerableRegistrationModal({
                 }}
               />
               <p className="mt-2 text-xs text-slate-500">
-                Click the map or drag the marker to auto-fill the address. You can still edit the address fields manually.
+                Click the map or drag the marker to verify the location. Only points identified as San Policarpo will update the form. House, street/sitio, and barangay may still be corrected manually.
                 Coordinates are saved internally for the vulnerable map but are hidden from the form.
               </p>
             </InputBlock>
@@ -1126,17 +1107,19 @@ export default function VulnerableRegistrationModal({
 
           <InputBlock label="Municipality / City">
             <Input
-              value={form.municipality}
-              onChange={(e) => updateField('municipality', e.target.value)}
-              placeholder="Municipality / City"
+              value="San Policarpo"
+              readOnly
+              aria-readonly="true"
+              className="bg-slate-50 text-slate-700"
             />
           </InputBlock>
 
           <InputBlock label="Province">
             <Input
-              value={form.province}
-              onChange={(e) => updateField('province', e.target.value)}
-              placeholder="Province"
+              value="Eastern Samar"
+              readOnly
+              aria-readonly="true"
+              className="bg-slate-50 text-slate-700"
             />
           </InputBlock>
         </div>
