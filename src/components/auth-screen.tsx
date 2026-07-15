@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { DashboardAmbient } from '@/components/effects/dashboard-ambient'
 
 type Role = 'admin' | 'worker' | 'vulnerable'
@@ -90,13 +91,41 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const isMobile = useIsMobile()
 
   const loginForm = useForm({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   })
 
+  useEffect(() => {
+    if (
+      isMobile &&
+      role === 'admin'
+    ) {
+      setRole('vulnerable')
+      setMode('select')
+      setErrorMessage(null)
+      loginForm.reset()
+    }
+  }, [isMobile, role, loginForm])
+
   const handleLogin = async (values: z.infer<typeof loginSchema>) => {
+    if (
+      isMobile &&
+      role === 'admin'
+    ) {
+      const message =
+        'Administrator sign-in is available only on desktop or laptop.'
+
+      setErrorMessage(message)
+      toast.error(
+        'Desktop required',
+        { description: message },
+      )
+      return
+    }
+
     setSubmitting(true)
     setErrorMessage(null)
 
@@ -210,7 +239,15 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
                 Select your role to continue
               </h2>
               <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                {(Object.keys(ROLE_INFO) as Role[]).map((r, index) => {
+                {(Object.keys(ROLE_INFO) as Role[])
+                  .filter(
+                    (availableRole) =>
+                      !(
+                        isMobile &&
+                        availableRole === 'admin'
+                      ),
+                  )
+                  .map((r, index) => {
                   const info = ROLE_INFO[r]
                   const Icon = info.icon
                   const c = info.colors
@@ -223,6 +260,7 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
                       }}
                       className={cn(
                         'group auth-role-card relative flex min-h-[190px] flex-col items-start gap-4 overflow-hidden rounded-2xl border border-border bg-gradient-to-br p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur transition-all',
+                        r === 'admin' && 'hidden md:flex',
                         c.gradient,
                         c.border,
                         c.glow

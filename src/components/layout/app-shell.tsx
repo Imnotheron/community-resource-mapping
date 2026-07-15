@@ -1,14 +1,14 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Sidebar } from './sidebar'
 import type { NavItem } from './sidebar'
-import { MobileNav } from './mobile-nav'
+import { MobileAppNav } from './mobile-app-nav'
 import { Button } from '@/components/ui/button'
-import { Menu } from 'lucide-react'
 import { DashboardAmbient } from '@/components/effects/dashboard-ambient'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   Dialog,
   DialogContent,
@@ -72,6 +72,19 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const isMobile = useIsMobile()
+  const [
+    mobileViewportReady,
+    setMobileViewportReady,
+  ] = useState(false)
+
+  useEffect(() => {
+    setMobileViewportReady(true)
+  }, [])
+
+  const normalizedRole = String(
+    userRole || '',
+  ).toLowerCase()
 
   const activeLabel =
     items.find((item) => item.id === activeView)?.label ?? 'Dashboard'
@@ -87,6 +100,62 @@ export function AppShell({
   function confirmLogout() {
     setLogoutOpen(false)
     onLogout()
+  }
+
+  if (
+    normalizedRole === 'admin' &&
+    !mobileViewportReady
+  ) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-slate-50 px-6">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-pulse rounded-2xl bg-emerald-100" />
+          <p className="mt-3 text-sm font-medium text-slate-500">
+            Preparing workspace...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (
+    normalizedRole === 'admin' &&
+    isMobile
+  ) {
+    return (
+      <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-50 px-5 py-10 text-slate-950">
+        <DashboardAmbient />
+
+        <div className="relative z-10 w-full max-w-sm rounded-[28px] border border-white/80 bg-white/90 p-6 text-center shadow-[0_30px_90px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+          <div className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2 shadow-sm">
+            <img
+              src="/logos/crms-system-icon.png"
+              alt="Community Resource Mapping System"
+              className="h-full w-full object-contain"
+            />
+          </div>
+
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">
+            Desktop-only workspace
+          </p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">
+            Administrator access is not available on phones
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            Open the CRMS Administrator portal on a desktop or laptop for secure access to approvals, user management, reports, maps, and analytics.
+          </p>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-6 w-full rounded-2xl"
+            onClick={onLogout}
+          >
+            Sign out
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -108,9 +177,9 @@ export function AppShell({
           <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
             <DashboardAmbient />
 
-            <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 py-2 shadow-sm backdrop-blur-xl md:hidden">
+            <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 py-2.5 shadow-sm backdrop-blur-xl md:hidden">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-200 bg-white p-1 shadow-sm">
+                <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-200 bg-white p-1 shadow-sm">
                   <img
                     src="/logos/crms-system-icon.png"
                     alt="Community Resource Mapping System"
@@ -119,8 +188,8 @@ export function AppShell({
                 </div>
 
                 <div className="min-w-0">
-                  <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    {formatWorkspace(userRole)} Portal
+                  <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                    {formatWorkspace(userRole)} Mobile
                   </span>
                   <span className="block truncate text-sm font-semibold text-slate-950">
                     {activeLabel}
@@ -128,21 +197,25 @@ export function AppShell({
                 </div>
               </div>
 
-              <MobileNav
-                items={items}
-                activeView={activeView}
-                onNavigate={onNavigate}
-                trigger={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 rounded-full bg-white/80 shadow-sm backdrop-blur"
-                  >
-                    <Menu className="h-4 w-4" />
-                    Menu
-                  </Button>
-                }
-              />
+              <button
+                type="button"
+                onClick={onProfile}
+                aria-label="Open profile"
+                className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-xs font-bold text-slate-700 shadow-sm"
+              >
+                {userPhoto ? (
+                  <img
+                    src={userPhoto}
+                    alt={userName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  String(userName || 'U')
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase()
+                )}
+              </button>
             </div>
 
             <header className="relative z-10 hidden shrink-0 px-6 pt-4 md:block">
@@ -178,7 +251,7 @@ export function AppShell({
               </div>
             </header>
 
-            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
+            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-6 md:py-5">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeView}
@@ -198,6 +271,17 @@ export function AppShell({
                 </motion.div>
               </AnimatePresence>
             </main>
+
+            <MobileAppNav
+              items={items}
+              activeView={activeView}
+              onNavigate={onNavigate}
+              onProfile={onProfile}
+              onLogout={openLogoutConfirm}
+              userName={userName}
+              userRole={userRole}
+              userPhoto={userPhoto}
+            />
 
             <footer className="relative z-10 hidden shrink-0 border-t border-slate-200/80 bg-white/70 px-6 py-2 text-xs font-medium text-slate-500 backdrop-blur-xl md:block">
               <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
