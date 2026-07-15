@@ -379,89 +379,269 @@ function getEmptyForm(): FormState {
   }
 }
 
-function getImportantMissingFields(form: FormState) {
-  const missing: string[] = []
+type RequiredFieldIssue = {
+  key: keyof FormState
+  label: string
+  step: number
+  message: string
+}
 
-  if (!form.lastName.trim()) missing.push('Last name')
-  if (!form.firstName.trim()) missing.push('First name')
-  if (!form.dateOfBirth.trim()) missing.push('Date of birth')
-  if (!form.gender.trim()) missing.push('Gender')
-  if (!form.barangay.trim()) missing.push('Barangay')
+function getRequiredFieldIssues(
+  form: FormState,
+): RequiredFieldIssue[] {
+  const issues: RequiredFieldIssue[] = []
 
-  if (!form.emailAddress.trim() && !form.mobileNumber.trim()) {
-    missing.push('Email address or mobile number')
+  const addIssue = (
+    key: keyof FormState,
+    label: string,
+    step: number,
+    message: string,
+  ) => {
+    if (
+      issues.some(
+        (issue) => issue.key === key,
+      )
+    ) {
+      return
+    }
+
+    issues.push({
+      key,
+      label,
+      step,
+      message,
+    })
   }
 
+  // Step 1: Personal — required for identity, contact, and location.
+  if (!form.lastName.trim()) {
+    addIssue(
+      'lastName',
+      'Last name',
+      0,
+      'Last name is required.',
+    )
+  }
+
+  if (!form.firstName.trim()) {
+    addIssue(
+      'firstName',
+      'First name',
+      0,
+      'First name is required.',
+    )
+  }
+
+  if (!form.dateOfBirth.trim()) {
+    addIssue(
+      'dateOfBirth',
+      'Date of birth',
+      0,
+      'Date of birth is required.',
+    )
+  }
+
+  if (!form.gender.trim()) {
+    addIssue(
+      'gender',
+      'Gender',
+      0,
+      'Gender is required.',
+    )
+  }
+
+  if (!form.mobileNumber.trim()) {
+    addIssue(
+      'mobileNumber',
+      'Mobile number',
+      0,
+      'Mobile number is required.',
+    )
+  }
+
+  if (!form.emailAddress.trim()) {
+    addIssue(
+      'emailAddress',
+      'Email address',
+      0,
+      'Email address is required so account credentials can be delivered.',
+    )
+  }
+
+  if (!form.barangay.trim()) {
+    addIssue(
+      'barangay',
+      'Barangay',
+      0,
+      'Barangay is required.',
+    )
+  }
+
+  // Step 2: Medical and registry — only essential and conditional fields.
   if (!form.registryCategory.trim()) {
-    missing.push('Government registry basis')
+    addIssue(
+      'registryCategory',
+      'Government registry basis',
+      1,
+      'Government registry basis is required.',
+    )
   }
 
-  if (form.registryCategory === 'PWD' && !form.disabilityType.trim() && !form.pwdIdNumber.trim()) {
-    missing.push('PWD disability type or PWD ID number')
+  if (
+    form.registryCategory ===
+      'GENERAL_WELFARE' &&
+    !form.povertyStatus.trim()
+  ) {
+    addIssue(
+      'povertyStatus',
+      'Poverty / welfare status',
+      1,
+      'Poverty or welfare status is required for a General Welfare registration.',
+    )
   }
 
-  if (form.registryCategory === 'GENERAL_WELFARE' && !form.povertyStatus.trim() && !form.assistanceType.trim()) {
-    missing.push('Poverty/welfare status or assistance type')
+  if (
+    form.registryCategory ===
+      'CIVIL_REGISTRY' &&
+    !form.civilRegistryStatus.trim()
+  ) {
+    addIssue(
+      'civilRegistryStatus',
+      'Civil registry status',
+      1,
+      'Civil registry status is required for a Civil Registry registration.',
+    )
+  }
+
+  if (
+    (form.registryCategory === 'PWD' ||
+      form.hasDisability) &&
+    !form.disabilityType.trim()
+  ) {
+    addIssue(
+      'disabilityType',
+      'Disability type',
+      1,
+      'Disability type is required when the citizen is registered as a PWD or has a disability.',
+    )
+  }
+
+  if (
+    form.hasDisability &&
+    !form.disabilitySeverity.trim()
+  ) {
+    addIssue(
+      'disabilitySeverity',
+      'Disability severity',
+      1,
+      'Select the disability severity or choose Not assessed.',
+    )
+  }
+
+  if (
+    form.hasMedicalCondition &&
+    !form.medicalConditions.trim()
+  ) {
+    addIssue(
+      'medicalConditions',
+      'Medical conditions',
+      1,
+      'Describe the medical condition when Has Medical Condition is enabled.',
+    )
+  }
+
+  if (
+    form.needsAssistance &&
+    !form.assistanceType.trim()
+  ) {
+    addIssue(
+      'assistanceType',
+      'Assistance type',
+      1,
+      'Describe the required assistance when Needs Assistance is enabled.',
+    )
   }
 
   if (!form.consentToValidateInfo) {
-    missing.push('Consent to validate information')
+    addIssue(
+      'consentToValidateInfo',
+      'Consent to validate information',
+      1,
+      'Consent to validate information is required.',
+    )
   }
 
-  return missing
+  // Step 3: Administrative — emergency contact only.
+  if (!form.emergencyContact.trim()) {
+    addIssue(
+      'emergencyContact',
+      'Emergency contact',
+      2,
+      'Emergency contact is required.',
+    )
+  }
+
+  if (!form.emergencyPhone.trim()) {
+    addIssue(
+      'emergencyPhone',
+      'Emergency phone',
+      2,
+      'Emergency phone is required.',
+    )
+  }
+
+  return issues
 }
 
-function countCompletedSteps(form: FormState) {
-  let count = 0
+function getImportantMissingFields(
+  form: FormState,
+) {
+  return getRequiredFieldIssues(
+    form,
+  ).map((issue) => issue.label)
+}
 
-  const hasPersonalBasics =
-    !!form.lastName.trim() &&
-    !!form.firstName.trim() &&
-    !!form.dateOfBirth.trim() &&
-    !!form.gender.trim() &&
-    !!form.barangay.trim() &&
-    (!!form.emailAddress.trim() || !!form.mobileNumber.trim())
+function countCompletedSteps(
+  form: FormState,
+) {
+  const issues =
+    getRequiredFieldIssues(form)
 
-  if (hasPersonalBasics) count++
+  let completed = 0
 
-  const hasGovernmentOrMedicalInfo =
-    !!form.registryCategory.trim() ||
-    !!form.governmentAgency.trim() ||
-    !!form.governmentProgram.trim() ||
-    !!form.povertyStatus.trim() ||
-    !!form.seniorCitizenId.trim() ||
-    !!form.oscaId.trim() ||
-    !!form.pwdIdNumber.trim() ||
-    !!form.psaReferenceNumber.trim() ||
-    !!form.civilRegistryStatus.trim() ||
-    !!form.disabilityType.trim() ||
-    !!form.medicalConditions.trim() ||
-    !!form.assistanceType.trim()
+  if (
+    !issues.some(
+      (issue) => issue.step === 0,
+    )
+  ) {
+    completed += 1
+  }
 
-  if (hasGovernmentOrMedicalInfo) count++
+  if (
+    !issues.some(
+      (issue) => issue.step === 1,
+    )
+  ) {
+    completed += 1
+  }
 
-  const hasAdministrativeInfo =
-    !!form.emergencyContact.trim() ||
-    !!form.emergencyPhone.trim() ||
-    !!form.guardianName.trim() ||
-    !!form.guardianContact.trim() ||
-    !!form.employmentStatus.trim() ||
-    !!form.educationalAttainment.trim()
+  if (
+    !issues.some(
+      (issue) => issue.step === 2,
+    )
+  ) {
+    completed += 1
+  }
 
-  if (hasAdministrativeInfo) count++
+  // Documents are optional and never reduce required-completion progress.
+  completed += 1
 
-  const hasDocuments =
-    form.hasPWDRegistrationForm ||
-    form.hasMedicalCertificate ||
-    form.hasProofOfIdentity ||
-    form.hasProofOfResidence ||
-    form.hasIDPhotos
+  // Review is complete only when every required field is complete.
+  if (issues.length === 0) {
+    completed += 1
+  }
 
-  if (hasDocuments) count++
-
-  if (getImportantMissingFields(form).length === 0) count++
-
-  return count
+  return completed
 }
 
 function formatBoolean(value: boolean) {
@@ -518,23 +698,45 @@ function SectionTitle({
 
 function InputBlock({
   label,
+  field,
   required,
   error,
   children,
 }: {
   label: string
+  field?: keyof FormState
   required?: boolean
   error?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-slate-700">
+    <div
+      data-registration-field={field}
+      className={cn(
+        'space-y-2 rounded-xl transition',
+        error &&
+          'bg-red-50/70 p-3 ring-1 ring-red-200',
+      )}
+    >
+      <Label
+        className={cn(
+          'text-sm font-medium text-slate-700',
+          error && 'text-red-700',
+        )}
+      >
         {label}
-        {required ? <span className="ml-1 text-red-500">*</span> : null}
+        {required ? (
+          <span className="ml-1 text-red-500">
+            *
+          </span>
+        ) : null}
       </Label>
       {children}
-      {error ? <p className="text-xs text-red-500">{error}</p> : null}
+      {error ? (
+        <p className="text-xs font-medium text-red-600">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -814,8 +1016,14 @@ export default function VulnerableRegistrationModal({
   }, [step])
 
   const completedSteps = countCompletedSteps(form)
-  const missingImportantFields = getImportantMissingFields(form)
-  const canSubmit = missingImportantFields.length === 0
+  const requiredFieldIssues =
+    getRequiredFieldIssues(form)
+  const missingImportantFields =
+    requiredFieldIssues.map(
+      (issue) => issue.label,
+    )
+  const canSubmit =
+    requiredFieldIssues.length === 0
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -930,42 +1138,37 @@ export default function VulnerableRegistrationModal({
   }
 
   function validateCurrentStep() {
-    const nextErrors: Record<string, string> = {}
+    const currentStepIssues =
+      getRequiredFieldIssues(
+        form,
+      ).filter(
+        (issue) =>
+          issue.step === step,
+      )
 
-    if (step === 0) {
-      if (!form.lastName.trim()) nextErrors.lastName = 'Last name is required.'
-      if (!form.firstName.trim()) nextErrors.firstName = 'First name is required.'
-      if (!form.mobileNumber.trim()) nextErrors.mobileNumber = 'Mobile number is required.'
-      if (!form.emailAddress.trim()) nextErrors.emailAddress = 'Email address is required.'
-      if (!form.barangay.trim()) nextErrors.barangay = 'Barangay is required.'
-      if (!form.dateOfBirth.trim()) nextErrors.dateOfBirth = 'Date of birth is required.'
-      if (!form.gender.trim()) nextErrors.gender = 'Gender is required.'
-    }
-
-    if (step === 1) {
-      if (form.hasDisability && !form.disabilityType.trim()) {
-        nextErrors.disabilityType = 'Disability type is required.'
-      }
-      if (form.needsAssistance && !form.assistanceType.trim()) {
-        nextErrors.assistanceType = 'Assistance type is required.'
-      }
-    }
-
-    if (step === 2) {
-      if (!form.emergencyContact.trim()) {
-        nextErrors.emergencyContact = 'Emergency contact is required.'
-      }
-      if (!form.emergencyPhone.trim()) {
-        nextErrors.emergencyPhone = 'Emergency phone is required.'
-      }
-    }
+    const nextErrors =
+      Object.fromEntries(
+        currentStepIssues.map(
+          (issue) => [
+            issue.key,
+            issue.message,
+          ],
+        ),
+      )
 
     setErrors(nextErrors)
 
-    if (Object.keys(nextErrors).length > 0) {
-      toast.error('Missing required fields', {
-        description: 'Please complete the highlighted fields before continuing.',
-      })
+    if (
+      currentStepIssues.length > 0
+    ) {
+      toast.error(
+        'Important fields are incomplete',
+        {
+          description:
+            'You may continue now, but these fields must be completed before registration.',
+        },
+      )
+
       return false
     }
 
@@ -981,26 +1184,77 @@ export default function VulnerableRegistrationModal({
     setStep((prev) => Math.max(prev - 1, 0))
   }
 
+  function goToRequiredField(
+    issue: RequiredFieldIssue,
+  ) {
+    setErrors((previous) => ({
+      ...previous,
+      [issue.key]: issue.message,
+    }))
+    setStep(issue.step)
+
+    window.setTimeout(() => {
+      const modal =
+        document.querySelector(
+          '[data-registration-modal]',
+        )
+      const target =
+        modal?.querySelector<HTMLElement>(
+          `[data-registration-field="${String(
+            issue.key,
+          )}"]`,
+        )
+
+      target?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+
+      const control =
+        target?.querySelector<HTMLElement>(
+          'input:not([type="hidden"]), textarea, button[role="combobox"], button, [tabindex]:not([tabindex="-1"])',
+        )
+
+      control?.focus({
+        preventScroll: true,
+      })
+    }, 120)
+  }
+
+  function goToFirstMissingRequiredField() {
+    const issues =
+      getRequiredFieldIssues(form)
+
+    if (issues.length === 0) {
+      return true
+    }
+
+    setErrors(
+      Object.fromEntries(
+        issues.map((issue) => [
+          issue.key,
+          issue.message,
+        ]),
+      ),
+    )
+
+    goToRequiredField(issues[0])
+
+    toast.error(
+      'Complete the highlighted field',
+      {
+        description:
+          `${issues[0].label} is the first required field that was skipped.`,
+      },
+    )
+
+    return false
+  }
+
   async function handleSubmit() {
-    const importantMissing = getImportantMissingFields(form)
-
-    if (importantMissing.length > 0) {
-      setErrors({
-        lastName: !form.lastName.trim() ? 'Last name is required.' : '',
-        firstName: !form.firstName.trim() ? 'First name is required.' : '',
-        dateOfBirth: !form.dateOfBirth.trim() ? 'Date of birth is required.' : '',
-        gender: !form.gender.trim() ? 'Gender is required.' : '',
-        barangay: !form.barangay.trim() ? 'Barangay is required.' : '',
-        mobileNumber: !form.emailAddress.trim() && !form.mobileNumber.trim() ? 'Email address or mobile number is required.' : '',
-        emailAddress: !form.emailAddress.trim() && !form.mobileNumber.trim() ? 'Email address or mobile number is required.' : '',
-        registryCategory: !form.registryCategory.trim() ? 'Government registry basis is required.' : '',
-        consentToValidateInfo: !form.consentToValidateInfo ? 'Consent is required.' : '',
-      })
-
-      toast.error('Cannot submit yet', {
-        description: `Missing: ${importantMissing.join(', ')}`,
-      })
-      setStep(4)
+    if (
+      !goToFirstMissingRequiredField()
+    ) {
       return
     }
 
@@ -1040,7 +1294,7 @@ export default function VulnerableRegistrationModal({
         />
 
         <div className="grid gap-4 md:grid-cols-2">
-          <InputBlock label="Last Name" required error={errors.lastName}>
+          <InputBlock label="Last Name" field="lastName" required error={errors.lastName}>
             <Input
               value={form.lastName}
               onChange={(e) => updateField('lastName', e.target.value)}
@@ -1049,7 +1303,7 @@ export default function VulnerableRegistrationModal({
             />
           </InputBlock>
 
-          <InputBlock label="First Name" required error={errors.firstName}>
+          <InputBlock label="First Name" field="firstName" required error={errors.firstName}>
             <Input
               value={form.firstName}
               onChange={(e) => updateField('firstName', e.target.value)}
@@ -1081,7 +1335,7 @@ export default function VulnerableRegistrationModal({
             </Select>
           </InputBlock>
 
-          <InputBlock label="Date of Birth" required error={errors.dateOfBirth}>
+          <InputBlock label="Date of Birth" field="dateOfBirth" required error={errors.dateOfBirth}>
             <Input
               type="date"
               value={form.dateOfBirth}
@@ -1090,7 +1344,7 @@ export default function VulnerableRegistrationModal({
             />
           </InputBlock>
 
-          <InputBlock label="Gender" required error={errors.gender}>
+          <InputBlock label="Gender" field="gender" required error={errors.gender}>
             <Select value={form.gender} onValueChange={(value) => updateField('gender', value)}>
               <SelectTrigger className={cn(errors.gender && 'border-red-400 focus:ring-red-400')}>
                 <SelectValue placeholder="Select gender" />
@@ -1118,7 +1372,7 @@ export default function VulnerableRegistrationModal({
             </Select>
           </InputBlock>
 
-          <InputBlock label="Mobile Number" required error={errors.mobileNumber}>
+          <InputBlock label="Mobile Number" field="mobileNumber" required error={errors.mobileNumber}>
             <Input
               value={form.mobileNumber}
               onChange={(e) => updateField('mobileNumber', e.target.value)}
@@ -1136,7 +1390,7 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <div className="md:col-span-2">
-            <InputBlock label="Email Address" required error={errors.emailAddress}>
+            <InputBlock label="Email Address" field="emailAddress" required error={errors.emailAddress}>
               <Input
                 type="email"
                 value={form.emailAddress}
@@ -1196,7 +1450,7 @@ export default function VulnerableRegistrationModal({
             />
           </InputBlock>
 
-          <InputBlock label="Barangay" required error={errors.barangay}>
+          <InputBlock label="Barangay" field="barangay" required error={errors.barangay}>
             <Select
               value={form.barangay}
               onValueChange={(value) =>
@@ -1264,7 +1518,7 @@ export default function VulnerableRegistrationModal({
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <InputBlock label="Registry Category" required error={errors.registryCategory}>
+              <InputBlock label="Registry Category" field="registryCategory" required error={errors.registryCategory}>
                 <Select
                   value={form.registryCategory}
                   onValueChange={(value) => {
@@ -1305,7 +1559,7 @@ export default function VulnerableRegistrationModal({
                 />
               </InputBlock>
 
-                  <InputBlock label="Poverty / Welfare Status">
+                  <InputBlock label="Poverty / Welfare Status" field="povertyStatus" required={form.registryCategory === 'GENERAL_WELFARE'} error={errors.povertyStatus}>
                 <Select
                   value={form.povertyStatus}
                   onValueChange={(value) =>
@@ -1365,7 +1619,7 @@ export default function VulnerableRegistrationModal({
                 />
               </InputBlock>
 
-                  <InputBlock label="Civil Registry Status">
+                  <InputBlock label="Civil Registry Status" field="civilRegistryStatus" required={form.registryCategory === 'CIVIL_REGISTRY'} error={errors.civilRegistryStatus}>
                 <Select
                   value={form.civilRegistryStatus}
                   onValueChange={(value) =>
@@ -1395,7 +1649,15 @@ export default function VulnerableRegistrationModal({
                 </Select>
               </InputBlock>
 
-              <div className="flex items-start gap-3 rounded-xl border border-emerald-100 bg-white p-3 md:col-span-2">
+              <div
+                data-registration-field="consentToValidateInfo"
+                className={cn(
+                  'flex items-start gap-3 rounded-xl border bg-white p-3 md:col-span-2',
+                  errors.consentToValidateInfo
+                    ? 'border-red-300 bg-red-50 ring-1 ring-red-200'
+                    : 'border-emerald-100',
+                )}
+              >
                 <input
                   type="checkbox"
                   checked={form.consentToValidateInfo}
@@ -1403,7 +1665,19 @@ export default function VulnerableRegistrationModal({
                   className="mt-1 h-4 w-4 accent-emerald-600"
                 />
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Consent to validate information</p>
+                  <p
+                    className={cn(
+                      'text-sm font-semibold',
+                      errors.consentToValidateInfo
+                        ? 'text-red-800'
+                        : 'text-slate-900',
+                    )}
+                  >
+                    Consent to validate information
+                    <span className="ml-1 text-red-500">
+                      *
+                    </span>
+                  </p>
                   <p className="mt-1 text-xs leading-relaxed text-slate-500">
                     Required before final submission. This confirms the information may be checked against LGU and relevant government registry records.
                   </p>
@@ -1429,11 +1703,7 @@ export default function VulnerableRegistrationModal({
 
             {form.hasDisability ? (
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <InputBlock
-                  label="Disability Type"
-                  required
-                  error={errors.disabilityType}
-                >
+                      <InputBlock label="Disability Type" field="disabilityType" required={form.registryCategory === 'PWD' || form.hasDisability} error={errors.disabilityType}>
                   <Select
                     value={form.disabilityType}
                     onValueChange={(value) =>
@@ -1466,7 +1736,7 @@ export default function VulnerableRegistrationModal({
                   </Select>
                 </InputBlock>
 
-                      <InputBlock label="Disability Severity">
+                      <InputBlock label="Disability Severity" field="disabilitySeverity" required={form.hasDisability} error={errors.disabilitySeverity}>
                   <Select
                     value={form.disabilitySeverity}
                     onValueChange={(value) =>
@@ -1580,7 +1850,7 @@ export default function VulnerableRegistrationModal({
 
             {form.hasMedicalCondition ? (
               <div className="mt-4">
-                <InputBlock label="Medical Conditions">
+                <InputBlock label="Medical Conditions" field="medicalConditions" required={form.hasMedicalCondition} error={errors.medicalConditions}>
                   <Textarea
                     value={form.medicalConditions}
                     onChange={(e) => updateField('medicalConditions', e.target.value)}
@@ -1608,7 +1878,7 @@ export default function VulnerableRegistrationModal({
 
             {form.needsAssistance ? (
               <div className="mt-4">
-                <InputBlock label="Assistance Type" required error={errors.assistanceType}>
+                <InputBlock label="Assistance Type" field="assistanceType" required={form.needsAssistance} error={errors.assistanceType}>
                   <Textarea
                     value={form.assistanceType}
                     onChange={(e) => updateField('assistanceType', e.target.value)}
@@ -1828,7 +2098,7 @@ export default function VulnerableRegistrationModal({
             />
           </InputBlock>
 
-          <InputBlock label="Emergency Contact" required error={errors.emergencyContact}>
+          <InputBlock label="Emergency Contact" field="emergencyContact" required error={errors.emergencyContact}>
             <Input
               value={form.emergencyContact}
               onChange={(e) => updateField('emergencyContact', e.target.value)}
@@ -1837,7 +2107,7 @@ export default function VulnerableRegistrationModal({
             />
           </InputBlock>
 
-          <InputBlock label="Emergency Phone" required error={errors.emergencyPhone}>
+          <InputBlock label="Emergency Phone" field="emergencyPhone" required error={errors.emergencyPhone}>
             <Input
               value={form.emergencyPhone}
               onChange={(e) => updateField('emergencyPhone', e.target.value)}
@@ -1971,10 +2241,18 @@ export default function VulnerableRegistrationModal({
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {missingImportantFields.map((item) => (
-                    <span key={item} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
-                      {item}
-                    </span>
+                  {requiredFieldIssues.map((issue) => (
+                    <button
+                      key={String(issue.key)}
+                      type="button"
+                      onClick={() =>
+                        goToRequiredField(issue)
+                      }
+                      className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100 hover:ring-amber-300"
+                      title={`Go to ${issue.label}`}
+                    >
+                      {issue.label}
+                    </button>
                   ))}
                 </div>
               )}
@@ -2352,10 +2630,10 @@ export default function VulnerableRegistrationModal({
                       'min-w-[176px]',
                       canSubmit
                         ? 'bg-emerald-600 hover:bg-emerald-700'
-                        : 'cursor-not-allowed bg-slate-300 text-slate-500 hover:bg-slate-300'
+                        : 'bg-amber-500 text-white hover:bg-amber-600'
                     )}
-                    onClick={handleSubmit}
-                    disabled={submitting || !canSubmit}
+                    onClick={canSubmit ? handleSubmit : goToFirstMissingRequiredField}
+                    disabled={submitting}
                   >
                     {submitting ? 'Submitting...' : canSubmit ? 'Confirm Registration' : 'Complete Required Fields'}
                     {!submitting ? <CheckCircle2 className="ml-2 h-4 w-4" /> : null}
