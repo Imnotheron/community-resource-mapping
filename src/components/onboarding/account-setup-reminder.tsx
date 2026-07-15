@@ -9,6 +9,7 @@ import {
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 
@@ -21,6 +22,7 @@ interface AccountSetupReminderProps {
 }
 
 const REMIND_LATER_HOURS = 24
+const EXIT_ANIMATION_MS = 320
 
 function isWithinRemindLaterWindow(
   value?: string | Date | null,
@@ -74,6 +76,12 @@ function patchStoredUser(
   }
 }
 
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, milliseconds)
+  })
+}
+
 export default function AccountSetupReminder({
   user,
   onOpenProfile,
@@ -94,6 +102,21 @@ export default function AccountSetupReminder({
   >(
     user.onboardingReminderDismissedAt,
   )
+  const [
+    isMounted,
+    setIsMounted,
+  ] = useState(false)
+  const [
+    isVisible,
+    setIsVisible,
+  ] = useState(false)
+
+  const enterFrameRef =
+    useRef<number | null>(null)
+  const enterSecondFrameRef =
+    useRef<number | null>(null)
+  const unmountTimerRef =
+    useRef<number | null>(null)
 
   useEffect(() => {
     setIsDismissedForSession(false)
@@ -131,10 +154,93 @@ export default function AccountSetupReminder({
     !isDismissedForSession &&
     !reminderRecentlyDismissed
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (unmountTimerRef.current !== null) {
+      window.clearTimeout(
+        unmountTimerRef.current,
+      )
+      unmountTimerRef.current = null
+    }
+
+    if (shouldShow) {
+      setIsMounted(true)
+      setIsVisible(false)
+
+      enterFrameRef.current =
+        window.requestAnimationFrame(() => {
+          enterSecondFrameRef.current =
+            window.requestAnimationFrame(() => {
+              setIsVisible(true)
+            })
+        })
+
+      return
+    }
+
+    setIsVisible(false)
+
+    if (isMounted) {
+      unmountTimerRef.current =
+        window.setTimeout(() => {
+          setIsMounted(false)
+        }, EXIT_ANIMATION_MS)
+    }
+
+    return () => {
+      if (enterFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          enterFrameRef.current,
+        )
+      }
+
+      if (
+        enterSecondFrameRef.current !==
+        null
+      ) {
+        window.cancelAnimationFrame(
+          enterSecondFrameRef.current,
+        )
+      }
+    }
+  }, [shouldShow, isMounted])
+
+  useEffect(
+    () => () => {
+      if (enterFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          enterFrameRef.current,
+        )
+      }
+
+      if (
+        enterSecondFrameRef.current !==
+        null
+      ) {
+        window.cancelAnimationFrame(
+          enterSecondFrameRef.current,
+        )
+      }
+
+      if (unmountTimerRef.current !== null) {
+        window.clearTimeout(
+          unmountTimerRef.current,
+        )
+      }
+    },
+    [],
+  )
+
   async function handleRemindLater() {
     if (isDismissing) return
 
     setIsDismissing(true)
+    setIsVisible(false)
+
+    await wait(EXIT_ANIMATION_MS)
 
     const localDismissedAt =
       new Date().toISOString()
@@ -183,24 +289,67 @@ export default function AccountSetupReminder({
     } finally {
       setIsDismissedForSession(true)
       setIsDismissing(false)
+      setIsMounted(false)
     }
   }
 
-  if (!shouldShow) {
+  function handleOpenProfile() {
+    setIsVisible(false)
+
+    window.setTimeout(() => {
+      onOpenProfile()
+    }, 180)
+  }
+
+  if (!isMounted) {
     return null
   }
 
   return (
     <aside
       aria-label="Account setup reminder"
-      className="fixed bottom-5 right-5 z-[70] w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl shadow-slate-900/15 dark:border-emerald-900/60 dark:bg-slate-950"
+      aria-live="polite"
+      className={[
+        'fixed bottom-5 right-5 z-[70]',
+        'w-[min(420px,calc(100vw-2rem))]',
+        'overflow-hidden rounded-2xl',
+        'border border-emerald-200',
+        'bg-white p-4',
+        'shadow-2xl shadow-slate-900/15',
+        'dark:border-emerald-900/60',
+        'dark:bg-slate-950',
+        'origin-bottom-right',
+        'will-change-[transform,opacity,filter]',
+        'transition-[transform,opacity,filter]',
+        'duration-500',
+        'ease-[cubic-bezier(0.22,1,0.36,1)]',
+        'motion-reduce:transition-none',
+        isVisible
+          ? 'translate-y-0 scale-100 opacity-100 blur-0'
+          : 'pointer-events-none translate-y-8 scale-[0.96] opacity-0 blur-[2px]',
+      ].join(' ')}
     >
+      <div
+        aria-hidden="true"
+        className={[
+          'absolute inset-x-0 top-0 h-1',
+          'origin-left bg-gradient-to-r',
+          'from-emerald-400 via-teal-400 to-cyan-400',
+          'transition-transform duration-700',
+          'ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'motion-reduce:transition-none',
+          isVisible
+            ? 'scale-x-100'
+            : 'scale-x-0',
+        ].join(' ')}
+      />
+
       <button
         type="button"
         onClick={() =>
           void handleRemindLater()
         }
-        className="absolute right-3 top-3 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+        className="absolute right-3 top-3 rounded-full p-1.5 text-slate-400 transition hover:rotate-90 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 motion-reduce:hover:rotate-0 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         aria-label="Remind me later"
         disabled={isDismissing}
       >
@@ -208,11 +357,37 @@ export default function AccountSetupReminder({
       </button>
 
       <div className="flex gap-3 pr-8">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        <div
+          className={[
+            'grid h-11 w-11 shrink-0',
+            'place-items-center rounded-2xl',
+            'bg-emerald-100 text-emerald-700',
+            'dark:bg-emerald-950',
+            'dark:text-emerald-300',
+            'transition-[transform,opacity]',
+            'duration-700 delay-100',
+            'ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'motion-reduce:transition-none',
+            isVisible
+              ? 'rotate-0 scale-100 opacity-100'
+              : '-rotate-12 scale-75 opacity-0',
+          ].join(' ')}
+        >
           <ShieldCheck className="h-5 w-5" />
         </div>
 
-        <div className="min-w-0 space-y-3">
+        <div
+          className={[
+            'min-w-0 space-y-3',
+            'transition-[transform,opacity]',
+            'duration-500 delay-100',
+            'ease-out',
+            'motion-reduce:transition-none',
+            isVisible
+              ? 'translate-x-0 opacity-100'
+              : 'translate-x-3 opacity-0',
+          ].join(' ')}
+        >
           <div>
             <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
               Complete your account setup
@@ -253,8 +428,8 @@ export default function AccountSetupReminder({
             <Button
               type="button"
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={onOpenProfile}
+              className="bg-emerald-600 transition-transform hover:-translate-y-0.5 hover:bg-emerald-700 active:translate-y-0 motion-reduce:transform-none"
+              onClick={handleOpenProfile}
             >
               Open Profile Settings
             </Button>
