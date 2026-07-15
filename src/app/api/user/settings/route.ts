@@ -7,10 +7,15 @@ import { db } from '@/lib/db'
 
 type ThemeChoice = 'light' | 'dark'
 type AccentColor = 'emerald' | 'teal' | 'green' | 'amber'
+type FontSizeChoice =
+  | 'small'
+  | 'medium'
+  | 'large'
 
 type UserPreferences = {
   theme?: ThemeChoice
   accent?: AccentColor
+  fontSize?: FontSizeChoice
   [key: string]: unknown
 }
 
@@ -29,6 +34,16 @@ function normalizeAccent(value: unknown): AccentColor | null {
     value === 'teal' ||
     value === 'green' ||
     value === 'amber'
+    ? value
+    : null
+}
+
+function normalizeFontSize(
+  value: unknown,
+): FontSizeChoice | null {
+  return value === 'small' ||
+    value === 'medium' ||
+    value === 'large'
     ? value
     : null
 }
@@ -57,6 +72,9 @@ function serializeUser(user: any) {
     ...user,
     theme: normalizeTheme(preferences.theme) || 'light',
     accent: normalizeAccent(preferences.accent) || 'emerald',
+    fontSize:
+      normalizeFontSize(preferences.fontSize) ||
+      'medium',
   }
 }
 
@@ -289,6 +307,23 @@ export async function PUT(request: NextRequest) {
       }
 
       preferences.theme = theme
+    }
+
+    if (body.fontSize !== undefined) {
+      const fontSize =
+        normalizeFontSize(body.fontSize)
+
+      if (!fontSize) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid font size',
+          },
+          { status: 400 },
+        )
+      }
+
+      preferences.fontSize = fontSize
     }
 
     if (body.accent !== undefined) {

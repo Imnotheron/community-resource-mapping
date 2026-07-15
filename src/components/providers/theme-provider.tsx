@@ -16,6 +16,10 @@ import { apiFetch, getStoredUser } from '@/lib/api-client'
 
 export type AppearanceTheme = 'light' | 'dark'
 export type AccentColor = 'emerald' | 'teal' | 'green' | 'amber'
+export type FontSizePreference =
+  | 'small'
+  | 'medium'
+  | 'large'
 
 type AccentVariables = Record<string, string>
 
@@ -24,12 +28,23 @@ type SettingsResponse = {
   user?: {
     theme?: string
     accent?: string
+    fontSize?: string
   }
 }
 
 const THEME_STORAGE_KEY = 'crms-theme'
 const ACCENT_STORAGE_KEY = 'crms-accent'
+const FONT_SIZE_STORAGE_KEY = 'crms-font-size'
 const AUTH_CHANGED_EVENT = 'crms-auth-changed'
+
+const FONT_ROOT_SIZES: Record<
+  FontSizePreference,
+  string
+> = {
+  small: '15px',
+  medium: '16px',
+  large: '17px',
+}
 
 const ACCENT_VARS: Record<
   AccentColor,
@@ -146,12 +161,18 @@ interface AppearanceContextValue {
   accent: AccentColor
   savedTheme: AppearanceTheme
   savedAccent: AccentColor
+  fontSize: FontSizePreference
+  savedFontSize: FontSizePreference
   isHydrated: boolean
   previewTheme: (theme: AppearanceTheme) => void
   previewAccent: (accent: AccentColor) => void
+  previewFontSize: (
+    fontSize: FontSizePreference,
+  ) => void
   commitAppearance: (
     theme?: AppearanceTheme,
     accent?: AccentColor,
+    fontSize?: FontSizePreference,
   ) => void
   revertAppearance: () => void
   reloadAppearance: () => Promise<void>
@@ -172,6 +193,16 @@ function normalizeAccent(value: unknown): AccentColor {
     : 'emerald'
 }
 
+function normalizeFontSize(
+  value: unknown,
+): FontSizePreference {
+  return value === 'small' ||
+    value === 'large' ||
+    value === 'medium'
+    ? value
+    : 'medium'
+}
+
 function readCachedTheme(): AppearanceTheme {
   if (typeof window === 'undefined') return 'light'
   return normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY))
@@ -182,19 +213,35 @@ function readCachedAccent(): AccentColor {
   return normalizeAccent(window.localStorage.getItem(ACCENT_STORAGE_KEY))
 }
 
+function readCachedFontSize(): FontSizePreference {
+  if (typeof window === 'undefined') return 'medium'
+
+  return normalizeFontSize(
+    window.localStorage.getItem(
+      FONT_SIZE_STORAGE_KEY,
+    ),
+  )
+}
+
 function cacheAppearance(
   theme: AppearanceTheme,
   accent: AccentColor,
+  fontSize: FontSizePreference,
 ) {
   if (typeof window === 'undefined') return
 
   window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   window.localStorage.setItem(ACCENT_STORAGE_KEY, accent)
+  window.localStorage.setItem(
+    FONT_SIZE_STORAGE_KEY,
+    fontSize,
+  )
 }
 
 function applyAppearance(
   theme: AppearanceTheme,
   accent: AccentColor,
+  fontSize: FontSizePreference,
 ) {
   if (typeof document === 'undefined') return
 
@@ -205,6 +252,9 @@ function applyAppearance(
   root.style.colorScheme = theme
   root.dataset.theme = theme
   root.dataset.accent = accent
+  root.dataset.fontSize = fontSize
+  root.style.fontSize =
+    FONT_ROOT_SIZES[fontSize]
 
   for (const [property, value] of Object.entries(variables)) {
     root.style.setProperty(property, value)
@@ -258,12 +308,17 @@ export function AccentProvider({
     useState<AppearanceTheme>('light')
   const [savedAccent, setSavedAccent] =
     useState<AccentColor>('emerald')
+  const [fontSize, setFontSizeState] =
+    useState<FontSizePreference>('medium')
+  const [savedFontSize, setSavedFontSize] =
+    useState<FontSizePreference>('medium')
   const [isHydrated, setIsHydrated] = useState(false)
 
   const syncRequestRef = useRef(0)
   const currentRef = useRef({
     theme: 'light' as AppearanceTheme,
     accent: 'emerald' as AccentColor,
+    fontSize: 'medium' as FontSizePreference,
   })
   const savedRef = useRef({
     theme: 'light' as AppearanceTheme,
@@ -274,15 +329,22 @@ export function AccentProvider({
     (
       nextTheme: AppearanceTheme,
       nextAccent: AccentColor,
+      nextFontSize: FontSizePreference,
     ) => {
       currentRef.current = {
         theme: nextTheme,
         accent: nextAccent,
+        fontSize: nextFontSize,
       }
 
       setThemeState(nextTheme)
       setAccentState(nextAccent)
-      applyAppearance(nextTheme, nextAccent)
+      setFontSizeState(nextFontSize)
+      applyAppearance(
+        nextTheme,
+        nextAccent,
+        nextFontSize,
+      )
     },
     [],
   )
@@ -291,14 +353,17 @@ export function AccentProvider({
     (
       nextTheme: AppearanceTheme,
       nextAccent: AccentColor,
+      nextFontSize: FontSizePreference,
     ) => {
       savedRef.current = {
         theme: nextTheme,
         accent: nextAccent,
+        fontSize: nextFontSize,
       }
 
       setSavedTheme(nextTheme)
       setSavedAccent(nextAccent)
+      setSavedFontSize(nextFontSize)
     },
     [],
   )
@@ -307,10 +372,24 @@ export function AccentProvider({
     (
       nextTheme = currentRef.current.theme,
       nextAccent = currentRef.current.accent,
+      nextFontSize =
+        currentRef.current.fontSize,
     ) => {
-      setCurrentAppearance(nextTheme, nextAccent)
-      setSavedAppearance(nextTheme, nextAccent)
-      cacheAppearance(nextTheme, nextAccent)
+      setCurrentAppearance(
+        nextTheme,
+        nextAccent,
+        nextFontSize,
+      )
+      setSavedAppearance(
+        nextTheme,
+        nextAccent,
+        nextFontSize,
+      )
+      cacheAppearance(
+        nextTheme,
+        nextAccent,
+        nextFontSize,
+      )
 
       // next-themes controls its own cache and document class.
       // We also call applyAppearance synchronously above so the
@@ -323,8 +402,16 @@ export function AccentProvider({
   const revertAppearance = useCallback(() => {
     const saved = savedRef.current
 
-    setCurrentAppearance(saved.theme, saved.accent)
-    cacheAppearance(saved.theme, saved.accent)
+    setCurrentAppearance(
+      saved.theme,
+      saved.accent,
+      saved.fontSize,
+    )
+    cacheAppearance(
+      saved.theme,
+      saved.accent,
+      saved.fontSize,
+    )
     setNextTheme(saved.theme)
   }, [setCurrentAppearance, setNextTheme])
 
@@ -333,6 +420,7 @@ export function AccentProvider({
       setCurrentAppearance(
         nextTheme,
         currentRef.current.accent,
+        currentRef.current.fontSize,
       )
     },
     [setCurrentAppearance],
@@ -343,6 +431,20 @@ export function AccentProvider({
       setCurrentAppearance(
         currentRef.current.theme,
         nextAccent,
+        currentRef.current.fontSize,
+      )
+    },
+    [setCurrentAppearance],
+  )
+
+  const previewFontSize = useCallback(
+    (
+      nextFontSize: FontSizePreference,
+    ) => {
+      setCurrentAppearance(
+        currentRef.current.theme,
+        currentRef.current.accent,
+        nextFontSize,
       )
     },
     [setCurrentAppearance],
@@ -357,7 +459,11 @@ export function AccentProvider({
     if (!storedUser?.id) {
       if (requestId !== syncRequestRef.current) return
 
-      commitAppearance('light', 'emerald')
+      commitAppearance(
+        'light',
+        'emerald',
+        'medium',
+      )
       setIsHydrated(true)
       return
     }
@@ -376,10 +482,18 @@ export function AccentProvider({
 
       const serverTheme = normalizeTheme(data.user?.theme)
       const serverAccent = normalizeAccent(data.user?.accent)
+      const serverFontSize =
+        normalizeFontSize(
+          data.user?.fontSize,
+        )
 
       // The database is authoritative. Any stale cached amber
       // value is overwritten here on every login and hard refresh.
-      commitAppearance(serverTheme, serverAccent)
+      commitAppearance(
+        serverTheme,
+        serverAccent,
+        serverFontSize,
+      )
     } catch (error) {
       if (requestId !== syncRequestRef.current) return
 
@@ -387,9 +501,19 @@ export function AccentProvider({
       // be reached. Do not overwrite the user's database settings.
       const cachedTheme = readCachedTheme()
       const cachedAccent = readCachedAccent()
+      const cachedFontSize =
+        readCachedFontSize()
 
-      setCurrentAppearance(cachedTheme, cachedAccent)
-      setSavedAppearance(cachedTheme, cachedAccent)
+      setCurrentAppearance(
+        cachedTheme,
+        cachedAccent,
+        cachedFontSize,
+      )
+      setSavedAppearance(
+        cachedTheme,
+        cachedAccent,
+        cachedFontSize,
+      )
       setNextTheme(cachedTheme)
 
       console.error(
@@ -413,9 +537,19 @@ export function AccentProvider({
     // flash, then replace it with the database preference.
     const cachedTheme = readCachedTheme()
     const cachedAccent = readCachedAccent()
+    const cachedFontSize =
+      readCachedFontSize()
 
-    setCurrentAppearance(cachedTheme, cachedAccent)
-    setSavedAppearance(cachedTheme, cachedAccent)
+    setCurrentAppearance(
+      cachedTheme,
+      cachedAccent,
+      cachedFontSize,
+    )
+    setSavedAppearance(
+      cachedTheme,
+      cachedAccent,
+      cachedFontSize,
+    )
     setNextTheme(cachedTheme)
 
     void reloadAppearance()
@@ -428,6 +562,7 @@ export function AccentProvider({
       if (
         event.key === THEME_STORAGE_KEY ||
         event.key === ACCENT_STORAGE_KEY ||
+        event.key === FONT_SIZE_STORAGE_KEY ||
         event.key === 'crms_user' ||
         event.key === 'user'
       ) {
@@ -461,9 +596,12 @@ export function AccentProvider({
       accent,
       savedTheme,
       savedAccent,
+      fontSize,
+      savedFontSize,
       isHydrated,
       previewTheme,
       previewAccent,
+      previewFontSize,
       commitAppearance,
       revertAppearance,
       reloadAppearance,
@@ -471,12 +609,15 @@ export function AccentProvider({
     [
       accent,
       commitAppearance,
+      fontSize,
       isHydrated,
       previewAccent,
+      previewFontSize,
       previewTheme,
       reloadAppearance,
       revertAppearance,
       savedAccent,
+      savedFontSize,
       savedTheme,
       theme,
     ],

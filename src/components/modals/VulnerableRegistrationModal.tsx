@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
 
 const AddressPickerMap = dynamic(() => import('@/components/maps/address-picker-map'), {
@@ -686,11 +687,11 @@ function SectionTitle({
 }) {
   return (
     <div className="mb-5">
-      <h3 className="text-2xl font-semibold tracking-tight text-slate-950">
+      <h3 className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl md:text-2xl">
         {title}
       </h3>
       {subtitle ? (
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500 sm:text-sm">{subtitle}</p>
       ) : null}
     </div>
   )
@@ -720,7 +721,7 @@ function InputBlock({
     >
       <Label
         className={cn(
-          'text-sm font-medium text-slate-700',
+          'text-xs font-medium text-slate-700 sm:text-sm',
           error && 'text-red-700',
         )}
       >
@@ -820,6 +821,7 @@ export default function VulnerableRegistrationModal({
   onClose,
   onSubmit,
 }: VulnerableRegistrationModalProps) {
+  const isMobile = useIsMobile()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(getEmptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -832,7 +834,22 @@ export default function VulnerableRegistrationModal({
 
   const modalFrameStyle = useMemo(
     () => {
-      const frame = modalFrame || getCenteredModalFrame()
+      if (isMobile) {
+        return {
+          width: 'calc(100vw - 16px)',
+          height: 'calc(100dvh - 16px)',
+          left: '8px',
+          top: '8px',
+          transform: 'none',
+          translate: 'none',
+          maxWidth: 'none',
+          maxHeight: 'none',
+        } as React.CSSProperties
+      }
+
+      const frame =
+        modalFrame ||
+        getCenteredModalFrame()
 
       return {
         width: `${frame.width}px`,
@@ -845,10 +862,11 @@ export default function VulnerableRegistrationModal({
         maxHeight: 'none',
       } as React.CSSProperties
     },
-    [modalFrame]
+    [isMobile, modalFrame],
   )
 
   function startModalDrag(event: React.MouseEvent<HTMLDivElement>) {
+    if (isMobile) return
     if ((event.target as HTMLElement).closest('[data-no-drag="true"]')) return
 
     event.preventDefault()
@@ -899,6 +917,8 @@ export default function VulnerableRegistrationModal({
     event: React.MouseEvent<HTMLDivElement>,
     edge: 'top' | 'right' | 'bottom' | 'left' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
   ) {
+    if (isMobile) return
+
     event.preventDefault()
     event.stopPropagation()
 
@@ -1003,13 +1023,17 @@ export default function VulnerableRegistrationModal({
   useEffect(() => {
     if (!open) return
 
-    setModalFrame(getCenteredModalFrame())
+    setModalFrame(
+      isMobile
+        ? null
+        : getCenteredModalFrame(),
+    )
     setForm(getEmptyForm())
     setErrors({})
     setStep(0)
     setCurrentDraftId(null)
     loadDrafts()
-  }, [open, loadDrafts])
+  }, [open, loadDrafts, isMobile])
 
   const progressWidth = useMemo(() => {
     return `${((step + 1) / STEPS.length) * 100}%`
@@ -2332,7 +2356,7 @@ export default function VulnerableRegistrationModal({
     <Dialog open={open} onOpenChange={(value) => !value && clearAndClose()}>
       <DialogContent
         data-registration-modal
-        className="!fixed !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none overflow-hidden rounded-[28px] border border-slate-200 bg-white p-0 shadow-[0_30px_90px_rgba(15,23,42,0.18)] [&>button]:hidden"
+        className="!fixed !translate-x-0 !translate-y-0 !max-w-none overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-[15px] text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.22)] [color-scheme:light] [&>button]:hidden [&_input]:text-sm [&_textarea]:text-sm [&_[role=combobox]]:text-sm md:rounded-[28px]"
         style={modalFrameStyle}
       >
         <DialogTitle className="sr-only">
@@ -2340,26 +2364,26 @@ export default function VulnerableRegistrationModal({
         </DialogTitle>
 
         {/* Window-style resize handles */}
-        <div className="absolute left-8 right-8 top-0 z-[70] h-2 cursor-ns-resize" onMouseDown={(event) => startModalResize(event, 'top')} />
-        <div className="absolute bottom-0 left-8 right-8 z-[70] h-2 cursor-ns-resize" onMouseDown={(event) => startModalResize(event, 'bottom')} />
-        <div className="absolute bottom-8 left-0 top-8 z-[70] w-2 cursor-ew-resize" onMouseDown={(event) => startModalResize(event, 'left')} />
-        <div className="absolute bottom-8 right-0 top-8 z-[70] w-2 cursor-ew-resize" onMouseDown={(event) => startModalResize(event, 'right')} />
-        <div className="absolute left-0 top-0 z-[70] h-5 w-5 cursor-nwse-resize" onMouseDown={(event) => startModalResize(event, 'top-left')} />
-        <div className="absolute right-0 top-0 z-[70] h-5 w-5 cursor-nesw-resize" onMouseDown={(event) => startModalResize(event, 'top-right')} />
-        <div className="absolute bottom-0 left-0 z-[70] h-5 w-5 cursor-nesw-resize" onMouseDown={(event) => startModalResize(event, 'bottom-left')} />
-        <div className="absolute bottom-0 right-0 z-[70] h-5 w-5 cursor-nwse-resize" onMouseDown={(event) => startModalResize(event, 'bottom-right')} />
+        <div className="hidden md:block absolute left-8 right-8 top-0 z-[70] h-2 cursor-ns-resize" onMouseDown={(event) => startModalResize(event, 'top')} />
+        <div className="hidden md:block absolute bottom-0 left-8 right-8 z-[70] h-2 cursor-ns-resize" onMouseDown={(event) => startModalResize(event, 'bottom')} />
+        <div className="hidden md:block absolute bottom-8 left-0 top-8 z-[70] w-2 cursor-ew-resize" onMouseDown={(event) => startModalResize(event, 'left')} />
+        <div className="hidden md:block absolute bottom-8 right-0 top-8 z-[70] w-2 cursor-ew-resize" onMouseDown={(event) => startModalResize(event, 'right')} />
+        <div className="hidden md:block absolute left-0 top-0 z-[70] h-5 w-5 cursor-nwse-resize" onMouseDown={(event) => startModalResize(event, 'top-left')} />
+        <div className="hidden md:block absolute right-0 top-0 z-[70] h-5 w-5 cursor-nesw-resize" onMouseDown={(event) => startModalResize(event, 'top-right')} />
+        <div className="hidden md:block absolute bottom-0 left-0 z-[70] h-5 w-5 cursor-nesw-resize" onMouseDown={(event) => startModalResize(event, 'bottom-left')} />
+        <div className="hidden md:block absolute bottom-0 right-0 z-[70] h-5 w-5 cursor-nwse-resize" onMouseDown={(event) => startModalResize(event, 'bottom-right')} />
 
         <div className="flex h-full min-h-0 flex-col">
           {/* Header */}
-          <div className="shrink-0 cursor-move border-b border-slate-200 bg-white px-6 py-5" onMouseDown={startModalDrag}>
-            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_auto]">
-              <div className="flex min-w-0 items-start gap-4">
-                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-600">
-                  <ShieldPlus className="h-8 w-8" />
+          <div className="shrink-0 cursor-default border-b border-slate-200 bg-white px-4 py-3 md:cursor-move md:px-6 md:py-5" onMouseDown={startModalDrag}>
+            <div className="grid items-start gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_auto]">
+              <div className="flex min-w-0 items-start gap-3 md:gap-4">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-600 md:h-16 md:w-16">
+                  <ShieldPlus className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
 
                 <div className="min-w-0">
-                  <h2 className="text-[2rem] font-bold tracking-tight text-slate-950">
+                  <h2 className="text-xl font-bold leading-tight tracking-tight text-slate-950 sm:text-2xl xl:text-[2rem]">
                     Register Vulnerable Person
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
@@ -2368,7 +2392,7 @@ export default function VulnerableRegistrationModal({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm" data-no-drag="true">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3" data-no-drag="true">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -2378,7 +2402,7 @@ export default function VulnerableRegistrationModal({
                       Required completion status
                     </p>
                   </div>
-                  <p className="text-2xl font-bold text-slate-950">
+                  <p className="text-xl font-bold text-slate-950 sm:text-2xl">
                     {Math.min(completedSteps, 5)}/5
                   </p>
                 </div>
@@ -2390,12 +2414,12 @@ export default function VulnerableRegistrationModal({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3" data-no-drag="true">
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3" data-no-drag="true">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 sm:px-3 sm:text-sm">
                   Step {step + 1} of {STEPS.length}
                 </span>
 
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 sm:px-3 sm:text-sm">
                   Drafts {drafts.length}
                 </span>
 
@@ -2410,7 +2434,7 @@ export default function VulnerableRegistrationModal({
               </div>
             </div>
 
-            <div className="mt-5 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 md:mt-5 md:h-2">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300"
                 style={{ width: progressWidth }}
@@ -2563,7 +2587,7 @@ export default function VulnerableRegistrationModal({
 
             {/* Main form */}
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-              <div className="w-full px-8 py-8">
+              <div className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
                 {step === 0 && renderPersonalStep()}
                 {step === 1 && renderMedicalStep()}
                 {step === 2 && renderAdministrativeStep()}
@@ -2590,34 +2614,42 @@ export default function VulnerableRegistrationModal({
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 border-t border-slate-200 bg-white px-6 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3 sm:px-6 sm:py-4">
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
               <Button
                 type="button"
                 variant="outline"
-                className="min-w-[124px]"
+                className="h-10 min-w-10 px-3 sm:min-w-[124px]"
                 onClick={step === 0 ? clearAndClose : goPrevious}
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
-                {step === 0 ? 'Cancel' : 'Previous'}
+                <span className="hidden sm:inline">
+                  {step === 0 ? 'Cancel' : 'Previous'}
+                </span>
               </Button>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-w-[150px]"
+                  className="h-10 min-w-10 px-3 sm:min-w-[150px]"
                   onClick={saveDraft}
                   disabled={savingDraft}
                 >
                   <Save className="mr-2 h-4 w-4" />
-                  {savingDraft ? 'Saving...' : currentDraftId ? 'Update Draft' : 'Save Draft'}
+                  <span className="hidden sm:inline">
+                    {savingDraft
+                      ? 'Saving...'
+                      : currentDraftId
+                        ? 'Update Draft'
+                        : 'Save Draft'}
+                  </span>
                 </Button>
 
                 {step < STEPS.length - 1 ? (
                   <Button
                     type="button"
-                    className="min-w-[156px] bg-emerald-600 hover:bg-emerald-700"
+                    className="h-10 min-w-[128px] bg-emerald-600 px-4 hover:bg-emerald-700 sm:min-w-[156px]"
                     onClick={goNext}
                   >
                     Continue
@@ -2627,7 +2659,7 @@ export default function VulnerableRegistrationModal({
                   <Button
                     type="button"
                     className={cn(
-                      'min-w-[176px]',
+                      'h-10 min-w-[152px] px-3 sm:min-w-[176px]',
                       canSubmit
                         ? 'bg-emerald-600 hover:bg-emerald-700'
                         : 'bg-amber-500 text-white hover:bg-amber-600'

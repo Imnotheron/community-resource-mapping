@@ -23,6 +23,7 @@ import { toast } from 'sonner'
 import {
   type AccentColor,
   type AppearanceTheme,
+  type FontSizePreference,
   useAppearance,
 } from '@/components/providers/theme-provider'
 import {
@@ -56,6 +57,32 @@ type AccountSnapshot = {
   phone: string
   profilePicture: string | null
 }
+
+const FONT_SIZE_OPTIONS: Array<{
+  id: FontSizePreference
+  label: string
+  description: string
+  sample: string
+}> = [
+  {
+    id: 'small',
+    label: 'Small',
+    description: 'More content on screen.',
+    sample: 'Aa',
+  },
+  {
+    id: 'medium',
+    label: 'Default',
+    description: 'Balanced and recommended.',
+    sample: 'Aa',
+  },
+  {
+    id: 'large',
+    label: 'Large',
+    description: 'Easier to read.',
+    sample: 'Aa',
+  },
+]
 
 const ACCENT_OPTIONS: Array<{
   id: AccentColor
@@ -103,8 +130,11 @@ export function ProfileView({
     accent,
     savedTheme,
     savedAccent,
+    fontSize,
+    savedFontSize,
     previewTheme,
     previewAccent,
+    previewFontSize,
     commitAppearance,
     revertAppearance,
   } = useAppearance()
@@ -214,6 +244,10 @@ export function ProfileView({
             data.user?.accent === 'amber'
             ? data.user.accent
             : 'emerald',
+          data.user?.fontSize === 'small' ||
+            data.user?.fontSize === 'large'
+            ? data.user.fontSize
+            : 'medium',
         )
       } catch (error: any) {
         toast.error(
@@ -277,6 +311,7 @@ export function ProfileView({
     phone.trim() !== savedAccount.phone ||
     theme !== savedTheme ||
     accent !== savedAccent ||
+    fontSize !== savedFontSize ||
     pendingPictureFile !== null ||
     removePictureOnSave ||
     hasPasswordDraft
@@ -446,6 +481,7 @@ export function ProfileView({
               phone: cleanPhone,
               theme,
               accent,
+              fontSize,
               ...(hasPasswordDraft
                 ? {
                     currentPassword,
@@ -471,7 +507,11 @@ export function ProfileView({
       // Commit only after the API accepted the selected
       // theme and accent. This updates the dashboard
       // synchronously and refresh-safe browser cache.
-      commitAppearance(theme, accent)
+      commitAppearance(
+        theme,
+        accent,
+        fontSize,
+      )
 
       const updatedUser = {
         ...user,
@@ -481,6 +521,7 @@ export function ProfileView({
         profilePicture: savedPicture,
         theme,
         accent,
+        fontSize,
       } as AuthUser
 
       onUserUpdated(updatedUser)
@@ -771,6 +812,64 @@ export function ProfileView({
                   },
                 )}
               </div>
+            </div>
+          
+            <div>
+              <Label className="mb-3 block">
+                Font size
+              </Label>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {FONT_SIZE_OPTIONS.map(
+                  (option) => {
+                    const selected =
+                      fontSize === option.id
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() =>
+                          previewFontSize(
+                            option.id,
+                          )
+                        }
+                        disabled={saving}
+                        aria-pressed={selected}
+                        className={cn(
+                          'rounded-2xl border p-3 text-left transition',
+                          selected
+                            ? 'border-primary bg-primary/10 ring-2 ring-primary/25'
+                            : 'border-border bg-card hover:border-primary/50',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'block font-bold text-primary',
+                            option.id === 'small'
+                              ? 'text-sm'
+                              : option.id === 'large'
+                                ? 'text-xl'
+                                : 'text-base',
+                          )}
+                        >
+                          {option.sample}
+                        </span>
+                        <span className="mt-2 block text-sm font-semibold">
+                          {option.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      </button>
+                    )
+                  },
+                )}
+              </div>
+
+              <p className="mt-3 text-xs text-muted-foreground">
+                This setting is saved to your account and restored after refresh, sign-in, or opening CRMS on another device.
+              </p>
             </div>
           </CardContent>
         </Card>
