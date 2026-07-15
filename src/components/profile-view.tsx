@@ -3,7 +3,6 @@
 import {
   ArrowLeft,
   Check,
-  CheckCircle2,
   Loader2,
   Moon,
   Palette,
@@ -38,14 +37,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -160,10 +151,6 @@ export function ProfileView({
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [
-    savedModalOpen,
-    setSavedModalOpen,
-  ] = useState(false)
 
   const revertRef = useRef(revertAppearance)
 
@@ -501,7 +488,13 @@ export function ProfileView({
       setCurrentPassword('')
       setNewPassword('')
       clearPictureDraft()
-      setSavedModalOpen(true)
+
+      toast.success('Profile settings saved', {
+        description:
+          'Your changes are now active across the dashboard.',
+      })
+
+      onBack()
     } catch (error: any) {
       toast.error(
         'Could not save settings',
@@ -877,40 +870,6 @@ export function ProfileView({
           </div>
         </div>
       </div>
-
-      <Dialog
-        open={savedModalOpen}
-        onOpenChange={setSavedModalOpen}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="items-center text-center">
-            <div className="mb-2 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-
-            <DialogTitle>
-              Changes have been saved
-            </DialogTitle>
-
-            <DialogDescription>
-              Your profile and appearance are
-              now active across the dashboard.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="sm:justify-center">
-            <Button
-              type="button"
-              onClick={() =>
-                setSavedModalOpen(false)
-              }
-              className="min-w-28"
-            >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
