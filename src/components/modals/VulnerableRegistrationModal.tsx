@@ -199,6 +199,112 @@ const STEPS: {
 
 const BARANGAYS = SAN_POLICARPO_BARANGAYS
 
+// Registration form controlled selection options
+const BLOOD_TYPE_OPTIONS: string[] = [
+  'A+',
+  'A-',
+  'B+',
+  'B-',
+  'AB+',
+  'AB-',
+  'O+',
+  'O-',
+  'Unknown / Not tested',
+]
+
+const EDUCATIONAL_ATTAINMENT_OPTIONS: string[] = [
+  'No formal education',
+  'Elementary level',
+  'Elementary graduate',
+  'Junior high school level',
+  'Junior high school graduate',
+  'Senior high school level',
+  'Senior high school graduate',
+  'Vocational / Technical',
+  'College level',
+  'College graduate',
+  'Postgraduate',
+]
+
+const EMPLOYMENT_STATUS_OPTIONS: string[] = [
+  'Unemployed',
+  'Employed full-time',
+  'Employed part-time',
+  'Self-employed',
+  'Seasonal / Informal worker',
+  'Student',
+  'Homemaker',
+  'Retired',
+  'Unable to work',
+  'Other / Not specified',
+]
+
+const GUARDIAN_RELATIONSHIP_OPTIONS: string[] = [
+  'Parent',
+  'Spouse',
+  'Child',
+  'Sibling',
+  'Grandparent',
+  'Grandchild',
+  'Other relative',
+  'Legal guardian',
+  'Caregiver',
+  'Social worker',
+  'Other / Not specified',
+]
+
+const POVERTY_STATUS_OPTIONS: string[] = [
+  'Not assessed',
+  'Indigent',
+  'Low-income',
+  'Near-poor',
+  'No regular income',
+  'Food insecure',
+  'Homeless / Displaced',
+  'Other vulnerable household',
+]
+
+const CIVIL_REGISTRY_STATUS_OPTIONS: string[] = [
+  'Birth certificate available',
+  'Late registered',
+  'For verification',
+  'No PSA record',
+  'Not registered',
+  'Unknown',
+]
+
+const DISABILITY_TYPE_OPTIONS: string[] = [
+  'Physical disability',
+  'Visual disability',
+  'Hearing disability',
+  'Speech or language disability',
+  'Intellectual disability',
+  'Learning disability',
+  'Psychosocial disability',
+  'Mental disability',
+  'Multiple disabilities',
+  'Other / Not specified',
+]
+
+const DISABILITY_SEVERITY_OPTIONS: string[] = [
+  'Mild',
+  'Moderate',
+  'Severe',
+  'Profound',
+  'Not assessed',
+]
+
+const DISABILITY_CAUSE_OPTIONS: string[] = [
+  'Congenital / Inborn',
+  'Illness / Disease',
+  'Injury / Accident',
+  'Work-related injury',
+  'Age-related',
+  'Disaster / Conflict',
+  'Unknown',
+  'Other / Not specified',
+]
+
 function getEmptyForm(): FormState {
   return {
     lastName: '',
@@ -1091,18 +1197,31 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Barangay" required error={errors.barangay}>
-            <Input
-              list="san-policarpo-barangays"
+            <Select
               value={form.barangay}
-              onChange={(e) => updateField('barangay', e.target.value)}
-              placeholder="e.g. Baras, Barobaybay, Pangpang"
-              className={cn(errors.barangay && 'border-red-400 focus-visible:ring-red-400')}
-            />
-            <datalist id="san-policarpo-barangays">
-              {BARANGAYS.map((barangay) => (
-                <option key={barangay} value={barangay} />
-              ))}
-            </datalist>
+              onValueChange={(value) =>
+                updateField('barangay', value)
+              }
+            >
+              <SelectTrigger
+                className={cn(
+                  errors.barangay &&
+                    'border-red-400 focus:ring-red-400',
+                )}
+              >
+                <SelectValue placeholder="Select barangay" />
+              </SelectTrigger>
+              <SelectContent>
+                {BARANGAYS.map((barangay) => (
+                  <SelectItem
+                    key={barangay}
+                    value={barangay}
+                  >
+                    {barangay}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </InputBlock>
 
           <InputBlock label="Municipality / City">
@@ -1168,11 +1287,13 @@ export default function VulnerableRegistrationModal({
                 </Select>
               </InputBlock>
 
-              <InputBlock label="Primary Agency">
+                  <InputBlock label="Primary Agency">
                 <Input
                   value={form.governmentAgency}
-                  onChange={(e) => updateField('governmentAgency', e.target.value)}
-                  placeholder="Auto-filled based on category"
+                  readOnly
+                  aria-readonly="true"
+                  placeholder="Select a registry category first"
+                  className="bg-slate-50 text-slate-700"
                 />
               </InputBlock>
 
@@ -1184,12 +1305,32 @@ export default function VulnerableRegistrationModal({
                 />
               </InputBlock>
 
-              <InputBlock label="Poverty / Welfare Status">
-                <Input
+                  <InputBlock label="Poverty / Welfare Status">
+                <Select
                   value={form.povertyStatus}
-                  onChange={(e) => updateField('povertyStatus', e.target.value)}
-                  placeholder="e.g. Indigent, low-income, food assistance needed"
-                />
+                  onValueChange={(value) =>
+                    updateField('povertyStatus', value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select welfare status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {form.povertyStatus &&
+                    !POVERTY_STATUS_OPTIONS.includes(
+                      form.povertyStatus,
+                    ) ? (
+                      <SelectItem value={form.povertyStatus}>
+                        {form.povertyStatus} (saved value)
+                      </SelectItem>
+                    ) : null}
+                    {POVERTY_STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </InputBlock>
 
               <InputBlock label="Senior Citizen ID / NCSC Ref.">
@@ -1224,12 +1365,34 @@ export default function VulnerableRegistrationModal({
                 />
               </InputBlock>
 
-              <InputBlock label="Civil Registry Status">
-                <Input
+                  <InputBlock label="Civil Registry Status">
+                <Select
                   value={form.civilRegistryStatus}
-                  onChange={(e) => updateField('civilRegistryStatus', e.target.value)}
-                  placeholder="e.g. Birth certificate available / no PSA record"
-                />
+                  onValueChange={(value) =>
+                    updateField('civilRegistryStatus', value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select registry status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {form.civilRegistryStatus &&
+                    !CIVIL_REGISTRY_STATUS_OPTIONS.includes(
+                      form.civilRegistryStatus,
+                    ) ? (
+                      <SelectItem value={form.civilRegistryStatus}>
+                        {form.civilRegistryStatus} (saved value)
+                      </SelectItem>
+                    ) : null}
+                    {CIVIL_REGISTRY_STATUS_OPTIONS.map(
+                      (option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
               </InputBlock>
 
               <div className="flex items-start gap-3 rounded-xl border border-emerald-100 bg-white p-3 md:col-span-2">
@@ -1266,29 +1429,99 @@ export default function VulnerableRegistrationModal({
 
             {form.hasDisability ? (
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <InputBlock label="Disability Type" required error={errors.disabilityType}>
-                  <Input
+                      <InputBlock
+                  label="Disability Type"
+                  required
+                  error={errors.disabilityType}
+                >
+                  <Select
                     value={form.disabilityType}
-                    onChange={(e) => updateField('disabilityType', e.target.value)}
-                    placeholder="e.g. Senior Citizen, Visual Impairment"
-                    className={cn(errors.disabilityType && 'border-red-400 focus-visible:ring-red-400')}
-                  />
+                    onValueChange={(value) =>
+                      updateField('disabilityType', value)
+                    }
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        errors.disabilityType &&
+                          'border-red-400 focus:ring-red-400',
+                      )}
+                    >
+                      <SelectValue placeholder="Select primary disability type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {form.disabilityType &&
+                      !DISABILITY_TYPE_OPTIONS.includes(
+                        form.disabilityType,
+                      ) ? (
+                        <SelectItem value={form.disabilityType}>
+                          {form.disabilityType} (saved value)
+                        </SelectItem>
+                      ) : null}
+                      {DISABILITY_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </InputBlock>
 
-                <InputBlock label="Disability Severity">
-                  <Input
+                      <InputBlock label="Disability Severity">
+                  <Select
                     value={form.disabilitySeverity}
-                    onChange={(e) => updateField('disabilitySeverity', e.target.value)}
-                    placeholder="e.g. Mild, Moderate, Severe"
-                  />
+                    onValueChange={(value) =>
+                      updateField('disabilitySeverity', value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select severity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {form.disabilitySeverity &&
+                      !DISABILITY_SEVERITY_OPTIONS.includes(
+                        form.disabilitySeverity,
+                      ) ? (
+                        <SelectItem value={form.disabilitySeverity}>
+                          {form.disabilitySeverity} (saved value)
+                        </SelectItem>
+                      ) : null}
+                      {DISABILITY_SEVERITY_OPTIONS.map(
+                        (option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
                 </InputBlock>
 
-                <InputBlock label="Disability Cause">
-                  <Input
+                      <InputBlock label="Disability Cause">
+                  <Select
                     value={form.disabilityCause}
-                    onChange={(e) => updateField('disabilityCause', e.target.value)}
-                    placeholder="Cause of disability"
-                  />
+                    onValueChange={(value) =>
+                      updateField('disabilityCause', value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select cause" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {form.disabilityCause &&
+                      !DISABILITY_CAUSE_OPTIONS.includes(
+                        form.disabilityCause,
+                      ) ? (
+                        <SelectItem value={form.disabilityCause}>
+                          {form.disabilityCause} (saved value)
+                        </SelectItem>
+                      ) : null}
+                      {DISABILITY_CAUSE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </InputBlock>
 
                 <InputBlock label="Medical Certificate Number">
@@ -1402,19 +1635,59 @@ export default function VulnerableRegistrationModal({
 
         <div className="grid gap-4 md:grid-cols-2">
           <InputBlock label="Blood Type">
-            <Input
+            <Select
               value={form.bloodType}
-              onChange={(e) => updateField('bloodType', e.target.value)}
-              placeholder="e.g. O+, A-"
-            />
+              onValueChange={(value) =>
+                updateField('bloodType', value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select blood type" />
+              </SelectTrigger>
+              <SelectContent>
+                {form.bloodType &&
+                !BLOOD_TYPE_OPTIONS.includes(form.bloodType) ? (
+                  <SelectItem value={form.bloodType}>
+                    {form.bloodType} (saved value)
+                  </SelectItem>
+                ) : null}
+                {BLOOD_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </InputBlock>
 
           <InputBlock label="Educational Attainment">
-            <Input
+            <Select
               value={form.educationalAttainment}
-              onChange={(e) => updateField('educationalAttainment', e.target.value)}
-              placeholder="Highest completed level"
-            />
+              onValueChange={(value) =>
+                updateField('educationalAttainment', value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select highest completed level" />
+              </SelectTrigger>
+              <SelectContent>
+                {form.educationalAttainment &&
+                !EDUCATIONAL_ATTAINMENT_OPTIONS.includes(
+                  form.educationalAttainment,
+                ) ? (
+                  <SelectItem value={form.educationalAttainment}>
+                    {form.educationalAttainment} (saved value)
+                  </SelectItem>
+                ) : null}
+                {EDUCATIONAL_ATTAINMENT_OPTIONS.map(
+                  (option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
           </InputBlock>
 
           <InputBlock label="School Name">
@@ -1426,11 +1699,31 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Employment Status">
-            <Input
+            <Select
               value={form.employmentStatus}
-              onChange={(e) => updateField('employmentStatus', e.target.value)}
-              placeholder="e.g. Unemployed, Self-employed"
-            />
+              onValueChange={(value) =>
+                updateField('employmentStatus', value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select employment status" />
+              </SelectTrigger>
+              <SelectContent>
+                {form.employmentStatus &&
+                !EMPLOYMENT_STATUS_OPTIONS.includes(
+                  form.employmentStatus,
+                ) ? (
+                  <SelectItem value={form.employmentStatus}>
+                    {form.employmentStatus} (saved value)
+                  </SelectItem>
+                ) : null}
+                {EMPLOYMENT_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </InputBlock>
 
           <InputBlock label="Employment Details">
@@ -1458,11 +1751,33 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Guardian Relationship">
-            <Input
+            <Select
               value={form.guardianRelationship}
-              onChange={(e) => updateField('guardianRelationship', e.target.value)}
-              placeholder="Relationship to citizen"
-            />
+              onValueChange={(value) =>
+                updateField('guardianRelationship', value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select relationship" />
+              </SelectTrigger>
+              <SelectContent>
+                {form.guardianRelationship &&
+                !GUARDIAN_RELATIONSHIP_OPTIONS.includes(
+                  form.guardianRelationship,
+                ) ? (
+                  <SelectItem value={form.guardianRelationship}>
+                    {form.guardianRelationship} (saved value)
+                  </SelectItem>
+                ) : null}
+                {GUARDIAN_RELATIONSHIP_OPTIONS.map(
+                  (option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
           </InputBlock>
 
           <InputBlock label="Guardian Contact">
