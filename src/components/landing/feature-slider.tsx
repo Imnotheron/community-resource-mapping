@@ -46,7 +46,7 @@ export function FeatureSlider({ liveAssets }: FeatureSliderProps) {
               className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-950/40 px-3 py-1.5"
             >
               <Layers className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-300">
+              <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-emerald-300">
                 Feature Explorer
               </span>
             </motion.div>
@@ -127,7 +127,7 @@ export function FeatureSlider({ liveAssets }: FeatureSliderProps) {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ delay: 0.3 }}
-          className="mt-4 text-center text-[11px] text-emerald-500/40"
+          className="mt-4 text-center text-[0.6875rem] text-emerald-500/40"
         >
           Use ← → arrow keys to navigate · Space to pause · Auto-advances every 6.5s
         </motion.p>

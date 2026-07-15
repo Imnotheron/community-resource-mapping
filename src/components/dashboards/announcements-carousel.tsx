@@ -176,20 +176,20 @@ export function AnnouncementsCarousel({ userRole, maxSlides = 5 }: Announcements
                   {/* Badges row */}
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide"
                       style={{ backgroundColor: `${color}1a`, color }}
                     >
                       <Icon className="h-3 w-3" />
                       {a.type.replace(/_/g, ' ')}
                     </span>
                     <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-bold uppercase"
                       style={{ backgroundColor: `${color}22`, color }}
                     >
                       {a.priority}
                     </span>
                     {a.targetRole && (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
                         To: {a.targetRole}
                       </span>
                     )}

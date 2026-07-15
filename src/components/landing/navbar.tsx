@@ -52,7 +52,7 @@ function CrmsLogoImage({ className, alt = 'Community Resource Mapping System' }:
         }}
       />
       <span
-        className="hidden h-full w-full place-items-center rounded-full bg-emerald-50 text-[9px] font-black text-emerald-700"
+        className="hidden h-full w-full place-items-center rounded-full bg-emerald-50 text-[0.5625rem] font-black text-emerald-700"
         style={{ display: 'none' }}
       >
         CRMS
@@ -84,7 +84,7 @@ export function Navbar({ onAccessPortal }: NavbarProps) {
             <span className="text-sm font-black tracking-tight text-emerald-50">
               CRMS
             </span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-emerald-400/70">
+            <span className="text-[0.625rem] uppercase tracking-[0.18em] text-emerald-400/70">
               San Policarpo
             </span>
           </div>

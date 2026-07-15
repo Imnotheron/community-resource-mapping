@@ -348,7 +348,7 @@
   box-shadow: 0 22px 60px rgb(15 23 42 / 0.12);
 }
 .leaflet-control-attribution {
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 /* =========================================================

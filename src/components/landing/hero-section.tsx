@@ -112,7 +112,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
               <p className="text-base font-black leading-tight text-slate-950 md:text-lg">
                 Community Resource Mapping System
               </p>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+              <p className="mt-1 text-[0.625rem] font-black uppercase tracking-[0.18em] text-emerald-700">
                 San Policarpo · Eastern Samar
               </p>
             </div>
@@ -128,7 +128,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
-            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-300">
+            <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-emerald-300">
               Live · Eastern Samar, PH
             </span>
           </motion.div>
@@ -208,7 +208,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                 transition={{ duration: 0.4, delay: 0.15 + i * 0.08 }}
                 className="flex flex-col gap-0.5"
               >
-                <dt className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/60">
+                <dt className="text-[0.625rem] font-medium uppercase tracking-wider text-emerald-400/60">
                   {stat.label}
                 </dt>
                 <dd className="text-2xl font-bold tracking-tight text-emerald-50 md:text-3xl">
@@ -238,7 +238,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
           >
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
             <div className="flex flex-col leading-tight">
-              <span className="text-[10px] uppercase tracking-wider text-emerald-400/70">DSWD</span>
+              <span className="text-[0.625rem] uppercase tracking-wider text-emerald-400/70">DSWD</span>
               <span className="text-xs font-medium text-emerald-50">Verified</span>
             </div>
           </motion.div>
@@ -251,7 +251,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
           >
             <Activity className="h-4 w-4 text-emerald-400" />
             <div className="flex flex-col leading-tight">
-              <span className="text-[10px] uppercase tracking-wider text-emerald-400/70">Real-time</span>
+              <span className="text-[0.625rem] uppercase tracking-wider text-emerald-400/70">Real-time</span>
               <span className="text-xs font-medium text-emerald-50">Synced</span>
             </div>
           </motion.div>

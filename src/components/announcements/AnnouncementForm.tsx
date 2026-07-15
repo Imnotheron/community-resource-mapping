@@ -335,7 +335,7 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
 
           {showPreview && (
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide">
+              <div className="flex flex-wrap items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-wide">
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
                   {form.type.replaceAll('_', ' ')}
                 </span>

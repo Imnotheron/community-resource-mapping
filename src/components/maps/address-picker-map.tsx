@@ -651,7 +651,7 @@ export default function AddressPickerMap({
         />
 
         <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-[calc(100%-2rem)] rounded-2xl border border-white/75 bg-white/[0.92] px-4 py-3 shadow-[0_18px_50px_rgba(15,23,42,0.13)] backdrop-blur-xl">
-          <p className="text-[9px] font-medium uppercase leading-none tracking-[0.18em] text-slate-500">
+          <p className="text-[0.5625rem] font-medium uppercase leading-none tracking-[0.18em] text-slate-500">
             San Policarpo Map Picker
           </p>
           <p className="mt-1.5 text-sm font-semibold leading-snug tracking-tight text-slate-950">

@@ -375,7 +375,7 @@ function InfoCard({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-emerald-600">{icon}</div>
-      <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <p className="mt-3 text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
         {label}
       </p>
       <p className="mt-1 break-words text-sm font-semibold text-slate-950">
@@ -424,7 +424,7 @@ function ProfileDrawer({
 
             <div className="pr-12">
               <span
-                className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                className="inline-flex items-center rounded-full px-3 py-1 text-[0.6875rem] font-semibold uppercase tracking-[0.14em]"
                 style={{
                   backgroundColor: status.softColor,
                   color: status.textColor,
@@ -450,7 +450,7 @@ function ProfileDrawer({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
                     Registered Citizen
                   </p>
                   <h2 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-950">
@@ -544,7 +544,7 @@ function ProfileDrawer({
               </div>
               <div className="mt-3 grid gap-3 text-sm">
                 <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Last Distribution
                   </p>
                   <p className="mt-1 font-semibold text-slate-950">
@@ -552,7 +552,7 @@ function ProfileDrawer({
                   </p>
                 </div>
                 <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Items / Type
                   </p>
                   <p className="mt-1 font-semibold text-slate-950">
@@ -931,20 +931,20 @@ export function VulnerableMap({
                 'Inter, "Geist Sans", "SF Pro Display", "Segoe UI", ui-sans-serif, system-ui, sans-serif',
             }}
           >
-            <p className="text-[8.5px] font-medium uppercase leading-none tracking-[0.14em] text-slate-500">
+            <p className="text-[0.53125rem] font-medium uppercase leading-none tracking-[0.14em] text-slate-500">
               San Policarpo Map View
             </p>
-            <p className="mt-1.5 text-[13px] font-semibold leading-snug tracking-[-0.015em] text-slate-950">
+            <p className="mt-1.5 text-[0.8125rem] font-semibold leading-snug tracking-[-0.015em] text-slate-950">
               Vulnerable Citizen Locations
             </p>
-            <p className="mt-0.5 text-[10.5px] font-medium leading-snug text-slate-500">
+            <p className="mt-0.5 text-[0.65625rem] font-medium leading-snug text-slate-500">
               Showing {stats.total} recorded location
               {stats.total === 1 ? "" : "s"}
             </p>
           </div>
 
           <div className="pointer-events-none absolute right-4 top-4 z-10 hidden rounded-2xl border border-white/75 bg-white/[0.92] p-3 shadow-[0_18px_50px_rgba(15,23,42,0.13)] backdrop-blur-xl md:block">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <p className="mb-2 text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Marker Legend
             </p>
 

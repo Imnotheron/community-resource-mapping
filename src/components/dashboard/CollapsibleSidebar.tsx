@@ -129,10 +129,10 @@ export function CollapsibleSidebar({
             </div>
             {!isCollapsed && (
               <div>
-                <p className="text-[#4f378a] dark:text-[#cfbcff] font-semibold text-[15px] leading-tight">
+                <p className="text-[#4f378a] dark:text-[#cfbcff] font-semibold text-[0.9375rem] leading-tight">
                   {accent.roleLabel}
                 </p>
-                <p className="text-[#7a7582] text-[11px] uppercase tracking-wider">
+                <p className="text-[#7a7582] text-[0.6875rem] uppercase tracking-wider">
                   CommMap System
                 </p>
               </div>

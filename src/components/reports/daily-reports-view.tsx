@@ -44,7 +44,7 @@ function formatDateTime(value: string) {
 function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="text-[0.625rem] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
     </div>
   )
@@ -290,7 +290,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
 
       <div className="no-print flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Operations Reporting</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-emerald-700">Operations Reporting</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Daily Reports</h1>
           <p className="mt-1 text-sm text-slate-500">Generate a date-based report, verify the figures, then print it on A4 paper.</p>
         </div>

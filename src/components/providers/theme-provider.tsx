@@ -323,6 +323,7 @@ export function AccentProvider({
   const savedRef = useRef({
     theme: 'light' as AppearanceTheme,
     accent: 'emerald' as AccentColor,
+    fontSize: 'medium' as FontSizePreference,
   })
 
   const setCurrentAppearance = useCallback(

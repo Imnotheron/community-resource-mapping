@@ -28,7 +28,7 @@ function PartnerSeal({
       </div>
       <div className="hidden flex-col leading-tight sm:flex">
         <span className="text-xs font-semibold text-foreground">{label}</span>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{sublabel}</span>
+        <span className="text-[0.625rem] uppercase tracking-wide text-muted-foreground">{sublabel}</span>
       </div>
     </motion.div>
   )

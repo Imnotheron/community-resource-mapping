@@ -46,7 +46,7 @@ function StatusPill({ asset }: { asset: CommunityAsset }) {
   }
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide"
       style={{ backgroundColor: `${color}22`, color }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
@@ -101,7 +101,7 @@ export function AssetCard({ asset, index }: AssetCardProps) {
       </p>
 
       {/* Footer meta */}
-      <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-[10px] text-emerald-400/50">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-[0.625rem] text-emerald-400/50">
         <span className="flex items-center gap-1 truncate">
           <MapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">{asset.barangay}</span>
@@ -139,7 +139,7 @@ export function CategoryStat({
     <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/15 bg-emerald-950/40 px-3 py-2">
       <Icon className="h-4 w-4" style={{ color }} />
       <div className="flex flex-col leading-tight">
-        <span className="text-[10px] uppercase tracking-wider text-emerald-400/60">{label}</span>
+        <span className="text-[0.625rem] uppercase tracking-wider text-emerald-400/60">{label}</span>
         <span className="text-sm font-semibold text-emerald-50">{value}</span>
       </div>
     </div>

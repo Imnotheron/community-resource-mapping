@@ -318,7 +318,7 @@ function MyProfileView({ userId }: { userId: string }) {
               <span className="font-medium text-muted-foreground">Vulnerability Types:</span>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {vuln.length > 0 ? vuln.map((v: string) => (
-                  <Badge key={v} variant="secondary" className="text-[10px]">{vulnerabilityLabel(v)}</Badge>
+                  <Badge key={v} variant="secondary" className="text-[0.625rem]">{vulnerabilityLabel(v)}</Badge>
                 )) : <span className="text-muted-foreground">None specified</span>}
               </div>
             </div>
@@ -557,7 +557,7 @@ function FeedbackView({ userId }: { userId: string }) {
               feedback.map((f) => (
                 <div key={f.id} className="border-b border-border pb-2 last:border-0 last:pb-0">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px]">{f.type.replace(/_/g, ' ')}</Badge>
+                    <Badge variant="outline" className="text-[0.625rem]">{f.type.replace(/_/g, ' ')}</Badge>
                     <StatusBadge status={f.status} />
                     <span className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</span>
                   </div>
@@ -618,7 +618,7 @@ function AnnouncementsView() {
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold">{a.title}</h3>
-                  <Badge variant="outline" className="text-[10px]">{a.type.replace(/_/g, ' ')}</Badge>
+                  <Badge variant="outline" className="text-[0.625rem]">{a.type.replace(/_/g, ' ')}</Badge>
                   <PriorityBadge priority={a.priority} />
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{a.content}</p>

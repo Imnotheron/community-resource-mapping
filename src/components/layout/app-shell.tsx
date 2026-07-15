@@ -188,7 +188,7 @@ export function AppShell({
                 </div>
 
                 <div className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                  <span className="block text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-emerald-700">
                     {formatWorkspace(userRole)} Mobile
                   </span>
                   <span className="block truncate text-sm font-semibold text-slate-950">
@@ -230,7 +230,7 @@ export function AppShell({
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
+                    <p className="text-[0.625rem] font-semibold uppercase tracking-[0.26em] text-slate-500">
                       {formatWorkspace(userRole)} Workspace
                     </p>
                     <p className="truncate text-sm font-semibold text-slate-950">

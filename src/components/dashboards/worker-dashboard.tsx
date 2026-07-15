@@ -595,7 +595,7 @@ function WorkerAnnouncementsView() {
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold">{a.title}</h3>
-                  <Badge variant="outline" className="text-[10px]">{a.type.replace(/_/g, ' ')}</Badge>
+                  <Badge variant="outline" className="text-[0.625rem]">{a.type.replace(/_/g, ' ')}</Badge>
                   <PriorityBadge priority={a.priority} />
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{a.content}</p>

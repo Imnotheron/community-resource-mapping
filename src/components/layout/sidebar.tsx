@@ -120,7 +120,7 @@ export function Sidebar({
               />
 
               <span
-                className="hidden h-full w-full place-items-center bg-emerald-50 text-[10px] font-semibold text-emerald-700"
+                className="hidden h-full w-full place-items-center bg-emerald-50 text-[0.625rem] font-semibold text-emerald-700"
                 style={{ display: 'none' }}
               >
                 CRMS
@@ -128,7 +128,7 @@ export function Sidebar({
             </div>
 
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold leading-tight text-slate-900">
+              <p className="truncate text-[0.8125rem] font-semibold leading-tight text-slate-900">
                 Community Resource
               </p>
               <p className="truncate text-xs font-medium leading-tight text-slate-500">
@@ -172,14 +172,14 @@ export function Sidebar({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-slate-900">
+              <p className="truncate text-[0.8125rem] font-semibold text-slate-900">
                 {userName}
               </p>
-              <p className="truncate text-[11px] font-medium text-slate-500">
+              <p className="truncate text-[0.6875rem] font-medium text-slate-500">
                 {shortEmail(userEmail)}
               </p>
 
-              <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+              <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-1.5 py-0.5 text-[0.5625rem] font-semibold text-emerald-700">
                 <ShieldCheck className="h-2.5 w-2.5" />
                 {formatRole(userRole)}
               </div>
@@ -219,7 +219,7 @@ export function Sidebar({
                   <Icon className="h-4 w-4" />
                 </span>
 
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium">
                   {item.label}
                 </span>
 
@@ -242,10 +242,10 @@ export function Sidebar({
             </span>
 
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold text-red-600">
+              <span className="block text-[0.8125rem] font-semibold text-red-600">
                 Sign out
               </span>
-              <span className="block text-[11px] font-medium text-red-400">
+              <span className="block text-[0.6875rem] font-medium text-red-400">
                 Secure sign out
               </span>
             </span>
@@ -253,7 +253,7 @@ export function Sidebar({
             <ChevronRight className="h-3.5 w-3.5 text-red-500 transition group-hover:translate-x-0.5" />
           </button>
 
-          <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-medium text-slate-500">
+          <div className="mt-2 flex items-center justify-between px-1 text-[0.6875rem] font-medium text-slate-500">
             <span>San Policarpo Operations</span>
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
           </div>

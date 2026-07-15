@@ -191,7 +191,7 @@ export function LocatorVisual() {
 
       {/* Coordinate label — bottom corner */}
       <motion.div
-        className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-500/20 bg-emerald-950/40 px-3 py-1 font-mono text-[10px] text-emerald-300/80 backdrop-blur-sm"
+        className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-500/20 bg-emerald-950/40 px-3 py-1 font-mono text-[0.625rem] text-emerald-300/80 backdrop-blur-sm"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.2 }}

@@ -282,7 +282,7 @@ function OverviewView() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-700">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.28em] text-emerald-700">
             Executive Operations Center
           </p>
           <h1 className="mt-2 text-[2rem] font-semibold tracking-tight text-slate-950">
@@ -346,7 +346,7 @@ function OverviewView() {
                   Operational map layer for assistance prioritization and municipal planning.
                 </CardDescription>
               </div>
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+              <div className="flex flex-wrap gap-2 text-[0.6875rem] font-semibold">
                 <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700">Needs assistance</span>
                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">No relief yet</span>
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">Relief received</span>
@@ -361,7 +361,7 @@ function OverviewView() {
                 interactiveMarkers={false}
               />
 
-              <div className="pointer-events-none absolute right-4 top-4 z-[30] rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm backdrop-blur-xl">
+              <div className="pointer-events-none absolute right-4 top-4 z-[30] rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm backdrop-blur-xl">
                 Overview markers locked
               </div>
             </div>
@@ -469,7 +469,7 @@ function CivicMetricCard({
     <div className="group rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(15,23,42,0.09)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
           <p className="mt-3 text-[2rem] font-semibold tracking-tight text-slate-950">{value}</p>
         </div>
         <div className={`grid h-10 w-10 place-items-center rounded-2xl border ${toneClass}`}>
@@ -507,7 +507,7 @@ function ActivityFeedItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm font-semibold leading-5 text-slate-950">{title}</p>
-            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{time}</span>
+            <span className="shrink-0 text-[0.625rem] font-semibold uppercase tracking-wide text-slate-400">{time}</span>
           </div>
           <p className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p>
         </div>
@@ -792,7 +792,7 @@ function RegistrationsView() {
                             <Badge
                               key={v}
                               variant="secondary"
-                              className="text-[10px]"
+                              className="text-[0.625rem]"
                             >
                               {vulnerabilityLabel(v)}
                             </Badge>
@@ -915,7 +915,7 @@ function OnlineStatusBadge({ user }: { user: any }) {
         />
         {isOnline ? "Online" : "Offline"}
       </Badge>
-      <span className="text-[11px] text-muted-foreground">
+      <span className="text-[0.6875rem] text-muted-foreground">
         {isOnline ? "Active now" : formatLastSeen(user?.lastSeenAt)}
       </span>
     </div>
@@ -1260,15 +1260,15 @@ function UsersView() {
 
             <div className="grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-3">
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
-                <span className="block text-[10px] uppercase tracking-[0.16em]">Online now</span>
+                <span className="block text-[0.625rem] uppercase tracking-[0.16em]">Online now</span>
                 <span className="text-lg font-semibold">{presenceStats.onlineNow}</span>
               </div>
               <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-blue-700">
-                <span className="block text-[10px] uppercase tracking-[0.16em]">Online today</span>
+                <span className="block text-[0.625rem] uppercase tracking-[0.16em]">Online today</span>
                 <span className="text-lg font-semibold">{presenceStats.onlineToday}</span>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
-                <span className="block text-[10px] uppercase tracking-[0.16em]">Not today</span>
+                <span className="block text-[0.625rem] uppercase tracking-[0.16em]">Not today</span>
                 <span className="text-lg font-semibold">{presenceStats.notOnlineToday}</span>
               </div>
             </div>
@@ -1322,7 +1322,7 @@ function UsersView() {
                           <p className="truncate font-semibold text-foreground">
                             {u.name}
                           </p>
-                          <p className="truncate text-[11px] text-muted-foreground">
+                          <p className="truncate text-[0.6875rem] text-muted-foreground">
                             {u.profilePicture ? "Profile photo uploaded" : "Initials avatar"}
                           </p>
                         </div>
@@ -1368,7 +1368,7 @@ function UsersView() {
                       ) : (
                         <Badge
                           variant="outline"
-                          className="border-slate-200 bg-slate-50 text-[10px] font-semibold text-slate-500"
+                          className="border-slate-200 bg-slate-50 text-[0.625rem] font-semibold text-slate-500"
                         >
                           Current account
                         </Badge>
@@ -1656,7 +1656,7 @@ function CreateWorkerDialog({
                     <Check className="h-7 w-7" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">
+                    <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-emerald-600">
                       Account setup complete
                     </p>
                     <DialogTitle className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
@@ -1673,7 +1673,7 @@ function CreateWorkerDialog({
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
                         New worker profile
                       </p>
                       <h3 className="mt-2 truncate text-xl font-semibold tracking-tight text-slate-950">
@@ -1687,7 +1687,7 @@ function CreateWorkerDialog({
                       ) : null}
                     </div>
 
-                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-emerald-700">
                       Worker
                     </span>
                   </div>
@@ -1715,7 +1715,7 @@ function CreateWorkerDialog({
                         : "border-orange-200 bg-orange-50 text-orange-700"
                     }`}
                   >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                    <p className="text-[0.625rem] font-semibold uppercase tracking-[0.18em] opacity-70">
                       Email notification
                     </p>
                     <p className="mt-1 font-semibold">
@@ -1730,7 +1730,7 @@ function CreateWorkerDialog({
                         : "border-slate-200 bg-white text-slate-600"
                     }`}
                   >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                    <p className="text-[0.625rem] font-semibold uppercase tracking-[0.18em] opacity-70">
                       SMS notification
                     </p>
                     <p className="mt-1 font-semibold">
@@ -1977,7 +1977,7 @@ function AnnouncementsView() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.24em] text-emerald-700">
             Municipal communications
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
@@ -2094,12 +2094,12 @@ function AnnouncementsView() {
                   <div className="flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-base font-semibold text-slate-950">{a.title}</h3>
-                      <Badge variant="outline" className="rounded-full text-[10px]">
+                      <Badge variant="outline" className="rounded-full text-[0.625rem]">
                         {String(a.type || "GENERAL").replace(/_/g, " ")}
                       </Badge>
                       <PriorityBadge priority={a.priority} />
                       {a.targetRole && (
-                        <Badge variant="secondary" className="rounded-full text-[10px]">
+                        <Badge variant="secondary" className="rounded-full text-[0.625rem]">
                           To: {a.targetRole === "ALL" ? "Everyone" : a.targetRole}
                         </Badge>
                       )}
@@ -2147,7 +2147,7 @@ function AnnouncementsView() {
                   <Trash2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-rose-600">
+                  <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-rose-600">
                     Delete announcement
                   </p>
                   <DialogTitle className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
@@ -2176,13 +2176,13 @@ function AnnouncementsView() {
               ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 {deleteTarget?.type ? (
-                  <Badge variant="outline" className="rounded-full bg-white text-[10px]">
+                  <Badge variant="outline" className="rounded-full bg-white text-[0.625rem]">
                     {String(deleteTarget.type).replace(/_/g, " ")}
                   </Badge>
                 ) : null}
                 {deleteTarget?.priority ? <PriorityBadge priority={deleteTarget.priority} /> : null}
                 {deleteTarget?.targetRole ? (
-                  <Badge variant="secondary" className="rounded-full text-[10px]">
+                  <Badge variant="secondary" className="rounded-full text-[0.625rem]">
                     To: {deleteTarget.targetRole === "ALL" ? "Everyone" : deleteTarget.targetRole}
                   </Badge>
                 ) : null}
@@ -2298,7 +2298,7 @@ function FeedbackView() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-[0.625rem]">
                         {f.type.replace(/_/g, " ")}
                       </Badge>
                       <StatusBadge status={f.status} />
@@ -2848,7 +2848,7 @@ function AdminMapProfileDialog({
                     <div className="flex flex-wrap gap-1.5">
                       {vulnerabilities.length > 0 ? (
                         vulnerabilities.map((item: string) => (
-                          <Badge key={item} variant="secondary" className="text-[10px]">
+                          <Badge key={item} variant="secondary" className="text-[0.625rem]">
                             {vulnerabilityLabel(item)}
                           </Badge>
                         ))

@@ -150,7 +150,7 @@ function CrmsLogoImage({ className, alt = 'Community Resource Mapping System' }:
         }}
       />
       <span
-        className="hidden h-full w-full place-items-center rounded-full bg-emerald-50 text-[9px] font-black text-emerald-700"
+        className="hidden h-full w-full place-items-center rounded-full bg-emerald-50 text-[0.5625rem] font-black text-emerald-700"
         style={{ display: 'none' }}
       >
         CRMS
@@ -208,7 +208,7 @@ function FooterModal({
 
             {activeModal === 'relief' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   Relief Distribution
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -238,7 +238,7 @@ function FooterModal({
 
             {activeModal === 'registry' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   Vulnerable Registry
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -281,7 +281,7 @@ function FooterModal({
 
             {activeModal === 'announcements' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   This Week&apos;s Announcements
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -314,7 +314,7 @@ function FooterModal({
 
             {activeModal === 'about' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   About San Policarpo
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -349,7 +349,7 @@ function FooterModal({
 
             {activeModal === 'barangays' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   Barangays
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -372,7 +372,7 @@ function FooterModal({
                         className="h-32 w-full object-cover"
                       />
                       <div className="p-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400/70">
+                        <p className="text-[0.625rem] font-black uppercase tracking-[0.18em] text-emerald-400/70">
                           Barangay
                         </p>
                         <h3 className="mt-1 text-sm font-black text-emerald-50">{barangay}</h3>
@@ -385,7 +385,7 @@ function FooterModal({
 
             {activeModal === 'contact' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   Contact MSWDO
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -406,7 +406,7 @@ function FooterModal({
                     ['Location', 'San Policarpo, Eastern Samar'],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-emerald-400/15 bg-emerald-950/30 p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400/70">{label}</p>
+                      <p className="text-[0.625rem] font-black uppercase tracking-[0.18em] text-emerald-400/70">{label}</p>
                       <p className="mt-2 text-sm font-semibold text-emerald-50">{value}</p>
                     </div>
                   ))}
@@ -416,7 +416,7 @@ function FooterModal({
 
             {activeModal === 'privacy' && (
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-400">
+                <p className="text-[0.6875rem] font-black uppercase tracking-[0.24em] text-emerald-400">
                   Privacy Policy
                 </p>
                 <h2 className="mt-3 text-2xl font-black md:text-4xl">
@@ -504,7 +504,7 @@ export function Footer({ onAccessPortal }: FooterProps) {
       {/* Partners */}
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 flex flex-col items-center gap-6">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-emerald-400/50">
+          <p className="text-[0.6875rem] font-medium uppercase tracking-[0.2em] text-emerald-400/50">
             In partnership with
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 md:gap-12">
@@ -519,7 +519,7 @@ export function Footer({ onAccessPortal }: FooterProps) {
                   </div>
                   <div className="flex flex-col leading-tight">
                     <span className="text-sm font-semibold text-emerald-50">{p.name}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-emerald-400/60">{p.role}</span>
+                    <span className="text-[0.625rem] uppercase tracking-wide text-emerald-400/60">{p.role}</span>
                   </div>
                 </div>
               )
@@ -537,7 +537,7 @@ export function Footer({ onAccessPortal }: FooterProps) {
               </div>
               <div className="flex flex-col leading-none">
                 <span className="text-sm font-black text-emerald-50">CRMS</span>
-                <span className="text-[10px] uppercase tracking-[0.18em] text-emerald-400/70">
+                <span className="text-[0.625rem] uppercase tracking-[0.18em] text-emerald-400/70">
                   Community Resource Mapping
                 </span>
               </div>
@@ -549,7 +549,7 @@ export function Footer({ onAccessPortal }: FooterProps) {
 
           {LINK_GROUPS.map((group) => (
             <div key={group.title}>
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-400/60">
+              <h4 className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-emerald-400/60">
                 {group.title}
               </h4>
               <ul className="space-y-2">
@@ -579,7 +579,7 @@ export function Footer({ onAccessPortal }: FooterProps) {
         </div>
 
         {/* Bottom bar */}
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-emerald-500/10 pt-6 text-[11px] text-emerald-500/50 md:flex-row">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-emerald-500/10 pt-6 text-[0.6875rem] text-emerald-500/50 md:flex-row">
           <p className="flex items-center gap-2">
             <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm">
               <CrmsLogoImage className="h-full w-full object-contain" alt="CRMS" />

@@ -157,7 +157,7 @@ export function MobileAppNav({
                 >
                   <Icon className="h-4 w-4" />
                 </span>
-                <span className="w-full truncate text-[10px] font-semibold leading-tight">
+                <span className="w-full truncate text-[0.625rem] font-semibold leading-tight">
                   {mobileLabel(item.label)}
                 </span>
               </button>
@@ -185,7 +185,7 @@ export function MobileAppNav({
             >
               <Menu className="h-4 w-4" />
             </span>
-            <span className="text-[10px] font-semibold leading-tight">
+            <span className="text-[0.625rem] font-semibold leading-tight">
               More
             </span>
           </button>

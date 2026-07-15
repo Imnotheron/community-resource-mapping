@@ -1157,7 +1157,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
                       <TableCell>
                         <div className="flex max-w-xs flex-wrap gap-1">
                           {vulnerabilityTypes(record.vulnerabilityTypes).map((value) => (
-                            <Badge key={value} variant="secondary" className="text-[10px]">
+                            <Badge key={value} variant="secondary" className="text-[0.625rem]">
                               {value}
                             </Badge>
                           ))}

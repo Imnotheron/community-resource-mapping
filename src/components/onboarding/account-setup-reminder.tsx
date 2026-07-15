@@ -449,7 +449,7 @@ export default function AccountSetupReminder({
             </Button>
           </div>
 
-          <p className="text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+          <p className="text-[0.6875rem] leading-4 text-slate-500 dark:text-slate-400">
             This reminder disappears permanently after you
             replace the temporary password. “Remind Me
             Later” hides it for 24 hours.

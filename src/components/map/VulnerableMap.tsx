@@ -216,7 +216,7 @@ function ProfileAvatar({ point }: { point: VulnerablePoint }) {
   const photo = getProfilePhoto(point)
 
   return (
-    <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-950 text-[10px] font-black text-white ring-2 ring-white shadow-md">
+    <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-950 text-[0.625rem] font-black text-white ring-2 ring-white shadow-md">
       {photo ? (
         <img
           src={photo}
@@ -254,13 +254,13 @@ function CompactPopup({
         <ProfileAvatar point={point} />
 
         <div className="min-w-0">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-slate-500">
+          <p className="text-[0.5rem] font-black uppercase tracking-[0.14em] text-slate-500">
             Citizen
           </p>
-          <h3 className="truncate text-[11px] font-black leading-tight text-slate-950">
+          <h3 className="truncate text-[0.6875rem] font-black leading-tight text-slate-950">
             {point.name}
           </h3>
-          <p className="truncate text-[9px] font-bold text-slate-500">
+          <p className="truncate text-[0.5625rem] font-bold text-slate-500">
             {point.barangay || 'Barangay not recorded'}
           </p>
         </div>
@@ -268,7 +268,7 @@ function CompactPopup({
 
       <div className="space-y-1.5 p-2">
         <div
-          className={`inline-flex rounded-full px-2 py-1 text-[8px] font-black uppercase ${received
+          className={`inline-flex rounded-full px-2 py-1 text-[0.5rem] font-black uppercase ${received
             ? 'bg-emerald-100 text-emerald-700'
             : 'bg-red-100 text-red-700'
             }`}
@@ -277,23 +277,23 @@ function CompactPopup({
         </div>
 
         <div className="border-t border-slate-100 pt-1.5">
-          <p className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
+          <p className="text-[0.5rem] font-black uppercase tracking-[0.1em] text-slate-500">
             Address
           </p>
-          <p className="line-clamp-2 text-[10px] font-bold leading-snug text-slate-800">
+          <p className="line-clamp-2 text-[0.625rem] font-bold leading-snug text-slate-800">
             {point.address || 'Not recorded'}
           </p>
         </div>
 
         <div className="border-t border-slate-100 pt-1.5">
-          <p className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
+          <p className="text-[0.5rem] font-black uppercase tracking-[0.1em] text-slate-500">
             Vulnerability
           </p>
           <div className="mt-1 flex flex-wrap gap-1">
             {vulnerabilityTypes.map((type, index) => (
               <span
                 key={`${type}-${index}`}
-                className={`rounded-full px-1.5 py-0.5 text-[8px] font-black ${received
+                className={`rounded-full px-1.5 py-0.5 text-[0.5rem] font-black ${received
                   ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
                   : 'bg-red-50 text-red-700 ring-1 ring-red-100'
                   }`}
@@ -308,14 +308,14 @@ function CompactPopup({
           point.lastItemsReceived ||
           point.lastDistributionType) && (
             <div className="border-t border-slate-100 pt-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
+              <p className="text-[0.5rem] font-black uppercase tracking-[0.1em] text-slate-500">
                 Last Distribution
               </p>
-              <p className="text-[10px] font-black text-slate-900">
+              <p className="text-[0.625rem] font-black text-slate-900">
                 {formatDate(point.lastDistributionDate)}
               </p>
               {(point.lastItemsReceived || point.lastDistributionType) && (
-                <p className="text-[10px] font-bold text-slate-600">
+                <p className="text-[0.625rem] font-bold text-slate-600">
                   {point.lastItemsReceived || point.lastDistributionType}
                 </p>
               )}
@@ -324,14 +324,14 @@ function CompactPopup({
 
         {missingNeeds.length > 0 && (
           <div className="border-t border-slate-100 pt-1.5">
-            <p className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
+            <p className="text-[0.5rem] font-black uppercase tracking-[0.1em] text-slate-500">
               Missing / Needed
             </p>
             <div className="mt-1 flex flex-wrap gap-1">
               {missingNeeds.slice(0, 3).map((need) => (
                 <span
                   key={need}
-                  className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[8px] font-black text-orange-700 ring-1 ring-orange-100"
+                  className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[0.5rem] font-black text-orange-700 ring-1 ring-orange-100"
                 >
                   {need}
                 </span>
@@ -342,10 +342,10 @@ function CompactPopup({
 
         {point.mobileNumber && (
           <div className="border-t border-slate-100 pt-1.5">
-            <p className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
+            <p className="text-[0.5rem] font-black uppercase tracking-[0.1em] text-slate-500">
               Mobile
             </p>
-            <p className="text-[10px] font-black text-slate-900">
+            <p className="text-[0.625rem] font-black text-slate-900">
               {point.mobileNumber}
             </p>
           </div>
@@ -354,7 +354,7 @@ function CompactPopup({
         <Button
           type="button"
           size="sm"
-          className="mt-1 h-7 w-full rounded-lg bg-emerald-600 text-[10px] font-black text-white hover:bg-emerald-700"
+          className="mt-1 h-7 w-full rounded-lg bg-emerald-600 text-[0.625rem] font-black text-white hover:bg-emerald-700"
           onClick={() => onViewProfile?.(point.id, point)}
         >
           <UserRound className="mr-1 h-3 w-3" />
@@ -467,7 +467,7 @@ export function VulnerableMap({
       )}
 
       <div className="absolute left-3 top-3 z-[500] rounded-xl border border-white/70 bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
-        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+        <p className="text-[0.5625rem] font-black uppercase tracking-[0.18em] text-slate-500">
           Vulnerable Map
         </p>
         <p className="text-xs font-black text-slate-950">
@@ -572,7 +572,7 @@ export function VulnerableMap({
       )}
 
       <div className="absolute bottom-3 right-3 z-[500] hidden rounded-xl border border-white/70 bg-white/90 p-3 shadow-sm backdrop-blur md:block">
-        <div className="space-y-1.5 text-[11px] font-bold text-slate-700">
+        <div className="space-y-1.5 text-[0.6875rem] font-bold text-slate-700">
           <div className="flex items-center gap-2">
             <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
             <span>Relief received</span>
