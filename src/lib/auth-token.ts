@@ -59,6 +59,17 @@ async function signPayload(payload: string): Promise<string> {
   return encodeBase64Url(new Uint8Array(signature))
 }
 
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false
+
+  let mismatch = 0
+  for (let index = 0; index < left.length; index += 1) {
+    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index)
+  }
+
+  return mismatch === 0
+}
+
 function normalizeRole(value: unknown): AuthRole | null {
   const role = String(value || '').trim().toUpperCase()
 
@@ -101,16 +112,7 @@ export async function verifyAuthToken(
   if (!payload || !providedSignature || extra) return null
 
   const expectedSignature = await signPayload(payload)
-
-  const expected = Buffer.from(expectedSignature)
-  const provided = Buffer.from(providedSignature)
-
-  if (
-    expected.length !== provided.length ||
-    !crypto.timingSafeEqual(expected, provided)
-  ) {
-    return null
-  }
+  if (!constantTimeEqual(expectedSignature, providedSignature)) return null
 
   try {
     const parsed = JSON.parse(decodeBase64Url(payload)) as Partial<AuthTokenClaims>
