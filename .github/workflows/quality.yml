@@ -1,0 +1,51 @@
+name: Quality checks
+
+on:
+  push:
+    branches:
+      - capstone-stabilization
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DATABASE_URL: file:./ci.db
+      AUTH_SECRET: ci-only-auth-secret-change-in-production-123456789
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+
+      - name: Prepare CI database
+        run: bunx prisma db push --skip-generate
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type-check
+        run: bun run typecheck
+
+      - name: Production build
+        env:
+          NODE_ENV: production
+        run: bun run build
