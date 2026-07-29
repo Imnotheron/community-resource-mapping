@@ -1,70 +1,58 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Simple mobile User-Agent detection
+import {
+  AUTH_COOKIE_NAME,
+  verifyAuthToken,
+} from '@/lib/auth-token'
+
 function isMobileUserAgent(ua: string): boolean {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(ua)
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(
+    ua,
+  )
 }
 
-// Middleware for handling authentication and route protection
-export function proxy(request: NextRequest) {
+function requiredRole(pathname: string) {
+  if (pathname.startsWith('/admin')) return 'ADMIN'
+  if (pathname.startsWith('/worker')) return 'WORKER'
+  if (pathname.startsWith('/vulnerable')) return 'VULNERABLE'
+  return null
+}
+
+function redirectToIntro(request: NextRequest) {
+  const url = request.nextUrl.clone()
+  url.pathname = '/intro'
+  url.search = ''
+
+  const response = NextResponse.redirect(url)
+  response.cookies.delete(AUTH_COOKIE_NAME)
+  return response
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const roleNeeded = requiredRole(pathname)
 
-  // Allow access to static files, API routes, and public pages
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/static') ||
-    pathname === '/' ||
-    pathname.startsWith('/intro') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/role-selection') ||
-    pathname.startsWith('/register') ||
-    pathname.includes('.') // Static files
-  ) {
-    return NextResponse.next()
-  }
+  if (!roleNeeded) return NextResponse.next()
 
-  // Block admin routes on mobile devices (server-side safety net)
-  if (pathname.startsWith('/admin')) {
+  if (roleNeeded === 'ADMIN') {
     const userAgent = request.headers.get('user-agent') || ''
-    if (isMobileUserAgent(userAgent)) {
-      console.log('[Middleware] Mobile device detected on admin route, redirecting to intro')
-      const url = request.nextUrl.clone()
-      url.pathname = '/intro'
-      return NextResponse.redirect(url)
-    }
+    if (isMobileUserAgent(userAgent)) return redirectToIntro(request)
   }
 
-  // Check for auth token
-  const token = request.cookies.get('token')?.value || request.headers.get('authorization')?.replace('Bearer ', '')
+  const cookieToken = request.cookies.get(AUTH_COOKIE_NAME)?.value
+  const bearer = request.headers
+    .get('authorization')
+    ?.replace(/^Bearer\s+/i, '')
+  const claims = await verifyAuthToken(cookieToken || bearer)
 
-  console.log('[Middleware] Path:', pathname, 'Has Token:', !!token)
-
-  // Protected routes
-  if (pathname.startsWith('/admin') || pathname.startsWith('/worker') || pathname.startsWith('/vulnerable')) {
-    if (!token) {
-      console.log('[Middleware] No token found, redirecting to intro')
-      // Redirect to intro if not authenticated
-      const url = request.nextUrl.clone()
-      url.pathname = '/intro'
-      return NextResponse.redirect(url)
-    }
+  if (!claims || claims.role !== roleNeeded) {
+    return redirectToIntro(request)
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)',
-  ],
+  matcher: ['/admin/:path*', '/worker/:path*', '/vulnerable/:path*'],
 }
