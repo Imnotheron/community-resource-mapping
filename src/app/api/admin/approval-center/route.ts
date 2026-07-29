@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -8,47 +8,15 @@ import {
   sendVulnerableRegistrationRejectedEmail,
 } from '@/lib/email'
 import { createNotification } from '@/lib/notification-service'
+import { requireRoles } from '@/lib/server-auth'
 
 type RecordType = 'REGISTRATION' | 'DISTRIBUTION'
 type RecordAction = 'APPROVE' | 'REJECT'
 
-function normalizeRole(value: unknown) {
-  return String(value || '').trim().toUpperCase()
-}
-
-async function requireAdmin(request: NextRequest) {
-  const adminId = request.headers.get('x-user-id')
-
-  if (!adminId) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: 'Administrator ID is required' },
-        { status: 401 },
-      ),
-    }
-  }
-
-  const admin = await db.user.findUnique({
-    where: { id: adminId },
-    select: { id: true, name: true, email: true, role: true },
-  })
-
-  if (!admin || normalizeRole(admin.role) !== 'ADMIN') {
-    return {
-      error: NextResponse.json(
-        { success: false, error: 'Administrator access is required' },
-        { status: 403 },
-      ),
-    }
-  }
-
-  return { admin }
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
-    if ('error' in auth) return auth.error
+    const auth = await requireRoles(request, ['ADMIN'])
+    if (auth.error) return auth.error
 
     const [registrations, distributions] = await Promise.all([
       db.vulnerableProfile.findMany({
@@ -122,7 +90,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       generatedAt: new Date().toISOString(),
-      admin: auth.admin,
+      admin: auth.user,
       registrations,
       distributions,
     })
@@ -130,13 +98,7 @@ export async function GET(request: NextRequest) {
     console.error('Approval Center load error:', error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to load Approval Center records',
-        ...(process.env.NODE_ENV !== 'production'
-          ? { details: error instanceof Error ? error.message : String(error) }
-          : {}),
-      },
+      { success: false, error: 'Failed to load Approval Center records' },
       { status: 500 },
     )
   }
@@ -144,8 +106,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
-    if ('error' in auth) return auth.error
+    const auth = await requireRoles(request, ['ADMIN'])
+    if (auth.error) return auth.error
 
     const body = await request.json()
     const type = String(body.type || '').toUpperCase() as RecordType
@@ -184,7 +146,10 @@ export async function POST(request: NextRequest) {
 
     if (ids.length > 500) {
       return NextResponse.json(
-        { success: false, error: 'A maximum of 500 records can be processed at once' },
+        {
+          success: false,
+          error: 'A maximum of 500 records can be processed at once',
+        },
         { status: 400 },
       )
     }
@@ -249,6 +214,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         processed: result.count,
+        approvedBy: auth.user.id,
         message: `${result.count} registration${
           result.count === 1 ? '' : 's'
         } ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`,
@@ -297,6 +263,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       processed: result.count,
+      approvedBy: auth.user.id,
       message: `${result.count} distribution${
         result.count === 1 ? '' : 's'
       } ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`,
@@ -305,15 +272,8 @@ export async function POST(request: NextRequest) {
     console.error('Approval Center action error:', error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to process selected records',
-        ...(process.env.NODE_ENV !== 'production'
-          ? { details: error instanceof Error ? error.message : String(error) }
-          : {}),
-      },
+      { success: false, error: 'Failed to process selected records' },
       { status: 500 },
     )
   }
 }
-
