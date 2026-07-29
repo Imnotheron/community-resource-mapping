@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
@@ -72,7 +72,6 @@ export function LocationPicker({
       mapRef.current = null
       markerRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Search
@@ -148,3 +147,4 @@ export function LocationPicker({
     </div>
   )
 }
+

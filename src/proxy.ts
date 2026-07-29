@@ -7,7 +7,7 @@ function isMobileUserAgent(ua: string): boolean {
 }
 
 // Middleware for handling authentication and route protection
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow access to static files, API routes, and public pages

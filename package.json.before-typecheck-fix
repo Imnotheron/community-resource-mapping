@@ -1,4 +1,4 @@
-{
+﻿{
     "name":  "nextjs_tailwind_shadcn_ts",
     "version":  "0.2.0",
     "private":  true,
@@ -14,7 +14,7 @@
                     "db:reset":  "prisma migrate reset",
                     "db:seed":  "bun run prisma/seed.ts",
                     "lint:fix":  "eslint . --fix",
-                    "typecheck":  "prisma generate \u0026\u0026 tsc --noEmit",
+                    "typecheck":  "tsc --noEmit",
                     "check":  "bun run lint \u0026\u0026 bun run typecheck \u0026\u0026 bun run build"
                 },
     "dependencies":  {

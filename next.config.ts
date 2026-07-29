@@ -1,11 +1,9 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
+  turbopack: {
+    root: process.cwd(),
   },
-  reactStrictMode: false,
-};
+}
 
-export default nextConfig;
+export default nextConfig

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import {
   ArrowLeft,
@@ -271,6 +271,7 @@ export function ProfileView({
       cancelled = true
     }
     // Load once for this profile session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -1054,4 +1055,3 @@ function ThemeOption({
     </button>
   )
 }
-

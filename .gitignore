@@ -63,3 +63,6 @@ server.log
 
 # Skills directory
 /skills/
+
+.vercel
+.env*

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import maplibregl, { type Marker } from "maplibre-gl";
@@ -648,6 +648,7 @@ export function VulnerableMap({
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
       attributionControl: false,
+      preserveDrawingBuffer: false,
       fadeDuration: 0,
       dragRotate: false,
       pitchWithRotate: false,
@@ -666,7 +667,7 @@ export function VulnerableMap({
     map.addControl(
       new maplibregl.AttributionControl({
         compact: true,
-        customAttribution: "OpenStreetMap contributors Â· CARTO",
+        customAttribution: "OpenStreetMap contributors · CARTO",
       }),
       "bottom-left",
     );
@@ -995,4 +996,3 @@ export function VulnerableMap({
 }
 
 export default VulnerableMap;
-

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { lazy, Suspense, useState } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -51,7 +51,7 @@ const VulnerableDashboard = lazy(() =>
 )
 
 function ViewLoader({
-  label = 'Loadingâ€¦',
+  label = 'Loading…',
 }: {
   label?: string
 }) {
@@ -72,6 +72,7 @@ function AppShellContent() {
     user,
     loading,
     login,
+    register,
     logout,
     refreshUser,
   } = useUserSync()
@@ -89,7 +90,7 @@ function AppShellContent() {
       return (
         <Suspense
           fallback={
-            <ViewLoader label="Loading sign-inâ€¦" />
+            <ViewLoader label="Loading sign-in…" />
           }
         >
           <AuthScreen
@@ -106,7 +107,21 @@ function AppShellContent() {
               setMode('dashboard')
               return result
             }}
-
+            onRegister={async (
+              name,
+              email,
+              password,
+              role,
+            ) => {
+              const result = await register(
+                name,
+                email,
+                password,
+                role,
+              )
+              setMode('dashboard')
+              return result
+            }}
             onBack={() => setMode('landing')}
           />
         </Suspense>
@@ -116,7 +131,7 @@ function AppShellContent() {
     return (
       <Suspense
         fallback={
-          <ViewLoader label="Loading landing pageâ€¦" />
+          <ViewLoader label="Loading landing page…" />
         }
       >
         <LandingPage
@@ -137,7 +152,7 @@ function AppShellContent() {
     return (
       <Suspense
         fallback={
-          <ViewLoader label="Loading profileâ€¦" />
+          <ViewLoader label="Loading profile…" />
         }
       >
         <ProfileView
@@ -165,7 +180,7 @@ function AppShellContent() {
       <>
         <Suspense
           fallback={
-            <ViewLoader label="Loading admin dashboardâ€¦" />
+            <ViewLoader label="Loading admin dashboard…" />
           }
         >
           <AdminDashboard
@@ -185,7 +200,7 @@ function AppShellContent() {
       <>
         <Suspense
           fallback={
-            <ViewLoader label="Loading worker dashboardâ€¦" />
+            <ViewLoader label="Loading worker dashboard…" />
           }
         >
           <WorkerDashboard
@@ -204,7 +219,7 @@ function AppShellContent() {
     <>
       <Suspense
         fallback={
-          <ViewLoader label="Loading portalâ€¦" />
+          <ViewLoader label="Loading portal…" />
         }
       >
         <VulnerableDashboard
@@ -222,5 +237,3 @@ function AppShellContent() {
 export function AppShellRoot() {
   return <AppShellContent />
 }
-
-

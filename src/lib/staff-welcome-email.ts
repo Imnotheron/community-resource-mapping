@@ -1,10 +1,10 @@
-import { transporter } from '@/lib/email'
+import nodemailer from 'nodemailer'
 
 export type StaffWelcomeRole = 'ADMIN' | 'WORKER'
 
 export type StaffWelcomeEmailResult = {
   success: boolean
-  provider: 'BREVO_API' | 'BREVO_SMTP' | 'NONE'
+  provider: 'BREVO_SMTP' | 'NONE'
   message: string
   messageId?: string
   errorCode?: string
@@ -17,41 +17,26 @@ type DeliveryInput = {
   temporaryPassword: string
 }
 
-const BREVO_API_URL =
-  'https://api.brevo.com/v3/smtp/email'
-
-function resolveSenderEmail() {
-  return (
-    process.env.BREVO_FROM_EMAIL?.trim() ||
-    process.env.BREVO_SMTP_LOGIN?.trim() ||
-    ''
-  )
-}
-
-function resolveSenderName() {
-  return (
-    process.env.BREVO_FROM_NAME?.trim() ||
-    'San Policarpo CRMS'
-  )
+function envValue(name: string) {
+  return String(process.env[name] || '').trim()
 }
 
 function resolveAppUrl() {
-  const explicitUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.trim()
+  const explicitUrl = envValue('NEXT_PUBLIC_APP_URL')
 
   if (explicitUrl) {
     return explicitUrl
   }
 
-  const productionHost =
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim()
+  const productionHost = envValue(
+    'VERCEL_PROJECT_PRODUCTION_URL',
+  )
 
   if (productionHost) {
     return `https://${productionHost}`
   }
 
-  const deploymentHost =
-    process.env.VERCEL_URL?.trim()
+  const deploymentHost = envValue('VERCEL_URL')
 
   if (deploymentHost) {
     return `https://${deploymentHost}`
@@ -151,252 +136,10 @@ function buildWelcomeText(input: DeliveryInput) {
   ].join('\n')
 }
 
-function timeoutPromise<T>(
-  milliseconds: number,
-  message: string,
-) {
-  return new Promise<T>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(message))
-    }, milliseconds)
-  })
-}
-
 function safeErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
     : String(error)
-}
-
-async function readBrevoError(
-  response: Response,
-) {
-  try {
-    const data = await response.json()
-
-    const message =
-      typeof data?.message === 'string'
-        ? data.message
-        : typeof data?.error === 'string'
-          ? data.error
-          : `Brevo returned HTTP ${response.status}.`
-
-    const code =
-      typeof data?.code === 'string'
-        ? data.code
-        : `HTTP_${response.status}`
-
-    return { message, code }
-  } catch {
-    return {
-      message: `Brevo returned HTTP ${response.status}.`,
-      code: `HTTP_${response.status}`,
-    }
-  }
-}
-
-async function sendThroughBrevoApi(
-  input: DeliveryInput,
-): Promise<StaffWelcomeEmailResult> {
-  const apiKey =
-    process.env.BREVO_API_KEY?.trim()
-  const senderEmail = resolveSenderEmail()
-
-  if (!apiKey || !senderEmail) {
-    return {
-      success: false,
-      provider: 'BREVO_API',
-      message:
-        'Brevo API is not fully configured.',
-      errorCode: !apiKey
-        ? 'MISSING_BREVO_API_KEY'
-        : 'MISSING_BREVO_FROM_EMAIL',
-    }
-  }
-
-  const controller = new AbortController()
-  const timer = setTimeout(
-    () => controller.abort(),
-    18_000,
-  )
-
-  try {
-    const response = await fetch(
-      BREVO_API_URL,
-      {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          accept: 'application/json',
-          'content-type':
-            'application/json',
-          'api-key': apiKey,
-        },
-        body: JSON.stringify({
-          sender: {
-            name: resolveSenderName(),
-            email: senderEmail,
-          },
-          to: [
-            {
-              email: input.email,
-              name: input.name,
-            },
-          ],
-          subject:
-            'Your CRMS account and temporary password',
-          htmlContent:
-            buildWelcomeHtml(input),
-          textContent:
-            buildWelcomeText(input),
-          tags: [
-            'crms',
-            'staff-welcome',
-          ],
-        }),
-      },
-    )
-
-    if (!response.ok) {
-      const failure =
-        await readBrevoError(response)
-
-      return {
-        success: false,
-        provider: 'BREVO_API',
-        message: failure.message,
-        errorCode: failure.code,
-      }
-    }
-
-    const data = await response
-      .json()
-      .catch(() => ({}))
-
-    return {
-      success: true,
-      provider: 'BREVO_API',
-      message:
-        'Brevo accepted the welcome email.',
-      messageId:
-        typeof data?.messageId ===
-        'string'
-          ? data.messageId
-          : undefined,
-    }
-  } catch (error) {
-    const isTimeout =
-      error instanceof Error &&
-      error.name === 'AbortError'
-
-    return {
-      success: false,
-      provider: 'BREVO_API',
-      message: isTimeout
-        ? 'Brevo API request timed out.'
-        : safeErrorMessage(error),
-      errorCode: isTimeout
-        ? 'BREVO_API_TIMEOUT'
-        : 'BREVO_API_REQUEST_FAILED',
-    }
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-async function sendThroughBrevoSmtp(
-  input: DeliveryInput,
-): Promise<StaffWelcomeEmailResult> {
-  const smtpLogin =
-    process.env.BREVO_SMTP_LOGIN?.trim()
-  const smtpKey =
-    process.env.BREVO_SMTP_KEY?.trim()
-  const senderEmail = resolveSenderEmail()
-
-  if (
-    !smtpLogin ||
-    !smtpKey ||
-    !senderEmail
-  ) {
-    const missing = [
-      !smtpLogin
-        ? 'BREVO_SMTP_LOGIN'
-        : null,
-      !smtpKey
-        ? 'BREVO_SMTP_KEY'
-        : null,
-      !senderEmail
-        ? 'BREVO_FROM_EMAIL'
-        : null,
-    ].filter(Boolean)
-
-    return {
-      success: false,
-      provider: 'BREVO_SMTP',
-      message: `Brevo SMTP is not fully configured. Missing: ${missing.join(
-        ', ',
-      )}.`,
-      errorCode:
-        'BREVO_SMTP_NOT_CONFIGURED',
-    }
-  }
-
-  try {
-    const info = await Promise.race([
-      transporter.sendMail({
-        from: `"${resolveSenderName()}" <${senderEmail}>`,
-        to: {
-          address: input.email,
-          name: input.name,
-        },
-        subject:
-          'Your CRMS account and temporary password',
-        html: buildWelcomeHtml(input),
-        text: buildWelcomeText(input),
-      }),
-      timeoutPromise<never>(
-        18_000,
-        'Brevo SMTP request timed out.',
-      ),
-    ])
-
-    return {
-      success: true,
-      provider: 'BREVO_SMTP',
-      message:
-        'Brevo SMTP accepted the welcome email.',
-      messageId:
-        typeof info?.messageId ===
-        'string'
-          ? info.messageId
-          : undefined,
-    }
-  } catch (error) {
-    return {
-      success: false,
-      provider: 'BREVO_SMTP',
-      message:
-        safeErrorMessage(error),
-      errorCode:
-        'BREVO_SMTP_SEND_FAILED',
-    }
-  }
-}
-
-function shouldRetry(
-  result: StaffWelcomeEmailResult,
-) {
-  return [
-    'BREVO_API_TIMEOUT',
-    'BREVO_API_REQUEST_FAILED',
-    'HTTP_408',
-    'HTTP_429',
-    'HTTP_500',
-    'HTTP_502',
-    'HTTP_503',
-    'HTTP_504',
-    'BREVO_SMTP_SEND_FAILED',
-  ].includes(result.errorCode || '')
 }
 
 function wait(milliseconds: number) {
@@ -405,36 +148,56 @@ function wait(milliseconds: number) {
   })
 }
 
+function createBrevoTransporter() {
+  const smtpLogin = envValue('BREVO_SMTP_LOGIN')
+  const smtpKey = envValue('BREVO_SMTP_KEY')
+
+  return nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: smtpLogin,
+      pass: smtpKey,
+    },
+    tls: {
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: true,
+    },
+    connectionTimeout: 12_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  })
+}
+
 export function getStaffEmailConfiguration() {
-  const senderEmail = resolveSenderEmail()
-  const apiConfigured = Boolean(
-    process.env.BREVO_API_KEY?.trim() &&
-      senderEmail,
-  )
-  const smtpConfigured = Boolean(
-    process.env.BREVO_SMTP_LOGIN?.trim() &&
-      process.env.BREVO_SMTP_KEY?.trim() &&
-      senderEmail,
+  const required = [
+    'BREVO_SMTP_LOGIN',
+    'BREVO_SMTP_KEY',
+    'BREVO_FROM_EMAIL',
+  ] as const
+
+  const missingVariables = required.filter(
+    (name) => !envValue(name),
   )
 
   return {
-    configured:
-      apiConfigured || smtpConfigured,
-    apiConfigured,
-    smtpConfigured,
+    configured: missingVariables.length === 0,
+    apiConfigured: false,
+    smtpConfigured: missingVariables.length === 0,
     senderEmailConfigured: Boolean(
-      senderEmail,
+      envValue('BREVO_FROM_EMAIL'),
     ),
     preferredProvider:
-      apiConfigured
-        ? 'BREVO_API'
-        : smtpConfigured
-          ? 'BREVO_SMTP'
-          : 'NONE',
+      missingVariables.length === 0
+        ? 'BREVO_SMTP'
+        : 'NONE',
+    missingVariables,
   } as const
 }
 
-export async function sendStaffWelcomeEmail(
+async function sendOnce(
   input: DeliveryInput,
 ): Promise<StaffWelcomeEmailResult> {
   const configuration =
@@ -444,60 +207,116 @@ export async function sendStaffWelcomeEmail(
     return {
       success: false,
       provider: 'NONE',
-      message:
-        'No production email provider is configured. Add BREVO_API_KEY and BREVO_FROM_EMAIL in Vercel, or configure BREVO_SMTP_LOGIN and BREVO_SMTP_KEY.',
+      message: `Vercel Production is missing: ${configuration.missingVariables.join(
+        ', ',
+      )}.`,
       errorCode:
         'EMAIL_PROVIDER_NOT_CONFIGURED',
     }
   }
 
-  const methods: Array<
-    (
-      input: DeliveryInput,
-    ) => Promise<StaffWelcomeEmailResult>
-  > = []
+  const senderEmail = envValue(
+    'BREVO_FROM_EMAIL',
+  )
+  const senderName =
+    envValue('BREVO_FROM_NAME') ||
+    'San Policarpo CRMS'
 
-  if (configuration.apiConfigured) {
-    methods.push(sendThroughBrevoApi)
-  }
+  const transporter =
+    createBrevoTransporter()
 
-  if (configuration.smtpConfigured) {
-    methods.push(sendThroughBrevoSmtp)
-  }
+  try {
+    const info =
+      await transporter.sendMail({
+        from: `"${senderName}" <${senderEmail}>`,
+        to: {
+          address: input.email,
+          name: input.name,
+        },
+        subject:
+          'Your CRMS account and temporary password',
+        html: buildWelcomeHtml(input),
+        text: buildWelcomeText(input),
+      })
 
-  let lastResult: StaffWelcomeEmailResult =
-    {
-      success: false,
-      provider: 'NONE',
+    const accepted = Array.isArray(
+      info.accepted,
+    )
+      ? info.accepted.length
+      : 0
+
+    if (accepted < 1) {
+      return {
+        success: false,
+        provider: 'BREVO_SMTP',
+        message:
+          'Brevo did not accept the recipient address.',
+        errorCode:
+          'BREVO_SMTP_RECIPIENT_REJECTED',
+      }
+    }
+
+    console.log(
+      '[Email] Staff welcome accepted by Brevo:',
+      {
+        recipient: input.email,
+        messageId: info.messageId,
+      },
+    )
+
+    return {
+      success: true,
+      provider: 'BREVO_SMTP',
       message:
-        'No email delivery method was attempted.',
+        'Brevo SMTP accepted the welcome email.',
+      messageId:
+        typeof info.messageId === 'string'
+          ? info.messageId
+          : undefined,
+    }
+  } catch (error) {
+    const message =
+      safeErrorMessage(error)
+
+    console.error(
+      '[Email] Staff welcome SMTP failure:',
+      {
+        recipient: input.email,
+        message,
+      },
+    )
+
+    return {
+      success: false,
+      provider: 'BREVO_SMTP',
+      message,
       errorCode:
-        'NO_EMAIL_METHOD',
+        'BREVO_SMTP_SEND_FAILED',
     }
-
-  for (const method of methods) {
-    for (
-      let attempt = 1;
-      attempt <= 2;
-      attempt += 1
-    ) {
-      lastResult = await method(input)
-
-      if (lastResult.success) {
-        return lastResult
-      }
-
-      if (
-        attempt < 2 &&
-        shouldRetry(lastResult)
-      ) {
-        await wait(700)
-        continue
-      }
-
-      break
-    }
+  } finally {
+    transporter.close()
   }
+}
+
+export async function sendStaffWelcomeEmail(
+  input: DeliveryInput,
+): Promise<StaffWelcomeEmailResult> {
+  let lastResult =
+    await sendOnce(input)
+
+  if (lastResult.success) {
+    return lastResult
+  }
+
+  if (
+    lastResult.errorCode !==
+    'BREVO_SMTP_SEND_FAILED'
+  ) {
+    return lastResult
+  }
+
+  await wait(750)
+  lastResult = await sendOnce(input)
 
   return lastResult
 }

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -373,13 +373,15 @@ export function VulnerableMap({
   height = 500,
   onViewProfile,
 }: VulnerableMapProps) {
-  const [isOnline, setIsOnline] = useState(() => {
-    return typeof navigator === 'undefined' ? true : navigator.onLine
-  })
+  const [isOnline, setIsOnline] = useState(true)
   const [isMapInteractive] = useState(true)
   const { receivedIcon, notReceivedIcon } = useCustomIcons()
 
   useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      setIsOnline(navigator.onLine)
+    }
+
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
 
@@ -593,4 +595,3 @@ export function VulnerableMap({
 }
 
 export default VulnerableMap
-

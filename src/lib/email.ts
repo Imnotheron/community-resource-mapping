@@ -19,23 +19,6 @@ export const transporter = nodemailer.createTransport({
   }
 })
 
-// Verify SMTP connection at startup and log result clearly
-async function verifyEmailConnection() {
-  if (!process.env.BREVO_SMTP_LOGIN || !process.env.BREVO_SMTP_KEY) {
-    console.warn('⚠️  [Email] Brevo SMTP not configured — BREVO_SMTP_LOGIN or BREVO_SMTP_KEY is missing.')
-    return
-  }
-  try {
-    await transporter.verify()
-    console.log('✅ [Email] Brevo SMTP connection verified — emails will send.')
-  } catch (err: any) {
-    console.error('❌ [Email] Brevo SMTP connection FAILED:', err.message)
-    console.error('   → Check BREVO_SMTP_LOGIN, BREVO_SMTP_KEY, and that your sender is verified at app.brevo.com')
-  }
-}
-
-// Call once at module load (dev server startup)
-verifyEmailConnection()
 
 export async function sendWelcomeEmail(email: string, name: string, role: string, temporaryPassword?: string) {
   try {

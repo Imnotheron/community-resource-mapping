@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -151,12 +151,12 @@ export async function POST(request: NextRequest) {
     const type = String(body.type || '').toUpperCase() as RecordType
     const action = String(body.action || '').toUpperCase() as RecordAction
     const reason = String(body.reason || '').trim()
-    const ids: string[] = Array.isArray(body.ids)
+    const ids = Array.isArray(body.ids)
       ? Array.from(
-          new Set<string>(
+          new Set(
             body.ids
               .map((id: unknown) => String(id || '').trim())
-              .filter((id: string) => id.length > 0),
+              .filter(Boolean),
           ),
         )
       : []
@@ -316,4 +316,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

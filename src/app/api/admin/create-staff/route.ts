@@ -421,7 +421,7 @@ export async function POST(
         {
           success: false,
           error:
-            'Production email is not configured in Vercel. Add BREVO_API_KEY and BREVO_FROM_EMAIL to the Production environment, then redeploy.',
+            'Production email is missing the Brevo SMTP variables. Add BREVO_SMTP_LOGIN, BREVO_SMTP_KEY, and BREVO_FROM_EMAIL to Vercel Production, then redeploy.',
           emailCode:
             'EMAIL_PROVIDER_NOT_CONFIGURED',
         },

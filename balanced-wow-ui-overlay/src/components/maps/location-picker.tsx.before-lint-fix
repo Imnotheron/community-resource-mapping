@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
@@ -6,45 +6,6 @@ import 'leaflet/dist/leaflet.css'
 import { Search, MapPin, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-
-const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072]
-
-const SAN_POLICARPO_LIMITS = {
-  // Expanded practical boundary for all 17 San Policarpo barangays.
-  // Wider east/south edge lets users reach Natividad and Tabo while staying within the municipal map area.
-  south: 12.125,
-  west: 125.375,
-  north: 12.285,
-  east: 125.625,
-}
-
-const SAN_POLICARPO_BOUNDS = L.latLngBounds(
-  [SAN_POLICARPO_LIMITS.south, SAN_POLICARPO_LIMITS.west],
-  [SAN_POLICARPO_LIMITS.north, SAN_POLICARPO_LIMITS.east],
-)
-
-function isWithinSanPolicarpo(lat: number, lng: number) {
-  return (
-    lat >= SAN_POLICARPO_LIMITS.south &&
-    lat <= SAN_POLICARPO_LIMITS.north &&
-    lng >= SAN_POLICARPO_LIMITS.west &&
-    lng <= SAN_POLICARPO_LIMITS.east
-  )
-}
-
-function getSafeCoordinatePair(lat?: number, lng?: number): [number, number] {
-  if (
-    typeof lat === 'number' &&
-    Number.isFinite(lat) &&
-    typeof lng === 'number' &&
-    Number.isFinite(lng) &&
-    isWithinSanPolicarpo(lat, lng)
-  ) {
-    return [lat, lng]
-  }
-
-  return SAN_POLICARPO_CENTER
-}
 
 interface LocationPickerProps {
   initialLatitude?: number
@@ -73,7 +34,8 @@ export function LocationPicker({
   const [searching, setSearching] = useState(false)
   const [showResults, setShowResults] = useState(false)
 
-  const [DEFAULT_LAT, DEFAULT_LNG] = getSafeCoordinatePair(initialLatitude, initialLongitude)
+  const DEFAULT_LAT = initialLatitude ?? 12.1792
+  const DEFAULT_LNG = initialLongitude ?? 125.5072
 
   // Init map
   useEffect(() => {
@@ -82,15 +44,11 @@ export function LocationPicker({
     const map = L.map(containerRef.current, {
       center: [DEFAULT_LAT, DEFAULT_LNG],
       zoom: 14,
-      minZoom: 11,
-      maxZoom: 18,
-      maxBounds: SAN_POLICARPO_BOUNDS,
-      maxBoundsViscosity: 0.85,
     })
     mapRef.current = map
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 18,
+      maxZoom: 19,
     }).addTo(map)
     const icon = L.divIcon({
       html: `<div style="width:20px;height:20px;border-radius:50%;background:var(--primary);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`,
@@ -102,23 +60,9 @@ export function LocationPicker({
     markerRef.current = marker
     marker.on('dragend', () => {
       const ll = marker.getLatLng()
-
-      if (!isWithinSanPolicarpo(ll.lat, ll.lng)) {
-        marker.setLatLng([DEFAULT_LAT, DEFAULT_LNG])
-        map.setView([DEFAULT_LAT, DEFAULT_LNG], 14)
-        alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
-        return
-      }
-
       onChange(ll.lat, ll.lng)
     })
-
     map.on('click', (e: L.LeafletMouseEvent) => {
-      if (!isWithinSanPolicarpo(e.latlng.lat, e.latlng.lng)) {
-        alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
-        return
-      }
-
       marker.setLatLng(e.latlng)
       onChange(e.latlng.lat, e.latlng.lng)
     })
@@ -128,6 +72,7 @@ export function LocationPicker({
       mapRef.current = null
       markerRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Search
@@ -136,14 +81,9 @@ export function LocationPicker({
     setSearching(true)
     setShowResults(true)
     try {
-      const sanPolicarpoQuery = `${query}, San Policarpo, Eastern Samar, Philippines`
-      const res = await fetch(`/api/geocoding/search?q=${encodeURIComponent(sanPolicarpoQuery)}`)
+      const res = await fetch(`/api/geocoding/search?q=${encodeURIComponent(query)}`)
       const data = await res.json()
-      const rawResults = data.results || []
-      const filteredResults = rawResults.filter((result: SearchResult) =>
-        isWithinSanPolicarpo(result.lat, result.lon)
-      )
-      setResults(filteredResults)
+      setResults(data.results || [])
     } catch {
       setResults([])
     } finally {
@@ -153,12 +93,6 @@ export function LocationPicker({
 
   const selectResult = (r: SearchResult) => {
     if (!mapRef.current || !markerRef.current) return
-
-    if (!isWithinSanPolicarpo(r.lat, r.lon)) {
-      alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
-      return
-    }
-
     mapRef.current.setView([r.lat, r.lon], 16)
     markerRef.current.setLatLng([r.lat, r.lon])
     onChange(r.lat, r.lon, r.display_name)
@@ -209,9 +143,8 @@ export function LocationPicker({
         className="rounded-md border border-border"
       />
       <p className="text-xs text-muted-foreground">
-        Drag the marker or click on the map to set a location inside San Policarpo, Eastern Samar only.
+        Drag the marker or click on the map to set the location.
       </p>
     </div>
   )
 }
-

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import {
   Check,
@@ -163,9 +163,9 @@ function barangayOfDistribution(record: Distribution) {
 }
 
 function date(value: string | null | undefined) {
-  if (!value) return 'â€”'
+  if (!value) return '—'
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return 'â€”'
+  if (Number.isNaN(parsed.getTime())) return '—'
 
   return new Intl.DateTimeFormat('en-PH', {
     year: 'numeric',
@@ -175,9 +175,9 @@ function date(value: string | null | undefined) {
 }
 
 function dateTime(value: string | null | undefined) {
-  if (!value) return 'â€”'
+  if (!value) return '—'
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return 'â€”'
+  if (Number.isNaN(parsed.getTime())) return '—'
 
   return new Intl.DateTimeFormat('en-PH', {
     year: 'numeric',
@@ -231,11 +231,11 @@ function buildPrintHtml(
                 <td>${escapeHtml(record.barangay)}</td>
                 <td>${escapeHtml(
                   vulnerabilityTypes(record.vulnerabilityTypes).join(', ') ||
-                    'â€”',
+                    '—',
                 )}</td>
                 <td>${escapeHtml(date(record.createdAt))}</td>
                 <td>${escapeHtml(record.registrationStatus)}</td>
-                <td>${escapeHtml(record.rejectionReason || 'â€”')}</td>
+                <td>${escapeHtml(record.rejectionReason || '—')}</td>
               </tr>
             `,
           )
@@ -252,13 +252,13 @@ function buildPrintHtml(
                   ${escapeHtml(record.itemsProvided)}<br />
                   Quantity: ${escapeHtml(record.quantity)}
                 </td>
-                <td>${escapeHtml(record.worker?.name || 'â€”')}</td>
+                <td>${escapeHtml(record.worker?.name || '—')}</td>
                 <td>${escapeHtml(date(record.distributionDate))}</td>
                 <td>
                   ${escapeHtml(record.status)}
                   ${
                     record.rejectionReason
-                      ? ` â€” ${escapeHtml(record.rejectionReason)}`
+                      ? ` — ${escapeHtml(record.rejectionReason)}`
                       : ''
                   }
                 </td>
@@ -294,7 +294,7 @@ function buildPrintHtml(
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>â€‹</title>
+    <title>​</title>
     <style>
       @page {
         size: A4 landscape;
@@ -742,11 +742,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
 
     setter((current) => {
       const next = new Set(current)
-      if (checked) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
+      checked ? next.add(id) : next.delete(id)
       return next
     })
   }
@@ -759,11 +755,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
       const next = new Set(current)
 
       visibleIds.forEach((id) => {
-        if (checked) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
+        checked ? next.add(id) : next.delete(id)
       })
 
       return next
@@ -841,7 +833,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
     }
 
     if (query.trim()) values.push(`Search: ${query.trim()}`)
-    return values.join(' â€¢ ')
+    return values.join(' • ')
   }
 
   function printRecords(mode: 'SELECTED' | 'FILTERED') {
@@ -1092,7 +1084,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
 
           <div className="mt-4 flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm">
-              <b>{selected.size}</b> selected â€¢ <b>{actionableIds.length}</b> pending
+              <b>{selected.size}</b> selected • <b>{actionableIds.length}</b> pending
             </p>
             <div className="flex gap-2">
               <Button
@@ -1158,7 +1150,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
                       <TableCell>
                         <p className="font-medium">{fullName(record)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {record.emailAddress} â€¢ {record.mobileNumber}
+                          {record.emailAddress} • {record.mobileNumber}
                         </p>
                       </TableCell>
                       <TableCell>{record.barangay}</TableCell>
@@ -1243,11 +1235,11 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
                       <TableCell>
                         <p className="font-medium">{beneficiary(record)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {record.itemsProvided} â€¢ Qty {record.quantity}
+                          {record.itemsProvided} • Qty {record.quantity}
                         </p>
                       </TableCell>
                       <TableCell>{record.distributionType}</TableCell>
-                      <TableCell>{record.worker?.name || 'â€”'}</TableCell>
+                      <TableCell>{record.worker?.name || '—'}</TableCell>
                       <TableCell>{barangayOfDistribution(record)}</TableCell>
                       <TableCell>{date(record.distributionDate)}</TableCell>
                       <TableCell>
@@ -1435,5 +1427,4 @@ function TableShell({
 
   return <Card className="overflow-hidden">{children}</Card>
 }
-
 
