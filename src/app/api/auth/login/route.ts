@@ -3,6 +3,11 @@ export const dynamic = 'force-dynamic'
 import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 
+import {
+  AUTH_COOKIE_MAX_AGE,
+  AUTH_COOKIE_NAME,
+  createAuthToken,
+} from '@/lib/auth-token'
 import { db } from '@/lib/db'
 
 type UserColumn = {
@@ -72,48 +77,32 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password || !role) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Missing required fields',
-        },
+        { success: false, message: 'Missing required fields' },
         { status: 400 },
       )
     }
 
     await ensureOnboardingColumns()
 
-    const cleanEmail = String(email).trim()
+    const cleanEmail = String(email).trim().toLowerCase()
     const cleanRole = String(role).trim().toUpperCase()
 
-    let user = await db.user.findUnique({
+    if (!['ADMIN', 'WORKER', 'VULNERABLE'].includes(cleanRole)) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid role access' },
+        { status: 403 },
+      )
+    }
+
+    const user = await db.user.findUnique({
       where: { email: cleanEmail },
       select: userSelect,
     })
 
-    if (!user && cleanEmail !== cleanEmail.toLowerCase()) {
-      user = await db.user.findUnique({
-        where: { email: cleanEmail.toLowerCase() },
-        select: userSelect,
-      })
-    }
-
-    if (!user) {
+    if (!user || String(user.role).toUpperCase() !== cleanRole) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Invalid credentials',
-        },
+        { success: false, message: 'Invalid credentials' },
         { status: 401 },
-      )
-    }
-
-    if (String(user.role).toUpperCase() !== cleanRole) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Invalid role access',
-        },
-        { status: 403 },
       )
     }
 
@@ -124,21 +113,16 @@ export async function POST(request: NextRequest) {
 
     if (!isValidPassword) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Invalid credentials',
-        },
+        { success: false, message: 'Invalid credentials' },
         { status: 401 },
       )
     }
 
-    const token = Buffer.from(
-      JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      }),
-    ).toString('base64')
+    const token = await createAuthToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    })
 
     const response = NextResponse.json({
       success: true,
@@ -151,27 +135,19 @@ export async function POST(request: NextRequest) {
         profilePicture: user.profilePicture,
         registrationStatus:
           user.vulnerableProfile?.registrationStatus || null,
-        temporaryPasswordIssued: Boolean(
-          user.temporaryPasswordIssued,
-        ),
-        passwordChangedAt: user.passwordChangedAt
-          ? user.passwordChangedAt.toISOString()
-          : null,
+        temporaryPasswordIssued: Boolean(user.temporaryPasswordIssued),
+        passwordChangedAt: user.passwordChangedAt?.toISOString() || null,
         onboardingReminderDismissedAt:
-          user.onboardingReminderDismissedAt
-            ? user.onboardingReminderDismissedAt.toISOString()
-            : null,
+          user.onboardingReminderDismissedAt?.toISOString() || null,
       },
       token,
     })
 
-    const isDevelopment = process.env.NODE_ENV !== 'production'
-
-    response.cookies.set('token', token, {
+    response.cookies.set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: !isDevelopment,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: AUTH_COOKIE_MAX_AGE,
       path: '/',
     })
 
@@ -180,14 +156,7 @@ export async function POST(request: NextRequest) {
     console.error('Login error:', error)
 
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          'Login failed: ' +
-          (error instanceof Error
-            ? error.message
-            : String(error)),
-      },
+      { success: false, message: 'Login failed. Please try again.' },
       { status: 500 },
     )
   }
