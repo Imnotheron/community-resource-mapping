@@ -1,0 +1,19 @@
+/*
+ * Keep full-screen dashboard layouts pinned to the physical browser viewport
+ * when the saved interface-size preference applies CSS zoom to <html>.
+ *
+ * Without this compensation, the Small setting (0.9375) visually shrinks a
+ * 100dvh dashboard to 93.75dvh after hydration, leaving a blank strip beneath
+ * the footer. The inverse dimensions below cancel that effect for every scale.
+ */
+html[data-interface-size] .crms-dashboard-theme {
+  width: calc(100vw / var(--crms-ui-scale, 1));
+  height: calc(100dvh / var(--crms-ui-scale, 1));
+}
+
+/* The sidebar has its own h-dvh utility, so make it follow the compensated
+ * dashboard height instead of calculating an unscaled viewport height again.
+ */
+html[data-interface-size] .crms-dashboard-theme aside {
+  height: 100%;
+}
