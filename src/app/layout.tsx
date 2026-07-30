@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     images: [
       {
-        url: '/logos/crms-main-logo.png',
+        url: '/logos/crms-system-icon.png',
         width: 1200,
         height: 630,
         alt: 'Community Resource Mapping System logo',
