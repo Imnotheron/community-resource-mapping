@@ -283,14 +283,14 @@ export function AppShell({
               userPhoto={userPhoto}
             />
 
-            <footer className="relative z-10 hidden shrink-0 border-t border-slate-200/80 bg-white/70 px-6 py-2 text-xs font-medium text-slate-500 backdrop-blur-xl md:block">
-              <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+            <footer className="relative z-10 hidden h-7 shrink-0 overflow-hidden border-t border-slate-200/80 bg-white/70 px-6 text-[0.6875rem] font-medium leading-none text-slate-500 backdrop-blur-xl md:block">
+              <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
                     <img
                       src="/logos/crms-system-icon.png"
                       alt="CRMS"
-                      className="h-5 w-5 rounded-full bg-white object-contain"
+                      className="h-3.5 w-3.5 rounded-full bg-white object-contain"
                     />
                     CRMS
                   </span>
