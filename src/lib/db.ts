@@ -5,70 +5,85 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+function hasValidTursoConfig(): boolean {
+  const url = process.env.TURSO_DATABASE_URL?.trim()
+  const token = process.env.TURSO_AUTH_TOKEN?.trim()
+
+  return Boolean(
+    url &&
+      token &&
+      url !== 'undefined' &&
+      token !== 'undefined' &&
+      url.startsWith('libsql://'),
+  )
+}
+
 /**
- * UNIFIED DATABASE CLIENT
- * 
- * Works with Prisma 6.x adapter API (which expects a config object, not an instantiated LibSQL client).
- * - Development: connects to local SQLite via file: URL
- * - Production: connects to Turso via libsql:// URL
+ * Unified database client.
+ *
+ * When valid Turso credentials are available, every environment uses the
+ * same remote database. This lets localhost display the same users,
+ * profiles, dashboard counts, and map records as the deployed website.
+ *
+ * Without Turso credentials, local development falls back to prisma/dev.db.
  */
 function createPrismaClient(): PrismaClient {
   const isProduction = process.env.NODE_ENV === 'production'
 
-  // --- VERCEL BUILD PHASE ---
-  const isVercelBuild = process.env.CI === '1' ||
+  // Vercel's build phase must not require a live database connection.
+  const isVercelBuild =
+    process.env.CI === '1' ||
     (process.env.VERCEL === '1' && !process.env.VERCEL_ENV)
 
   if (isVercelBuild) {
-    console.log('[DB] Vercel build phase — using placeholder client')
+    console.log('[DB] Build phase — using placeholder Prisma client')
     return new PrismaClient()
   }
 
-  // --- DETERMINE CONNECTION URL ---
   let dbUrl: string
   let authToken: string | undefined
 
-  if (isProduction) {
-    const tursoUrl = process.env.TURSO_DATABASE_URL
-    const tursoToken = process.env.TURSO_AUTH_TOKEN
-
-    if (!tursoUrl || tursoUrl === 'undefined' || !tursoToken || tursoToken === 'undefined' || !tursoUrl.startsWith('libsql://')) {
-      console.error('[DB] CRITICAL: Missing or invalid Turso credentials in production!')
+  if (hasValidTursoConfig()) {
+    dbUrl = process.env.TURSO_DATABASE_URL!.trim()
+    authToken = process.env.TURSO_AUTH_TOKEN!.trim()
+    console.log('[DB] Using shared Turso database')
+  } else {
+    if (isProduction) {
+      console.error(
+        '[DB] CRITICAL: Missing or invalid Turso credentials in production!',
+      )
       return new PrismaClient()
     }
 
-    dbUrl = tursoUrl
-    authToken = tursoToken
-  } else {
-    // Development: use local SQLite file from .env DATABASE_URL
     const rawDbUrl = process.env.DATABASE_URL
-    let localUrl = (rawDbUrl && rawDbUrl !== 'undefined') ? rawDbUrl : 'file:./dev.db'
-    
-    // CRITICAL: Prisma CLI treats `file:./` as relative to `prisma/` folder.
-    // However, @libsql/client treats `file:./` as relative to process.cwd() (the root).
-    // This creates TWO separate databases! We must re-map the path so the app connects
-    // to the same .db file that `npx prisma db push` creates in the prisma directory.
-    if (localUrl.startsWith('file:./') && !localUrl.startsWith('file:./prisma/')) {
+    let localUrl =
+      rawDbUrl && rawDbUrl !== 'undefined'
+        ? rawDbUrl
+        : 'file:./dev.db'
+
+    // Prisma CLI resolves file:./ relative to prisma/, while libSQL resolves
+    // it relative to process.cwd(). Remap the path so both use one file.
+    if (
+      localUrl.startsWith('file:./') &&
+      !localUrl.startsWith('file:./prisma/')
+    ) {
       localUrl = localUrl.replace('file:./', 'file:./prisma/')
     }
-    
+
     dbUrl = localUrl
     authToken = undefined
+    console.log('[DB] Using local SQLite database')
   }
 
-  // Fallback for Prisma Engine validation, though adapter doesn't directly use it
   if (!process.env.DATABASE_URL || process.env.DATABASE_URL === 'undefined') {
     process.env.DATABASE_URL = dbUrl
   }
 
-  // In Prisma 6.x, PrismaLibSQL expects a config object matching the LibSQL createClient parameters,
-  // NOT an instantiated client object! Passing an instantiated client causes 'URL_INVALID' because 
-  // the client object doesn't have a `.url` string property.
   const adapter = new PrismaLibSQL({
     url: dbUrl,
-    authToken: authToken,
+    authToken,
   })
-  
+
   return new PrismaClient({ adapter })
 }
 
