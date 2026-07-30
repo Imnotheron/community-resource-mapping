@@ -28,17 +28,11 @@ function CrmsLogoImage({ className, alt = 'Community Resource Mapping System' }:
   return (
     <>
       <img
-        src="/logos/crms-main-logo.png"
+        src="/logos/crms-system-icon.png"
         alt={alt}
         className={className}
         onError={(event) => {
           const img = event.currentTarget
-
-          if (img.dataset.fallback === 'mark') {
-            img.src = '/icon.png'
-            img.dataset.fallback = 'icon'
-            return
-          }
 
           if (img.dataset.fallback === 'icon') {
             img.src = '/favicon.ico'
@@ -64,8 +58,8 @@ function CrmsLogoImage({ className, alt = 'Community Resource Mapping System' }:
             return
           }
 
-          img.src = '/logos/crms-system-icon.png'
-          img.dataset.fallback = 'mark'
+          img.src = '/icon.png'
+          img.dataset.fallback = 'icon'
         }}
       />
       <span
