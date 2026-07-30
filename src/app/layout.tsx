@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
 import './globals.css'
+import './ui-scale-fix.css'
 
 import ClickSpark from '@/components/effects/ClickSpark'
 import { ThemeProvider } from '@/components/theme-provider'
