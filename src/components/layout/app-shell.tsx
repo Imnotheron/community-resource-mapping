@@ -93,7 +93,6 @@ export function AppShell({
     onLogout()
   }
 
-
   if (
     normalizedRole === 'admin' &&
     isMobile
@@ -259,7 +258,7 @@ export function AppShell({
               userPhoto={userPhoto}
             />
 
-            <footer className="relative z-10 hidden shrink-0 border-t border-slate-200/80 bg-white/70 px-6 py-2 text-xs font-medium text-slate-500 backdrop-blur-xl md:block">
+            <footer className="relative z-10 hidden shrink-0 border-t border-slate-200/80 bg-white/70 px-6 py-1.5 text-xs font-medium text-slate-500 backdrop-blur-xl md:block">
               <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
