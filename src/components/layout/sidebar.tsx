@@ -67,7 +67,7 @@ export function Sidebar({
   const initials = getInitials(userName)
 
   return (
-    <aside className="hidden h-dvh w-[230px] shrink-0 overflow-hidden border-r border-slate-200 bg-white xl:flex xl:flex-col">
+    <aside className="hidden h-dvh w-[230px] shrink-0 overflow-hidden border-r border-slate-200 bg-white md:flex md:flex-col">
       <style>{`
         .crms-sidebar-scroll {
           scrollbar-width: none;
