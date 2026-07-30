@@ -231,7 +231,7 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="shrink-0 border-t border-slate-200 bg-white px-3 pb-3 pt-2.5">
+        <div className="shrink-0 border-t border-slate-200 bg-white px-3 pt-2.5">
           <button
             type="button"
             onClick={onLogout}
@@ -253,7 +253,7 @@ export function Sidebar({
             <ChevronRight className="h-3.5 w-3.5 text-red-500 transition group-hover:translate-x-0.5" />
           </button>
 
-          <div className="mt-2 flex items-center justify-between px-1 text-[0.6875rem] font-medium text-slate-500">
+          <div className="mt-2 flex h-7 items-center justify-between px-1 text-[0.6875rem] font-medium leading-none text-slate-500">
             <span>San Policarpo Operations</span>
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
           </div>
