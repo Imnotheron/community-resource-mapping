@@ -67,7 +67,10 @@ export function Sidebar({
   const initials = getInitials(userName)
 
   return (
-    <aside className="hidden h-dvh w-[230px] shrink-0 overflow-hidden border-r border-slate-200 bg-white xl:flex xl:flex-col">
+    <aside
+      data-tour="app-sidebar"
+      className="hidden h-dvh w-[230px] shrink-0 overflow-hidden border-r border-slate-200 bg-white xl:flex xl:flex-col"
+    >
       <style>{`
         .crms-sidebar-scroll {
           scrollbar-width: none;
@@ -138,6 +141,7 @@ export function Sidebar({
           </div>
 
           <button
+            data-tour="profile-menu"
             type="button"
             onClick={onProfile}
             className="group flex w-full items-center gap-2.5 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-2.5 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50"
@@ -191,7 +195,10 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="crms-sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
+        <nav
+          data-tour="primary-navigation"
+          className="crms-sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2"
+        >
           {items.map((item) => {
             const Icon = item.icon
             const isActive = item.id === activeView
@@ -199,6 +206,7 @@ export function Sidebar({
             return (
               <button
                 key={item.id}
+                data-tour={`nav-${item.id}`}
                 type="button"
                 onClick={() => onNavigate(item.id)}
                 className={cn(
@@ -233,6 +241,7 @@ export function Sidebar({
 
         <div className="shrink-0 border-t border-slate-200 bg-white px-3 pt-2.5">
           <button
+            data-tour="logout-button"
             type="button"
             onClick={onLogout}
             className="group flex w-full items-center gap-2.5 rounded-xl border border-red-100 bg-red-50 p-2.5 text-left transition hover:border-red-200 hover:bg-red-100"
