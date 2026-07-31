@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
-import { PremiumAdminAnalytics } from '@/components/analytics/premium-admin-analytics'
+import { PremiumAdminAnalyticsV2 } from '@/components/analytics/premium-admin-analytics-v2'
 import { Button } from '@/components/ui/button'
 import { useUserSync } from '@/hooks/use-user-sync'
 
@@ -33,18 +33,18 @@ export default function AdminAnalyticsPreviewPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_28%),#f8fafc] px-4 py-6 sm:px-6 lg:px-10">
+    <main className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.08),transparent_26%),radial-gradient(circle_at_top_right,rgba(124,58,237,0.08),transparent_28%),#f8fafc] px-4 py-6 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
         <div className="mb-4 flex items-center justify-between gap-4">
           <Button type="button" variant="outline" onClick={() => router.push('/admin/dashboard')} className="rounded-xl bg-white">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to dashboard
           </Button>
-          <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">
-            Analytics redesign preview
+          <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800">
+            Analytics V2 · accurate legends + 3D
           </span>
         </div>
-        <PremiumAdminAnalytics />
+        <PremiumAdminAnalyticsV2 />
       </div>
     </main>
   )
