@@ -106,7 +106,7 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
           size="sm"
           onClick={openGuide}
           aria-label="Open registration form guide"
-          className="fixed bottom-24 right-6 z-[110] rounded-full border-emerald-200 bg-white/95 px-3 text-xs font-semibold text-emerald-700 shadow-lg backdrop-blur hover:bg-emerald-50"
+          className="fixed bottom-44 right-6 z-[110] rounded-full border-emerald-200 bg-white/95 px-3 text-xs font-semibold text-emerald-700 shadow-lg backdrop-blur hover:bg-emerald-50"
         >
           <CircleHelp className="h-3.5 w-3.5" />
           Form guide
