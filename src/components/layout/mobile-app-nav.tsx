@@ -117,6 +117,7 @@ export function MobileAppNav({
   return (
     <>
       <nav
+        data-tour="mobile-navigation"
         aria-label="Mobile navigation"
         className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-2 pt-1.5 shadow-[0_-12px_36px_rgba(15,23,42,0.12)] backdrop-blur-xl md:hidden"
         style={{
@@ -133,6 +134,7 @@ export function MobileAppNav({
             return (
               <button
                 key={item.id}
+                data-tour={`mobile-nav-${item.id}`}
                 type="button"
                 onClick={() =>
                   navigate(item.id)
@@ -165,6 +167,7 @@ export function MobileAppNav({
           })}
 
           <button
+            data-tour="mobile-nav-more"
             type="button"
             onClick={() => setMoreOpen(true)}
             className={cn(
@@ -217,6 +220,7 @@ export function MobileAppNav({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <button
+              data-tour="mobile-profile-menu"
               type="button"
               onClick={openProfile}
               className="flex w-full items-center gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-3 text-left text-foreground transition hover:bg-primary/15"
@@ -255,6 +259,7 @@ export function MobileAppNav({
                   return (
                     <button
                       key={item.id}
+                      data-tour={`mobile-nav-${item.id}`}
                       type="button"
                       onClick={() =>
                         navigate(item.id)
@@ -286,6 +291,7 @@ export function MobileAppNav({
             ) : null}
 
             <button
+              data-tour="mobile-logout-button"
               type="button"
               onClick={signOut}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive transition hover:bg-destructive/15"
