@@ -30,7 +30,6 @@ import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
 import { vulnerabilityLabel } from '@/components/dashboards/shared'
 import { WowLoader } from '@/components/ui/wow-loader'
-import { ThreeDVulnerabilityChart } from '@/components/analytics/three-d-vulnerability-chart'
 
 const VULNERABILITY_COLORS = [
   '#2563EB',
@@ -198,7 +197,7 @@ export function PremiumAdminAnalyticsV2() {
               <Sparkles className="h-3.5 w-3.5" /> Community intelligence · 90 days
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Clear analytics, accurate legends, actionable signals.</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Every chart uses the same source values for its shapes, legend colors, counts, percentages, and 3D visualization.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Every chart uses the same source values for its shapes, legend colors, counts, and percentages.</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-xl">
             <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Data integrity</p>
@@ -252,7 +251,7 @@ export function PremiumAdminAnalyticsV2() {
         </div>
       </section>
 
-      <Panel title="Vulnerability breakdown" description="Legend markers, donut slices, values, and the 3D bars all use one exact shared color mapping." badge={`${vulnerabilityTotal} recorded tags`}>
+      <Panel title="Vulnerability breakdown" description="Legend markers, donut slices, values, and percentages all use one exact shared color mapping." badge={`${vulnerabilityTotal} recorded tags`}>
         {analytics.vulnerabilities.length === 0 ? (
           <p className="py-14 text-center text-sm text-slate-500">No vulnerability data is available.</p>
         ) : (
@@ -281,8 +280,6 @@ export function PremiumAdminAnalyticsV2() {
           </div>
         )}
       </Panel>
-
-      {analytics.vulnerabilities.length > 0 ? <ThreeDVulnerabilityChart data={analytics.vulnerabilities} /> : null}
 
       <section className="grid gap-5 xl:grid-cols-2">
         <Panel title="Relief activity" description="Distribution events over time. Hover any bar to inspect the date and count." badge={`${totalDistributions} events`}>
