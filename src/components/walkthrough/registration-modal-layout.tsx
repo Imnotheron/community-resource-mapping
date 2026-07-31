@@ -3,13 +3,40 @@
 export function RegistrationModalLayoutStyles() {
   return (
     <style>{`
+      [data-registration-modal][data-registration-enhanced="true"] {
+        resize: both;
+      }
+
+      [data-registration-modal][data-registration-enhanced="true"]::after {
+        content: '';
+        position: absolute;
+        right: .45rem;
+        bottom: .45rem;
+        z-index: 90;
+        width: .9rem;
+        height: .9rem;
+        pointer-events: none;
+        opacity: .65;
+        background: linear-gradient(135deg, transparent 0 48%, rgb(5 150 105) 49% 56%, transparent 57% 67%, rgb(5 150 105) 68% 75%, transparent 76%);
+      }
+
+      [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="legacy-resize-handle"] {
+        display: none !important;
+        pointer-events: none !important;
+      }
+
       [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="header"] {
+        cursor: default !important;
         padding: .75rem 1rem !important;
       }
 
       [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="header-grid"] {
         align-items: center !important;
         gap: .75rem !important;
+      }
+
+      [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="header-controls"] {
+        align-items: center !important;
       }
 
       [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="progress-card"] {
@@ -85,22 +112,14 @@ export function RegistrationModalLayoutStyles() {
         padding-bottom: .65rem !important;
       }
 
-      [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="resize-handle"] {
-        width: 2rem !important;
-        height: 2rem !important;
-        z-index: 95 !important;
-      }
+      @media (max-width: 767px) {
+        [data-registration-modal][data-registration-enhanced="true"] {
+          resize: none !important;
+        }
 
-      [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="resize-handle"]::after {
-        content: '';
-        position: absolute;
-        right: .38rem;
-        bottom: .38rem;
-        width: .8rem;
-        height: .8rem;
-        pointer-events: none;
-        opacity: .72;
-        background: linear-gradient(135deg, transparent 0 52%, rgb(5 150 105) 53% 60%, transparent 61% 70%, rgb(5 150 105) 71% 78%, transparent 79%);
+        [data-registration-modal][data-registration-enhanced="true"]::after {
+          display: none;
+        }
       }
 
       @media (min-width: 768px) {
