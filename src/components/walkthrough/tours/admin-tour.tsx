@@ -67,7 +67,7 @@ function navStep(
     description,
     target,
     placement: 'right',
-    padding: 5,
+    padding: 1,
     beforeEnter: () => prepareTarget(target),
   }
 }
