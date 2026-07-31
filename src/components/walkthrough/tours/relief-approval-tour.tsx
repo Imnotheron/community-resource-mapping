@@ -115,6 +115,12 @@ function lowestCommonAncestor(elements: HTMLElement[]) {
   return null
 }
 
+function isReliefApprovalVisible() {
+  return Boolean(
+    findVisibleExact<HTMLHeadingElement>('h1', 'Relief Distribution Approval'),
+  )
+}
+
 /**
  * Relief Approval lives inside the Admin dashboard rather than on a dedicated
  * route. This adapter attaches temporary walkthrough anchors to the rendered
@@ -219,10 +225,12 @@ function markReliefApprovalAnchors() {
 
 export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
   const [featureOpen, setFeatureOpen] = useState(false)
+  const featureOpenRef = useRef(false)
+  const activeTourIdRef = useRef<string | null>(null)
   const discoveryIntervalRef = useRef<number | null>(null)
   const discoveryTimeoutRef = useRef<number | null>(null)
 
-  const { hydrated, activeTourId, startTour } = useWalkthrough()
+  const { hydrated, activeTourId, startTour, closeTour } = useWalkthrough()
 
   const tour = useMemo<WalkthroughTour>(
     () => ({
@@ -318,6 +326,15 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
   const { start } = useWalkthroughTour(tour)
 
   useEffect(() => {
+    activeTourIdRef.current = activeTourId
+  }, [activeTourId])
+
+  useEffect(() => {
+    const setFeatureState = (open: boolean) => {
+      featureOpenRef.current = open
+      setFeatureOpen(open)
+    }
+
     const stopDiscovery = () => {
       if (discoveryIntervalRef.current !== null) {
         window.clearInterval(discoveryIntervalRef.current)
@@ -331,7 +348,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
 
     const discover = () => {
       const found = markReliefApprovalAnchors()
-      setFeatureOpen(found)
+      setFeatureState(found)
       if (found) stopDiscovery()
       return found
     }
@@ -339,7 +356,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
     const beginDiscovery = () => {
       stopDiscovery()
       clearReliefApprovalAnchors()
-      setFeatureOpen(false)
+      setFeatureState(false)
 
       if (discover()) return
 
@@ -355,7 +372,11 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
     const leaveFeature = () => {
       stopDiscovery()
       clearReliefApprovalAnchors()
-      setFeatureOpen(false)
+      setFeatureState(false)
+
+      if (activeTourIdRef.current === tour.id) {
+        closeTour()
+      }
     }
 
     const handleNavigationClick = (event: MouseEvent) => {
@@ -377,7 +398,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
     const handleFeatureClick = (event: MouseEvent) => {
       const origin = event.target
       if (!(origin instanceof Element)) return
-      if (!featureOpen) return
+      if (!featureOpenRef.current) return
 
       const option = origin.closest('[role="option"]')
       if (option) {
@@ -385,18 +406,32 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
       }
     }
 
+    // If the dashboard view changes without a sidebar click, immediately clear
+    // the Relief guide as soon as its real heading leaves the DOM. This also
+    // prevents the floating guide button from surviving into Users or another
+    // Admin feature during a React render transition.
+    const viewObserver = new MutationObserver(() => {
+      if (featureOpenRef.current && !isReliefApprovalVisible()) {
+        leaveFeature()
+      }
+    })
+
     document.addEventListener('click', handleNavigationClick, true)
     document.addEventListener('click', handleFeatureClick, true)
+    viewObserver.observe(document.body, { childList: true, subtree: true })
 
+    // Covers hot reload and any future entry path that restores Relief Approval
+    // directly without a sidebar click.
     discover()
 
     return () => {
       document.removeEventListener('click', handleNavigationClick, true)
       document.removeEventListener('click', handleFeatureClick, true)
+      viewObserver.disconnect()
       stopDiscovery()
       clearReliefApprovalAnchors()
     }
-  }, [featureOpen])
+  }, [closeTour, tour.id])
 
   useEffect(() => {
     if (
@@ -409,7 +444,15 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
     }
 
     const timer = window.setTimeout(() => {
-      markReliefApprovalAnchors()
+      // Revalidate at the exact moment the delayed first-use tour would start.
+      // If the user already left Relief Approval, do not let a stale timer open
+      // this guide on Users or another Admin tab.
+      if (!markReliefApprovalAnchors() || !isReliefApprovalVisible()) {
+        featureOpenRef.current = false
+        setFeatureOpen(false)
+        return
+      }
+
       startTour(tour.id)
     }, 700)
 
@@ -430,7 +473,11 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
       type="button"
       variant="outline"
       onClick={() => {
-        markReliefApprovalAnchors()
+        if (!markReliefApprovalAnchors() || !isReliefApprovalVisible()) {
+          featureOpenRef.current = false
+          setFeatureOpen(false)
+          return
+        }
         start()
       }}
       aria-label="Open Relief Approval guide"
