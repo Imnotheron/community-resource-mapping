@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { AdminDashboard } from '@/components/dashboards/admin-dashboard'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
+import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -55,6 +56,7 @@ export default function DashboardRoute() {
         onProfile={() => router.push('/profile')}
       />
       <AdminWalkthrough user={user} />
+      <AnalyticsWalkthrough user={user} />
     </>
   )
 }
