@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -25,12 +26,19 @@ import type {
 const STORAGE_KEY = 'crms-walkthrough-progress-v1'
 const POPOVER_WIDTH = 380
 const VIEWPORT_GAP = 16
+const DEFAULT_DIALOG_HEIGHT = 300
 
 type TargetRect = {
   top: number
   right: number
   bottom: number
   left: number
+  width: number
+  height: number
+}
+
+type OverlayMetrics = {
+  scale: number
   width: number
   height: number
 }
@@ -66,11 +74,86 @@ function readProgress(): WalkthroughProgressStore {
   }
 }
 
+function parsePositiveScale(value: string | null | undefined) {
+  if (!value) return null
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+/**
+ * CRMS applies CSS `zoom` to <html> for Small / Medium / Large interface
+ * sizing. getBoundingClientRect() already reports the target in visually
+ * scaled viewport coordinates, while fixed-position portal children are laid
+ * out in the pre-zoom coordinate space. Using the raw rectangle a second time
+ * therefore scales the spotlight position twice.
+ *
+ * This function gives the walkthrough one consistent fixed-overlay coordinate
+ * system. At the default Medium interface size the scale is exactly 1.
+ */
+function getOverlayMetrics(): OverlayMetrics {
+  const root = document.documentElement
+  const computed = window.getComputedStyle(root)
+  const scale =
+    parsePositiveScale(root.style.zoom) ??
+    parsePositiveScale(computed.zoom) ??
+    parsePositiveScale(root.style.getPropertyValue('--crms-ui-scale')) ??
+    parsePositiveScale(computed.getPropertyValue('--crms-ui-scale')) ??
+    1
+
+  const visualWidth = window.visualViewport?.width ?? window.innerWidth
+  const visualHeight = window.visualViewport?.height ?? window.innerHeight
+
+  return {
+    scale,
+    width: visualWidth / scale,
+    height: visualHeight / scale,
+  }
+}
+
+function getVisualViewportSize() {
+  return {
+    width: window.visualViewport?.width ?? window.innerWidth,
+    height: window.visualViewport?.height ?? window.innerHeight,
+  }
+}
+
+function findVisibleTarget(selector: string): HTMLElement | null {
+  const viewport = getVisualViewportSize()
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector))
+
+  return (
+    candidates.find((element) => {
+      const rect = element.getBoundingClientRect()
+      const style = window.getComputedStyle(element)
+      const opacity = Number.parseFloat(style.opacity || '1')
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < viewport.width &&
+        rect.top < viewport.height &&
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        opacity > 0.01
+      )
+    }) ?? null
+  )
+}
+
 function normalizeRect(rect: DOMRect, padding: number): TargetRect {
-  const left = Math.max(VIEWPORT_GAP, rect.left - padding)
-  const top = Math.max(VIEWPORT_GAP, rect.top - padding)
-  const right = Math.min(window.innerWidth - VIEWPORT_GAP, rect.right + padding)
-  const bottom = Math.min(window.innerHeight - VIEWPORT_GAP, rect.bottom + padding)
+  const metrics = getOverlayMetrics()
+  const left = Math.max(VIEWPORT_GAP, rect.left / metrics.scale - padding)
+  const top = Math.max(VIEWPORT_GAP, rect.top / metrics.scale - padding)
+  const right = Math.min(
+    metrics.width - VIEWPORT_GAP,
+    rect.right / metrics.scale + padding,
+  )
+  const bottom = Math.min(
+    metrics.height - VIEWPORT_GAP,
+    rect.bottom / metrics.scale + padding,
+  )
 
   return {
     top,
@@ -85,37 +168,39 @@ function normalizeRect(rect: DOMRect, padding: number): TargetRect {
 function resolvePopoverPosition(
   step: WalkthroughStep,
   target: TargetRect | null,
+  dialogHeight: number,
 ): CSSProperties {
+  const metrics = getOverlayMetrics()
   const maxWidth = Math.min(
     POPOVER_WIDTH,
-    Math.max(280, window.innerWidth - VIEWPORT_GAP * 2),
+    Math.max(280, metrics.width - VIEWPORT_GAP * 2),
   )
+  const measuredHeight = Math.max(220, dialogHeight || DEFAULT_DIALOG_HEIGHT)
 
   if (!target || step.placement === 'center') {
     return {
       width: maxWidth,
-      left: '50%',
-      top: '50%',
+      left: metrics.width / 2,
+      top: metrics.height / 2,
       transform: 'translate(-50%, -50%)',
     }
   }
 
-  const estimatedHeight = 300
   const requested = step.placement ?? 'auto'
   let placement = requested
 
   if (placement === 'auto') {
     const spaces = {
-      bottom: window.innerHeight - target.bottom,
+      bottom: metrics.height - target.bottom,
       top: target.top,
-      right: window.innerWidth - target.right,
+      right: metrics.width - target.right,
       left: target.left,
     }
 
     placement =
-      spaces.bottom >= estimatedHeight + VIEWPORT_GAP
+      spaces.bottom >= measuredHeight + VIEWPORT_GAP
         ? 'bottom'
-        : spaces.top >= estimatedHeight + VIEWPORT_GAP
+        : spaces.top >= measuredHeight + VIEWPORT_GAP
           ? 'top'
           : spaces.right >= maxWidth + VIEWPORT_GAP
             ? 'right'
@@ -128,25 +213,33 @@ function resolvePopoverPosition(
   let top = target.bottom + VIEWPORT_GAP
 
   if (placement === 'top') {
-    top = target.top - estimatedHeight - VIEWPORT_GAP
+    top = target.top - measuredHeight - VIEWPORT_GAP
   } else if (placement === 'right') {
     left = target.right + VIEWPORT_GAP
-    top = target.top + target.height / 2 - estimatedHeight / 2
+    top = target.top + target.height / 2 - measuredHeight / 2
   } else if (placement === 'left') {
     left = target.left - maxWidth - VIEWPORT_GAP
-    top = target.top + target.height / 2 - estimatedHeight / 2
+    top = target.top + target.height / 2 - measuredHeight / 2
   }
 
   left = Math.max(
     VIEWPORT_GAP,
-    Math.min(left, window.innerWidth - maxWidth - VIEWPORT_GAP),
+    Math.min(left, metrics.width - maxWidth - VIEWPORT_GAP),
   )
   top = Math.max(
     VIEWPORT_GAP,
-    Math.min(top, window.innerHeight - estimatedHeight - VIEWPORT_GAP),
+    Math.min(top, metrics.height - measuredHeight - VIEWPORT_GAP),
   )
 
   return { width: maxWidth, left, top }
+}
+
+function nextPaint() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve())
+    })
+  })
 }
 
 function TourOverlay({
@@ -167,14 +260,16 @@ function TourOverlay({
   const step = tour.steps[stepIndex]
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null)
   const [stepReady, setStepReady] = useState(false)
+  const [dialogHeight, setDialogHeight] = useState(DEFAULT_DIALOG_HEIGHT)
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const isLast = stepIndex === tour.steps.length - 1
 
   useEffect(() => {
     let cancelled = false
     let resizeObserver: ResizeObserver | null = null
-    let target: Element | null = null
-    const timers: number[] = []
+    let rootObserver: MutationObserver | null = null
+    let target: HTMLElement | null = null
+    let raf = 0
 
     async function prepareStep() {
       setStepReady(false)
@@ -183,7 +278,20 @@ function TourOverlay({
       try {
         await step.beforeEnter?.()
       } catch {
-        // A tour remains usable even when an optional preparation action fails.
+        // Optional preparation should never make the walkthrough unusable.
+      }
+
+      if (cancelled) return
+
+      target = step.target ? findVisibleTarget(step.target) : null
+
+      if (target) {
+        target.scrollIntoView({
+          behavior: 'auto',
+          block: 'center',
+          inline: 'nearest',
+        })
+        await nextPaint()
       }
 
       if (cancelled) return
@@ -195,50 +303,55 @@ function TourOverlay({
           return
         }
 
-        target = document.querySelector(step.target)
-        if (!target) {
+        const nextTarget = findVisibleTarget(step.target)
+        if (!nextTarget) {
           setTargetRect(null)
           setStepReady(true)
           return
         }
 
-        const rect = target.getBoundingClientRect()
-        const outsideViewport =
-          rect.top < VIEWPORT_GAP ||
-          rect.bottom > window.innerHeight - VIEWPORT_GAP ||
-          rect.left < VIEWPORT_GAP ||
-          rect.right > window.innerWidth - VIEWPORT_GAP
-
-        if (outsideViewport) {
-          target.scrollIntoView({
-            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-              ? 'auto'
-              : 'smooth',
-            block: 'center',
-            inline: 'center',
-          })
-        }
-
-        const refreshedRect = target.getBoundingClientRect()
-        setTargetRect(normalizeRect(refreshedRect, step.padding ?? 8))
+        target = nextTarget
+        const rect = nextTarget.getBoundingClientRect()
+        setTargetRect(normalizeRect(rect, step.padding ?? 8))
         setStepReady(true)
       }
 
       updateTarget()
-      timers.push(window.setTimeout(updateTarget, 250))
-      timers.push(window.setTimeout(updateTarget, 600))
 
       if (target && 'ResizeObserver' in window) {
-        resizeObserver = new ResizeObserver(updateTarget)
+        resizeObserver = new ResizeObserver(() => {
+          window.cancelAnimationFrame(raf)
+          raf = window.requestAnimationFrame(updateTarget)
+        })
         resizeObserver.observe(target)
       }
 
-      window.addEventListener('resize', updateTarget)
-      window.addEventListener('scroll', updateTarget, true)
+      if ('MutationObserver' in window) {
+        rootObserver = new MutationObserver(() => {
+          window.cancelAnimationFrame(raf)
+          raf = window.requestAnimationFrame(updateTarget)
+        })
+        rootObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['style', 'data-interface-size', 'data-font-size'],
+        })
+      }
+
+      const scheduleUpdate = () => {
+        window.cancelAnimationFrame(raf)
+        raf = window.requestAnimationFrame(updateTarget)
+      }
+
+      window.addEventListener('resize', scheduleUpdate)
+      window.addEventListener('scroll', scheduleUpdate, true)
+      window.visualViewport?.addEventListener('resize', scheduleUpdate)
+      window.visualViewport?.addEventListener('scroll', scheduleUpdate)
 
       return () => {
-        window.removeEventListener('resize', updateTarget)
-        window.removeEventListener('scroll', updateTarget, true)
+        window.removeEventListener('resize', scheduleUpdate)
+        window.removeEventListener('scroll', scheduleUpdate, true)
+        window.visualViewport?.removeEventListener('resize', scheduleUpdate)
+        window.visualViewport?.removeEventListener('scroll', scheduleUpdate)
       }
     }
 
@@ -251,9 +364,31 @@ function TourOverlay({
       cancelled = true
       removeListeners?.()
       resizeObserver?.disconnect()
-      timers.forEach((timer) => window.clearTimeout(timer))
+      rootObserver?.disconnect()
+      window.cancelAnimationFrame(raf)
     }
   }, [step])
+
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog || !stepReady) return
+
+    const measure = () => {
+      const metrics = getOverlayMetrics()
+      const visualHeight = dialog.getBoundingClientRect().height
+      const nextHeight = visualHeight / metrics.scale
+      if (Number.isFinite(nextHeight) && nextHeight > 0) {
+        setDialogHeight(nextHeight)
+      }
+    }
+
+    measure()
+
+    if (!('ResizeObserver' in window)) return
+    const observer = new ResizeObserver(measure)
+    observer.observe(dialog)
+    return () => observer.disconnect()
+  }, [stepIndex, stepReady])
 
   useEffect(() => {
     dialogRef.current?.focus()
@@ -279,23 +414,27 @@ function TourOverlay({
 
   if (!stepReady) return null
 
-  const popoverStyle = resolvePopoverPosition(step, targetRect)
+  const popoverStyle = resolvePopoverPosition(step, targetRect, dialogHeight)
   const progress = ((stepIndex + 1) / tour.steps.length) * 100
 
   return createPortal(
-    <div className="fixed inset-0 z-[10000]" aria-live="polite">
+    <div
+      className="fixed inset-0 z-[10000]"
+      aria-live="polite"
+      data-walkthrough-overlay="true"
+    >
       {targetRect ? (
         <>
           <div
-            className="fixed left-0 right-0 top-0 bg-slate-950/70 backdrop-blur-[1px]"
+            className="pointer-events-none fixed left-0 right-0 top-0 bg-slate-950/70 backdrop-blur-[1px]"
             style={{ height: targetRect.top }}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 bg-slate-950/70 backdrop-blur-[1px]"
+            className="pointer-events-none fixed bottom-0 left-0 right-0 bg-slate-950/70 backdrop-blur-[1px]"
             style={{ top: targetRect.bottom }}
           />
           <div
-            className="fixed left-0 bg-slate-950/70 backdrop-blur-[1px]"
+            className="pointer-events-none fixed left-0 bg-slate-950/70 backdrop-blur-[1px]"
             style={{
               top: targetRect.top,
               width: targetRect.left,
@@ -303,7 +442,7 @@ function TourOverlay({
             }}
           />
           <div
-            className="fixed right-0 bg-slate-950/70 backdrop-blur-[1px]"
+            className="pointer-events-none fixed right-0 bg-slate-950/70 backdrop-blur-[1px]"
             style={{
               top: targetRect.top,
               left: targetRect.right,
@@ -311,7 +450,7 @@ function TourOverlay({
             }}
           />
           <div
-            className="pointer-events-none fixed rounded-2xl border-2 border-emerald-300 shadow-[0_0_0_4px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.35)]"
+            className="pointer-events-none fixed box-border rounded-xl border-2 border-emerald-300 shadow-[0_0_0_3px_rgba(16,185,129,0.14),0_0_34px_rgba(16,185,129,0.32)]"
             style={{
               top: targetRect.top,
               left: targetRect.left,
@@ -321,7 +460,7 @@ function TourOverlay({
           />
         </>
       ) : (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-[2px]" />
+        <div className="pointer-events-none fixed inset-0 bg-slate-950/70 backdrop-blur-[2px]" />
       )}
 
       <div
