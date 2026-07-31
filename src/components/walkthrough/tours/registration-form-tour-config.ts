@@ -7,7 +7,7 @@ import {
 export function createRegistrationFormTour(tourId: string): WalkthroughTour {
   return {
     id: tourId,
-    version: 1,
+    version: 2,
     title: 'Registration form guide',
     role: 'ADMIN',
     steps: [
@@ -125,12 +125,12 @@ export function createRegistrationFormTour(tourId: string): WalkthroughTour {
       },
       {
         id: 'resize',
-        title: 'Need more room? Resize the window',
+        title: 'Choose the window size that is comfortable for you',
         description:
-          'On a computer, drag the lower-right corner or any window edge to change the window size. The lower-right resize corner is now visible so you do not have to guess where to grab it. The form and Saved Drafts remain scrollable when space is limited.',
+          'Use Fit screen when you want the registration form to use the available screen, or Reset size to return to the recommended centered size. On a computer you can also fine-tune the size from the lower-right resize grip. The window no longer moves when you drag its header.',
         target: TARGETS.resize,
-        placement: 'top',
-        padding: 8,
+        placement: 'bottom',
+        padding: 3,
       },
       {
         id: 'ready',
