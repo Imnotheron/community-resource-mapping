@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// Helper function to convert BigInt to number in objects
 function convertBigIntToNumber(obj: any): any {
   if (obj === null || obj === undefined) return obj
   if (typeof obj === 'bigint') return Number(obj)
@@ -18,29 +17,28 @@ function convertBigIntToNumber(obj: any): any {
   return obj
 }
 
-// GET analytics data for admin dashboard
 export async function GET(request: NextRequest) {
   try {
-    // Get date range from query params (default: last 30 days)
     const { searchParams } = new URL(request.url)
     const daysParam = searchParams.get('days')
-    
-    // Validate the days parameter
+
     if (daysParam !== null) {
-      const days = parseInt(daysParam, 10)
-      if (isNaN(days) || days < 1 || days > 365) {
+      const parsedDays = parseInt(daysParam, 10)
+      if (isNaN(parsedDays) || parsedDays < 1 || parsedDays > 365) {
         return NextResponse.json(
-          { success: false, error: 'Invalid days parameter. Must be a number between 1 and 365.' },
-          { status: 400 }
+          {
+            success: false,
+            error: 'Invalid days parameter. Must be a number between 1 and 365.',
+          },
+          { status: 400 },
         )
       }
     }
-    
+
     const days = parseInt(daysParam || '30', 10)
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
 
-    // 1. Registration trends over time
     const registrationsByDate = await db.$queryRaw`
       SELECT
         DATE(createdAt) as date,
@@ -51,7 +49,6 @@ export async function GET(request: NextRequest) {
       ORDER BY date DESC
     `
 
-    // 2. Relief distribution trends
     const distributionsByDate = await db.$queryRaw`
       SELECT
         DATE(distributionDate) as date,
@@ -63,63 +60,137 @@ export async function GET(request: NextRequest) {
       ORDER BY date DESC
     `
 
-    // 3. Vulnerability type breakdown
     const vulnerabilityBreakdown = await db.vulnerableProfile.findMany({
-      select: { vulnerabilityTypes: true }
+      select: { vulnerabilityTypes: true },
     })
 
     const vulnerabilityCounts = vulnerabilityBreakdown.reduce((acc, profile) => {
-      const types = JSON.parse(profile.vulnerabilityTypes || '[]')
-      types.forEach((type: string) => {
+      let types: string[] = []
+
+      try {
+        const parsed = JSON.parse(profile.vulnerabilityTypes || '[]')
+        types = Array.isArray(parsed) ? parsed : []
+      } catch {
+        types = []
+      }
+
+      types.forEach((type) => {
         acc[type] = (acc[type] || 0) + 1
       })
+
       return acc
     }, {} as Record<string, number>)
 
-    // 4. Distribution by type
-    const distributionByType = await db.$queryRaw`
-      SELECT
-        distributionType,
-        COUNT(*) as count,
-        SUM(quantity) as totalQuantity
-      FROM ReliefDistribution
-      GROUP BY distributionType
-      ORDER BY count DESC
-    `
+    const distributionByTypeRows = convertBigIntToNumber(
+      await db.$queryRaw`
+        SELECT
+          distributionType,
+          COUNT(*) as count,
+          SUM(quantity) as totalQuantity
+        FROM ReliefDistribution
+        GROUP BY distributionType
+        ORDER BY count DESC
+      `,
+    ) as Array<{
+      distributionType?: string | null
+      count?: number | null
+      totalQuantity?: number | null
+    }>
 
-    // 5. Barangay statistics
-    const barangayStats = await db.$queryRaw`
-      SELECT
-        barangay,
-        COUNT(*) as totalProfiles,
-        SUM(CASE WHEN registrationStatus = 'APPROVED' THEN 1 ELSE 0 END) as approved
-      FROM VulnerableProfile
-      WHERE barangay IS NOT NULL
-      GROUP BY barangay
-      ORDER BY totalProfiles DESC
-    `
+    const barangayStats = convertBigIntToNumber(
+      await db.$queryRaw`
+        SELECT
+          barangay,
+          COUNT(*) as totalProfiles,
+          SUM(CASE WHEN registrationStatus = 'APPROVED' THEN 1 ELSE 0 END) as approved
+        FROM VulnerableProfile
+        WHERE barangay IS NOT NULL
+        GROUP BY barangay
+        ORDER BY totalProfiles DESC
+      `,
+    )
 
-    // 6. Relief coverage by barangay
-    const reliefCoverage = await db.$queryRaw`
-      SELECT
-        vp.barangay,
-        COUNT(DISTINCT vp.id) as totalProfiles,
-        COUNT(DISTINCT rd.vulnerableProfileId) as receivedRelief
-      FROM VulnerableProfile vp
-      LEFT JOIN ReliefDistribution rd ON rd.vulnerableProfileId = vp.id
-      WHERE vp.registrationStatus = 'APPROVED' AND vp.barangay IS NOT NULL
-      GROUP BY vp.barangay
-      ORDER BY receivedRelief DESC
-    `
+    const reliefCoverageByBarangay = convertBigIntToNumber(
+      await db.$queryRaw`
+        SELECT
+          vp.barangay,
+          COUNT(DISTINCT vp.id) as totalProfiles,
+          COUNT(DISTINCT rd.vulnerableProfileId) as receivedRelief
+        FROM VulnerableProfile vp
+        LEFT JOIN ReliefDistribution rd ON rd.vulnerableProfileId = vp.id
+        WHERE vp.registrationStatus = 'APPROVED' AND vp.barangay IS NOT NULL
+        GROUP BY vp.barangay
+        ORDER BY receivedRelief DESC
+      `,
+    ) as Array<{
+      barangay?: string | null
+      totalProfiles?: number | null
+      receivedRelief?: number | null
+    }>
 
-    // 7. Feedback statistics
-    const feedbackStats = await db.$queryRaw`
-      SELECT
-        status,
-        COUNT(*) as count
-      FROM ReliefFeedback
-      GROUP BY status
-    `
+    const feedbackStatusRows = convertBigIntToNumber(
+      await db.$queryRaw`
+        SELECT
+          status,
+          COUNT(*) as count
+        FROM ReliefFeedback
+        GROUP BY status
+      `,
+    ) as Array<{
+      status?: string | null
+      count?: number | null
+    }>
+
+    const distributionByType = distributionByTypeRows.reduce(
+      (result, row) => {
+        const key = String(row.distributionType || 'Other')
+        result[key] = Number(row.count || 0)
+        return result
+      },
+      {} as Record<string, number>,
+    )
+
+    const reliefCoverage = {
+      totalDistributions: distributionByTypeRows.reduce(
+        (sum, row) => sum + Number(row.count || 0),
+        0,
+      ),
+      totalQuantity: distributionByTypeRows.reduce(
+        (sum, row) => sum + Number(row.totalQuantity || 0),
+        0,
+      ),
+      barangays: reliefCoverageByBarangay,
+    }
+
+    const feedbackStats = feedbackStatusRows.reduce(
+      (result, row) => {
+        const status = String(row.status || 'UNKNOWN').trim().toUpperCase()
+        const count = Number(row.count || 0)
+
+        result.total += count
+
+        if (status === 'SUBMITTED' || status === 'PENDING' || status === 'OPEN') {
+          result.submitted += count
+        }
+
+        if (status === 'IN_PROGRESS' || status === 'IN PROGRESS') {
+          result.inProgress += count
+        }
+
+        if (status === 'RESOLVED' || status === 'CLOSED' || status === 'COMPLETED') {
+          result.resolved += count
+        }
+
+        return result
+      },
+      {
+        total: 0,
+        submitted: 0,
+        inProgress: 0,
+        resolved: 0,
+        statuses: feedbackStatusRows,
+      },
+    )
 
     return NextResponse.json({
       success: true,
@@ -127,22 +198,23 @@ export async function GET(request: NextRequest) {
         registrationsByDate: convertBigIntToNumber(registrationsByDate),
         distributionsByDate: convertBigIntToNumber(distributionsByDate),
         vulnerabilityCounts,
-        distributionByType: convertBigIntToNumber(distributionByType),
-        barangayStats: convertBigIntToNumber(barangayStats),
-        reliefCoverage: convertBigIntToNumber(reliefCoverage),
-        feedbackStats: convertBigIntToNumber(feedbackStats),
+        distributionByType,
+        distributionTypeDetails: distributionByTypeRows,
+        barangayStats,
+        reliefCoverage,
+        feedbackStats,
         period: {
           startDate: startDate.toISOString(),
           endDate: new Date().toISOString(),
-          days
-        }
-      }
+          days,
+        },
+      },
     })
   } catch (error) {
     console.error('Error fetching analytics:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch analytics' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
