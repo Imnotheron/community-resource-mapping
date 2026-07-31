@@ -36,7 +36,18 @@ export function RegistrationModalLayoutStyles() {
       }
 
       [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="header-controls"] {
+        position: relative !important;
+        z-index: 130 !important;
         align-items: center !important;
+        pointer-events: auto !important;
+        isolation: isolate;
+      }
+
+      [data-registration-modal][data-registration-enhanced="true"] [data-registration-form-controls="true"],
+      [data-registration-modal][data-registration-enhanced="true"] [data-registration-form-controls="true"] button {
+        position: relative;
+        z-index: 131;
+        pointer-events: auto !important;
       }
 
       [data-registration-modal][data-registration-enhanced="true"] [data-registration-layout="progress-card"] {
