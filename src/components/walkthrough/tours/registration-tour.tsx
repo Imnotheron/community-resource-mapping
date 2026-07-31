@@ -178,9 +178,20 @@ function markRegistrationAnchors() {
     return false
   }
 
-  const firstNameHeading = Array.from(records.querySelectorAll<HTMLHeadingElement>('h3')).find(
-    isVisible,
-  ) ?? null
+  // Do not lock the tour onto the temporary loader. Discovery keeps polling
+  // until the API resolves to either real records or the real empty state.
+  const recordsText = normalizedText(records.textContent)
+  if (
+    recordsText.includes('Loading records') ||
+    recordsText.includes('Fetching the latest approval queue')
+  ) {
+    clearRegistrationAnchors()
+    return false
+  }
+
+  const firstNameHeading = Array.from(
+    records.querySelectorAll<HTMLHeadingElement>('h3'),
+  ).find(isVisible) ?? null
 
   const firstRecord = firstNameHeading
     ? ancestorContaining(firstNameHeading, ['Email:', 'Mobile:', 'Barangay:'])
@@ -420,7 +431,11 @@ export function RegistrationWalkthrough({ user }: { user: AuthUser }) {
     }
 
     const timer = window.setTimeout(() => {
-      startTour(tour.id)
+      // Refresh once more immediately before auto-starting so the guide always
+      // points at the current record/filter state.
+      if (markRegistrationAnchors()) {
+        startTour(tour.id)
+      }
     }, 700)
 
     return () => window.clearTimeout(timer)
@@ -435,11 +450,17 @@ export function RegistrationWalkthrough({ user }: { user: AuthUser }) {
 
   if (!registrationOpen || activeTourId) return null
 
+  const startCurrentRegistrationGuide = () => {
+    if (markRegistrationAnchors()) {
+      start()
+    }
+  }
+
   return (
     <Button
       type="button"
       variant="outline"
-      onClick={start}
+      onClick={startCurrentRegistrationGuide}
       aria-label="Open Registrations guide"
       className="fixed bottom-24 right-4 z-40 rounded-full border-blue-200 bg-white/95 text-blue-700 shadow-lg backdrop-blur-xl hover:bg-blue-50 sm:right-6"
     >
