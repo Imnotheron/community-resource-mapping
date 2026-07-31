@@ -27,6 +27,8 @@ export type RegistrationModalExperience = {
   controlsHost: HTMLElement
 }
 
+export type RegistrationModalSizeMode = 'reset' | 'fit'
+
 function normalizedText(value: string | null | undefined) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
@@ -42,6 +44,38 @@ function isVisible(element: HTMLElement) {
     style.visibility !== 'hidden' &&
     Number.parseFloat(style.opacity || '1') > 0.01
   )
+}
+
+function parsePositiveScale(value: string | null | undefined) {
+  if (!value) return null
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+/**
+ * CRMS applies CSS zoom to the root element for Small / Medium / Large UI
+ * sizing. The registration modal is rendered inside that zoomed coordinate
+ * system, so viewport dimensions must be converted back to layout pixels
+ * before we set width, height, or position.
+ */
+function getRegistrationViewport() {
+  const root = document.documentElement
+  const computed = window.getComputedStyle(root)
+  const scale =
+    parsePositiveScale(root.style.zoom) ??
+    parsePositiveScale(computed.zoom) ??
+    parsePositiveScale(root.style.getPropertyValue('--crms-ui-scale')) ??
+    parsePositiveScale(computed.getPropertyValue('--crms-ui-scale')) ??
+    1
+
+  const visualWidth = window.visualViewport?.width ?? window.innerWidth
+  const visualHeight = window.visualViewport?.height ?? window.innerHeight
+
+  return {
+    scale,
+    width: visualWidth / scale,
+    height: visualHeight / scale,
+  }
 }
 
 function findExact<T extends HTMLElement>(
@@ -112,12 +146,91 @@ export function findVisibleRegistrationModal() {
   )
 }
 
+function applyResizeBounds(modal: HTMLElement) {
+  const viewport = getRegistrationViewport()
+  const margin = 12
+  const maxWidth = Math.max(320, viewport.width - margin * 2)
+  const maxHeight = Math.max(420, viewport.height - margin * 2)
+
+  modal.style.maxWidth = `${maxWidth}px`
+  modal.style.maxHeight = `${maxHeight}px`
+  modal.style.minWidth = `${Math.min(760, maxWidth)}px`
+  modal.style.minHeight = `${Math.min(560, maxHeight)}px`
+  modal.style.resize = window.matchMedia('(min-width: 768px)').matches
+    ? 'both'
+    : 'none'
+}
+
+function disableLegacyWindowDragging(
+  modal: HTMLElement,
+  header: HTMLElement,
+  shell: HTMLElement,
+) {
+  const legacyResizeHandles = Array.from(modal.children).filter(
+    (child): child is HTMLElement => {
+      if (!(child instanceof HTMLElement) || child === shell) return false
+      const classes = String(child.className)
+      return classes.includes('cursor-') && classes.includes('resize')
+    },
+  )
+
+  legacyResizeHandles.forEach((handle) => {
+    setLayoutMarker(handle, 'legacy-resize-handle')
+    handle.style.pointerEvents = 'none'
+  })
+
+  if (header.dataset.registrationStableHeader !== 'true') {
+    header.dataset.registrationStableHeader = 'true'
+
+    // The original modal attaches a React onMouseDown drag handler to the
+    // entire header. Stopping the native event here keeps normal buttons and
+    // text selection working while preventing the zoom-sensitive window drag.
+    header.addEventListener('mousedown', (event) => {
+      if (event.button === 0) event.stopPropagation()
+    })
+  }
+}
+
+export function resizeRegistrationModal(
+  modal: HTMLElement,
+  mode: RegistrationModalSizeMode,
+) {
+  const viewport = getRegistrationViewport()
+  const margin = 12
+  const availableWidth = Math.max(320, viewport.width - margin * 2)
+  const availableHeight = Math.max(420, viewport.height - margin * 2)
+
+  const width =
+    mode === 'fit'
+      ? availableWidth
+      : Math.min(1760, Math.max(760, viewport.width * 0.9), availableWidth)
+  const height =
+    mode === 'fit'
+      ? availableHeight
+      : Math.min(930, Math.max(560, viewport.height * 0.88), availableHeight)
+
+  const safeWidth = Math.min(width, availableWidth)
+  const safeHeight = Math.min(height, availableHeight)
+  const left = Math.max(margin, (viewport.width - safeWidth) / 2)
+  const top = Math.max(margin, (viewport.height - safeHeight) / 2)
+
+  modal.style.width = `${safeWidth}px`
+  modal.style.height = `${safeHeight}px`
+  modal.style.left = '0px'
+  modal.style.top = '0px'
+  modal.style.translate = 'none'
+  modal.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`
+
+  applyResizeBounds(modal)
+}
+
 export function markRegistrationModalExperience(): RegistrationModalExperience | null {
   const modal = findVisibleRegistrationModal()
   if (!modal) return null
 
   clearTourAnchors(modal)
   modal.setAttribute('data-registration-enhanced', 'true')
+  applyResizeBounds(modal)
 
   const shell = Array.from(modal.children).find(
     (child): child is HTMLElement =>
@@ -133,6 +246,8 @@ export function markRegistrationModalExperience(): RegistrationModalExperience |
   const body = shell.children[1] instanceof HTMLElement ? shell.children[1] : null
   const footer = shell.children[2] instanceof HTMLElement ? shell.children[2] : null
   if (!header || !body || !footer) return null
+
+  disableLegacyWindowDragging(modal, header, shell)
 
   const title = findExact<HTMLHeadingElement>(
     header,
@@ -201,18 +316,6 @@ export function markRegistrationModalExperience(): RegistrationModalExperience |
     findStartingWith<HTMLButtonElement>(footer, 'button', 'Update Draft') ??
     findStartingWith<HTMLButtonElement>(footer, 'button', 'Saving')
 
-  const resizeHandle = Array.from(modal.children).find(
-    (child): child is HTMLElement => {
-      if (!(child instanceof HTMLElement)) return false
-      const classes = String(child.className)
-      return (
-        classes.includes('bottom-0') &&
-        classes.includes('right-0') &&
-        classes.includes('cursor-nwse-resize')
-      )
-    },
-  ) ?? null
-
   setLayoutMarker(header, 'header')
   setLayoutMarker(headerGrid, 'header-grid')
   setLayoutMarker(titleGroup, 'title-group')
@@ -231,7 +334,6 @@ export function markRegistrationModalExperience(): RegistrationModalExperience |
   setLayoutMarker(mainForm, 'main-form')
   setLayoutMarker(mainInner, 'main-inner')
   setLayoutMarker(footer, 'footer')
-  setLayoutMarker(resizeHandle, 'resize-handle')
 
   if (stepNavigation) {
     Array.from(stepNavigation.querySelectorAll<HTMLButtonElement>('button'))
@@ -261,13 +363,6 @@ export function markRegistrationModalExperience(): RegistrationModalExperience |
     }
   }
 
-  if (resizeHandle) {
-    resizeHandle.setAttribute(
-      'title',
-      'Drag this corner to resize the registration window',
-    )
-  }
-
   setTourAnchor(modal, 'registration-modal-window')
   setTourAnchor(progressCard, 'registration-modal-progress')
   setTourAnchor(stepNavigation, 'registration-modal-steps')
@@ -275,7 +370,7 @@ export function markRegistrationModalExperience(): RegistrationModalExperience |
   setTourAnchor(sectionTitle, 'registration-modal-section')
   setTourAnchor(saveDraftButton, 'registration-modal-save-draft')
   setTourAnchor(footer, 'registration-modal-footer')
-  setTourAnchor(resizeHandle, 'registration-modal-resize')
+  setTourAnchor(modal, 'registration-modal-resize')
 
   return controlsHost ? { modal, controlsHost } : null
 }
