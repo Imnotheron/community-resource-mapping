@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { AccentProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { WalkthroughProvider } from '@/components/walkthrough/walkthrough-provider'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -114,7 +115,7 @@ export default function RootLayout({
               duration={500}
             >
               <TooltipProvider>
-                {children}
+                <WalkthroughProvider>{children}</WalkthroughProvider>
               </TooltipProvider>
             </ClickSpark>
           </AccentProvider>
