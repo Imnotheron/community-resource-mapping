@@ -7,6 +7,7 @@ import AccountSetupReminder from '@/components/onboarding/account-setup-reminder
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
+import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registration-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -196,6 +197,7 @@ function AppShellContent() {
         <AdminWalkthrough user={user} />
         <AnalyticsWalkthrough user={user} />
         <ApprovalCenterWalkthrough user={user} />
+        <RegistrationWalkthrough user={user} />
         {setupReminder}
       </>
     )
