@@ -40,7 +40,10 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
     [user.id],
   )
 
-  const { start } = useWalkthroughTour(tour)
+  // Registers this contextual tour with the shared walkthrough provider.
+  // We intentionally start it through startTour below so the Form guide can
+  // take over from a page-level guide instead of becoming a disabled button.
+  useWalkthroughTour(tour)
 
   useEffect(() => {
     const refresh = () => {
@@ -137,7 +140,18 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
 
   const openGuide = () => {
     markRegistrationModalExperience()
-    start()
+
+    // A Registrations page guide may still be active when the Administrator
+    // opens this modal. Do not leave the Form guide disabled in that state.
+    // Close the previous tour and then start this one on the next paint so the
+    // provider has a clean transition between the two walkthroughs.
+    if (activeTourId && activeTourId !== tour.id) {
+      closeTour()
+    }
+
+    window.requestAnimationFrame(() => {
+      startTour(tour.id, { force: true })
+    })
   }
 
   return (
@@ -149,7 +163,10 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
             <div
               data-registration-form-controls="true"
               data-tour="registration-modal-size-controls"
-              className="flex items-center gap-1.5"
+              className="relative z-[120] flex items-center gap-1.5 pointer-events-auto"
+              style={{ pointerEvents: 'auto' }}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
             >
               <Button
                 type="button"
@@ -185,10 +202,13 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={openGuide}
-                disabled={Boolean(activeTourId)}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  openGuide()
+                }}
                 aria-label="Open registration form guide"
-                className="h-8 gap-1.5 rounded-full border-emerald-200 bg-white px-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                className="h-8 gap-1.5 rounded-full border-emerald-200 bg-white px-2.5 text-xs font-semibold text-emerald-700 pointer-events-auto hover:bg-emerald-50"
               >
                 <CircleHelp className="h-3.5 w-3.5" />
                 Form guide
