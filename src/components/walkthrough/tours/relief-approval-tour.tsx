@@ -152,7 +152,7 @@ function markReliefApprovalAnchors() {
     'Beneficiary:',
   )
 
-  const firstRecord = beneficiaryLabel
+  const detailsGrid = beneficiaryLabel
     ? ancestorContaining(beneficiaryLabel, [
         'Beneficiary:',
         'Worker:',
@@ -160,6 +160,14 @@ function markReliefApprovalAnchors() {
         'Date:',
       ], 6)
     : null
+
+  // The details grid is inside the left column of the card row. Move two
+  // levels up so the spotlight also includes distribution type, item text,
+  // notes, and the action area described by the guide.
+  const firstRecord =
+    detailsGrid?.parentElement?.parentElement instanceof HTMLElement
+      ? detailsGrid.parentElement.parentElement
+      : detailsGrid
 
   const emptyState = Array.from(
     featureRoot.querySelectorAll<HTMLElement>('p, div'),
@@ -169,7 +177,14 @@ function markReliefApprovalAnchors() {
     return /^No (pending|approved|rejected|all) distributions\.$/i.test(text)
   }) ?? null
 
-  const recordTarget = firstRecord ?? emptyState ?? featureRoot
+  // Do not attach the tour while the records area is still loading. Waiting
+  // for either a real record or the final empty-state prevents stale targets.
+  if (!filter || (!firstRecord && !emptyState)) {
+    clearReliefApprovalAnchors()
+    return false
+  }
+
+  const recordTarget = firstRecord ?? emptyState!
 
   const approve = Array.from(
     featureRoot.querySelectorAll<HTMLButtonElement>('button'),
@@ -182,11 +197,14 @@ function markReliefApprovalAnchors() {
     (button) => isVisible(button) && normalizedText(button.textContent) === 'Reject',
   ) ?? null
 
+  // When the current filter has no Pending action buttons, keep the action
+  // teaching step on the feature workspace rather than reusing recordTarget;
+  // reusing it would overwrite the record's data-tour anchor.
   const actions = approve && reject
     ? lowestCommonAncestor([approve, reject])
-    : recordTarget
+    : featureRoot
 
-  if (!filter || !recordTarget || !actions) {
+  if (!actions) {
     clearReliefApprovalAnchors()
     return false
   }
@@ -243,7 +261,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           id: 'record-basics',
           title: 'Read the relief type and items first',
           description:
-            'Each card starts with the distribution type, current status, and the items that the worker recorded. Make sure the description is understandable and matches the kind of relief that was actually given.',
+            'Each card starts with the distribution type, current status, and the items that the worker recorded. Make sure the description is understandable and matches the kind of relief that was actually given. If the current filter is empty, the page simply tells you there are no matching distributions.',
           target: TARGETS.record,
           placement: 'auto',
           padding: 3,
@@ -270,7 +288,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           id: 'approve',
           title: 'Approve only when the recorded distribution is correct',
           description:
-            'For a Pending record, Approve changes its status to Approved. If the distribution is linked to a vulnerable user, the system can notify that user that the relief record was approved. Review the beneficiary, items, quantity, worker, date, and notes before confirming.',
+            'For a Pending record, Approve changes its status to Approved. If the distribution is linked to a vulnerable user, the system can notify that user that the relief record was approved. Review the beneficiary, items, quantity, worker, date, and notes before confirming. If there are no Pending records, no Approve button is shown.',
           target: TARGETS.actions,
           placement: 'auto',
           padding: 3,
