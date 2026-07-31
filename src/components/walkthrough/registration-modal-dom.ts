@@ -11,7 +11,7 @@ export const REGISTRATION_MODAL_TARGETS = {
   section: '[data-tour="registration-modal-section"]',
   saveDraft: '[data-tour="registration-modal-save-draft"]',
   footer: '[data-tour="registration-modal-footer"]',
-  resize: '[data-tour="registration-modal-resize"]',
+  resize: '[data-tour="registration-modal-size-controls"]',
 } as const
 
 const STEP_KEYS = [
@@ -370,7 +370,6 @@ export function markRegistrationModalExperience(): RegistrationModalExperience |
   setTourAnchor(sectionTitle, 'registration-modal-section')
   setTourAnchor(saveDraftButton, 'registration-modal-save-draft')
   setTourAnchor(footer, 'registration-modal-footer')
-  setTourAnchor(modal, 'registration-modal-resize')
 
   return controlsHost ? { modal, controlsHost } : null
 }
