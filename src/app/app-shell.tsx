@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 
 import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
+import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -192,6 +193,7 @@ function AppShellContent() {
         </Suspense>
 
         <AdminWalkthrough user={user} />
+        <AnalyticsWalkthrough user={user} />
         {setupReminder}
       </>
     )
