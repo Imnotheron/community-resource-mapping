@@ -8,6 +8,7 @@ import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
 import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registration-tour'
+import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -198,6 +199,7 @@ function AppShellContent() {
         <AnalyticsWalkthrough user={user} />
         <ApprovalCenterWalkthrough user={user} />
         <RegistrationWalkthrough user={user} />
+        <RegistrationFormWalkthrough user={user} />
         {setupReminder}
       </>
     )
