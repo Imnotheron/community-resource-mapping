@@ -16,6 +16,7 @@ export interface AuthUser {
   temporaryPasswordIssued?: boolean
   passwordChangedAt?: string | null
   onboardingReminderDismissedAt?: string | null
+  createdAt?: string | null
 }
 
 const USER_KEY = 'crms_user'
