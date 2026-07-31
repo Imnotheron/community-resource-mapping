@@ -54,7 +54,7 @@ export default function DashboardRoute() {
         onLogout={logout}
         onProfile={() => router.push('/profile')}
       />
-      <AdminWalkthrough />
+      <AdminWalkthrough user={user} />
     </>
   )
 }
