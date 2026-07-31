@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { AdminDashboard } from '@/components/dashboards/admin-dashboard'
+import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -47,10 +48,13 @@ export default function DashboardRoute() {
   }
 
   return (
-    <AdminDashboard
-      user={user}
-      onLogout={logout}
-      onProfile={() => router.push('/profile')}
-    />
+    <>
+      <AdminDashboard
+        user={user}
+        onLogout={logout}
+        onProfile={() => router.push('/profile')}
+      />
+      <AdminWalkthrough />
+    </>
   )
 }
