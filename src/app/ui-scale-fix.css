@@ -17,3 +17,20 @@ html[data-interface-size] .crms-dashboard-theme {
 html[data-interface-size] .crms-dashboard-theme aside {
   height: 100%;
 }
+
+/*
+ * Radix modal dialogs temporarily set pointer-events:none outside their own
+ * DialogContent. Walkthroughs are intentionally rendered in a document-body
+ * portal so they can sit above any screen or modal. When a walkthrough is
+ * opened from inside a modal (for example Register Vulnerable Person), it must
+ * explicitly opt back into pointer interaction or the guide can be visible
+ * while Next / Back / Skip / Finish remain impossible to click.
+ */
+[data-walkthrough-overlay="true"] {
+  pointer-events: auto !important;
+}
+
+[data-walkthrough-overlay="true"] [role="dialog"],
+[data-walkthrough-overlay="true"] button {
+  pointer-events: auto !important;
+}
