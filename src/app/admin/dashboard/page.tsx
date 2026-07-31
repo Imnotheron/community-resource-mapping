@@ -8,6 +8,7 @@ import { AdminDashboard } from '@/components/dashboards/admin-dashboard'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
+import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registration-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -59,6 +60,7 @@ export default function DashboardRoute() {
       <AdminWalkthrough user={user} />
       <AnalyticsWalkthrough user={user} />
       <ApprovalCenterWalkthrough user={user} />
+      <RegistrationWalkthrough user={user} />
     </>
   )
 }
