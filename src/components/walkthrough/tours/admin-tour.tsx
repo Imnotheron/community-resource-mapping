@@ -6,19 +6,14 @@ import { CircleHelp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { AuthUser } from '@/lib/api-client'
 import {
+  isNewWalkthroughAccount,
+  userScopedTourId,
+} from '@/components/walkthrough/onboarding-policy'
+import {
   useWalkthrough,
   useWalkthroughTour,
 } from '@/components/walkthrough/walkthrough-provider'
 import type { WalkthroughStep, WalkthroughTour } from '@/components/walkthrough/types'
-
-const WALKTHROUGH_ROLLOUT_AT = Date.parse('2026-07-31T00:00:00.000Z')
-
-function isNewWalkthroughAccount(createdAt?: string | null) {
-  if (!createdAt) return false
-
-  const created = Date.parse(createdAt)
-  return Number.isFinite(created) && created >= WALKTHROUGH_ROLLOUT_AT
-}
 
 function sidebarTarget(id: string) {
   return `[data-tour="app-sidebar"] [data-tour="nav-${id}"]`
@@ -92,7 +87,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
 
   const tour = useMemo<WalkthroughTour>(
     () => ({
-      id: `admin-first-login:${user.id}`,
+      id: userScopedTourId('admin-first-login', user.id),
       version: 2,
       title: 'Administrator guide',
       role: 'ADMIN',
