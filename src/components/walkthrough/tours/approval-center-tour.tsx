@@ -317,18 +317,18 @@ export function ApprovalCenterWalkthrough({ user }: { user: AuthUser }) {
         },
         {
           id: 'filters',
-          title: 'Narrow the queue before reviewing',
+          title: 'Narrow the queue, then recheck your selection',
           description:
-            'Search and filters help you isolate records by status, barangay, vulnerability or distribution type, and worker where applicable. Bulk selection and category printing operate on the visible filtered records, so always confirm your filters first.',
+            'Search and filters change what you see and what Print Category will include. The table header checkbox selects the rows currently visible, but records you selected earlier can remain selected after filters change. Always recheck the Selected count before a bulk approval or rejection.',
           target: TARGETS.filters,
           placement: 'auto',
           padding: 3,
         },
         {
           id: 'records',
-          title: 'Review the actual record—not just the status',
+          title: 'Treat the table as a summary, not a full case file',
           description:
-            'For registrations, check the citizen identity/contact details, barangay, vulnerability categories, submission date, and current status. For relief records, check the beneficiary, items and quantity, category, worker, barangay, date, and status. An empty panel simply means the current filters have no matching records.',
+            'For registrations, the table shows identity/contact details, barangay, vulnerability categories, submission date, and status. For relief records, it shows beneficiary, items and quantity, category, worker, barangay, date, and status. If a decision requires information that is not shown here, verify the underlying source record before approving or rejecting. An empty panel simply means the current filters have no matching records.',
           target: TARGETS.records,
           placement: 'auto',
           padding: 3,
@@ -337,7 +337,7 @@ export function ApprovalCenterWalkthrough({ user }: { user: AuthUser }) {
           id: 'selection-actions',
           title: 'Selection controls the records you are about to change',
           description:
-            'The summary shows how many records are selected and how many of those are still pending. Approve Selected and Reject Selected only become actionable when at least one selected record is pending. Recheck the count before opening a confirmation.',
+            'The summary shows how many records are selected and how many selected records are still pending. Selected can include rows chosen before a filter change, even if those rows are no longer visible. Recheck the count and intended records before opening a confirmation.',
           target: TARGETS.bulkActions,
           placement: 'auto',
           padding: 3,
@@ -362,9 +362,9 @@ export function ApprovalCenterWalkthrough({ user }: { user: AuthUser }) {
         },
         {
           id: 'printing',
-          title: 'Printing follows your current selection or filters',
+          title: 'Know exactly what each print action includes',
           description:
-            'Print Selected prints only the records you explicitly selected. Print Category prints the records visible under the current filters. Confirm the tab, status, barangay, category, worker, and search terms before opening a report that may contain personal information.',
+            'Print Selected prints the records currently stored in your selection, including records that may have been selected before a filter change. Print Category uses the records visible under the current filters. Confirm the tab, Selected count, status, barangay, category, worker, and search terms before printing personal information.',
           target: TARGETS.printActions,
           placement: 'left',
           padding: 3,
@@ -373,7 +373,7 @@ export function ApprovalCenterWalkthrough({ user }: { user: AuthUser }) {
           id: 'finish',
           title: 'Verify, decide, and protect the record',
           description:
-            'Before a final decision, make sure the selected record is the intended one, the details support the action, and the result can be explained later. Approval Center contains personal and operational data, so only print or expose what is necessary for authorized municipal work.',
+            'Before a final decision, make sure the selected record is the intended one, the available details support the action, and the result can be explained later. Approval Center contains personal and operational data, so only print or expose what is necessary for authorized municipal work.',
           placement: 'center',
           eyebrow: 'Good approval practice',
         },
