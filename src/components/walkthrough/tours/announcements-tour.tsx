@@ -166,6 +166,29 @@ function findAnnouncementCard(deleteButton: HTMLButtonElement) {
   return deleteButton.parentElement
 }
 
+function findMainEmptyState(featureRoot: HTMLElement) {
+  const description = findVisibleExact<HTMLElement>(
+    featureRoot,
+    'p',
+    'Publish your first notice to inform workers and citizens about municipal updates.',
+  )
+
+  if (!description) return null
+
+  let candidate: HTMLElement | null = description.parentElement
+  let depth = 0
+
+  while (candidate && depth <= 5) {
+    if (findVisibleButton(candidate, ['Create Announcement'])) {
+      return candidate
+    }
+    candidate = candidate.parentElement
+    depth += 1
+  }
+
+  return null
+}
+
 /**
  * Announcements is rendered as an Admin dashboard view, not a separate route.
  * This adapter discovers the visible feature and temporarily marks its real UI
@@ -242,18 +265,7 @@ function markAnnouncementAnchors() {
       ? lowestCommonAncestor(announcementCards)
       : null
 
-  const emptyMessages = Array.from(
-    featureRoot.querySelectorAll<HTMLElement>('p'),
-  ).filter(
-    (element) =>
-      isVisible(element) && normalizedText(element.textContent) === 'No announcements yet',
-  )
-  const mainEmptyState =
-    emptyMessages
-      .map((message) =>
-        ancestorContaining(message, ['Create Announcement'], 6),
-      )
-      .find((element): element is HTMLElement => element instanceof HTMLElement) ?? null
+  const mainEmptyState = findMainEmptyState(featureRoot)
 
   const loadErrorMessage = findVisibleExact<HTMLElement>(
     featureRoot,
