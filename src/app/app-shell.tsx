@@ -12,6 +12,7 @@ import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/regi
 import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief-approval-tour'
 import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
 import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
+import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -206,6 +207,7 @@ function AppShellContent() {
         <ReliefApprovalWalkthrough user={user} />
         <AnnouncementsWalkthrough user={user} />
         <FeedbackWalkthrough user={user} />
+        <VulnerableMapWalkthrough user={user} />
         {setupReminder}
       </>
     )
