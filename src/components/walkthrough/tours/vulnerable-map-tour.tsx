@@ -17,6 +17,7 @@ import type { WalkthroughTour } from '@/components/walkthrough/types'
 
 const ANCHOR_ATTRIBUTE = 'data-vulnerable-map-tour-anchor'
 const FALLBACK_ATTRIBUTES = {
+  summary: 'data-vulnerable-map-summary-fallback',
   legend: 'data-vulnerable-map-legend-fallback',
   controls: 'data-vulnerable-map-controls-fallback',
   marker: 'data-vulnerable-map-marker-fallback',
@@ -31,7 +32,8 @@ const DISCOVERY_TIMEOUT_MS = 12_000
 const TARGETS = {
   header: '[data-tour="vulnerable-map-header"]',
   workspace: '[data-tour="vulnerable-map-workspace"]',
-  summary: '[data-tour="vulnerable-map-summary"]',
+  summary:
+    '[data-tour="vulnerable-map-summary"], [data-vulnerable-map-summary-fallback="true"]',
   legend:
     '[data-tour="vulnerable-map-legend"], [data-vulnerable-map-legend-fallback="true"]',
   controls:
@@ -79,15 +81,13 @@ function clearMapAnchors() {
 }
 
 function setAnchor(element: HTMLElement | null, name: string) {
-  if (!element) return false
+  if (!element) return
   element.setAttribute('data-tour', name)
   element.setAttribute(ANCHOR_ATTRIBUTE, 'true')
-  return true
 }
 
 function setFallback(element: HTMLElement | null, attribute: string) {
-  if (!element) return
-  element.setAttribute(attribute, 'true')
+  element?.setAttribute(attribute, 'true')
 }
 
 function findVisibleExact<T extends HTMLElement>(
@@ -122,9 +122,7 @@ function ancestorContaining(
 
   while (candidate && depth <= stopAfter) {
     const text = normalizedText(candidate.textContent)
-    if (requiredText.every((value) => text.includes(value))) {
-      return candidate
-    }
+    if (requiredText.every((value) => text.includes(value))) return candidate
     candidate = candidate.parentElement
     depth += 1
   }
@@ -135,15 +133,13 @@ function ancestorContaining(
 function nextPaint() {
   return new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => resolve())
+      window.requestAnimationFrame(resolve)
     })
   })
 }
 
 function delay(milliseconds: number) {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, milliseconds)
-  })
+  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
 }
 
 function findMapHeading() {
@@ -158,18 +154,36 @@ function isMapVisible() {
   return Boolean(findMapHeading())
 }
 
-function findMapWorkspace(featureRoot: ParentNode) {
+function getFeatureRoot() {
+  const heading = findMapHeading()
+  if (!heading) return null
+
+  const headingBlock = ancestorContaining(heading, [
+    'Vulnerable Citizens Map',
+    'Geospatial view of approved vulnerable individuals.',
+  ])
+
+  if (!headingBlock) return null
+
+  return {
+    headingBlock,
+    root:
+      headingBlock.parentElement instanceof HTMLElement
+        ? headingBlock.parentElement
+        : headingBlock,
+  }
+}
+
+function findMapWorkspace(root: ParentNode) {
   return (
-    Array.from(featureRoot.querySelectorAll<HTMLElement>('section')).find(
-      (section) => {
-        if (!isVisible(section)) return false
-        const text = normalizedText(section.textContent)
-        return (
-          text.includes('San Policarpo Map View') &&
-          text.includes('Vulnerable Citizen Locations')
-        )
-      },
-    ) ?? null
+    Array.from(root.querySelectorAll<HTMLElement>('section')).find((section) => {
+      if (!isVisible(section)) return false
+      const text = normalizedText(section.textContent)
+      return (
+        text.includes('San Policarpo Map View') &&
+        text.includes('Vulnerable Citizen Locations')
+      )
+    }) ?? null
   )
 }
 
@@ -184,41 +198,25 @@ function findOpenDrawer(workspace: HTMLElement) {
   )
 }
 
-/**
- * The operational map is rendered through MapLibre and creates marker buttons
- * imperatively. This adapter labels the real rendered map controls and drawer
- * without changing coordinates, statuses, or profile records.
- */
 function markMapAnchors() {
   clearMapAnchors()
 
-  const heading = findMapHeading()
-  if (!heading) return false
-
-  const headingBlock = ancestorContaining(heading, [
-    'Vulnerable Citizens Map',
-    'Geospatial view of approved vulnerable individuals.',
-  ])
-  if (!headingBlock) return false
-
-  const featureRoot =
-    headingBlock.parentElement instanceof HTMLElement
-      ? headingBlock.parentElement
-      : headingBlock
+  const feature = getFeatureRoot()
+  if (!feature) return false
 
   const loading = Array.from(
-    featureRoot.querySelectorAll<HTMLElement>('p, span, div'),
+    feature.root.querySelectorAll<HTMLElement>('p, span, div'),
   ).some((element) => {
     if (!isVisible(element)) return false
     const text = normalizedText(element.textContent)
-    return text === 'Loading map data' || text === 'Plotting approved vulnerable citizen locations...'
+    return (
+      text === 'Loading map data' ||
+      text === 'Plotting approved vulnerable citizen locations...'
+    )
   })
 
-  const workspace = findMapWorkspace(featureRoot)
-  if (loading || !workspace) {
-    clearMapAnchors()
-    return false
-  }
+  const workspace = findMapWorkspace(feature.root)
+  if (loading || !workspace) return false
 
   const summaryLabel = findVisibleExact<HTMLElement>(
     workspace,
@@ -226,7 +224,11 @@ function markMapAnchors() {
     'San Policarpo Map View',
   )
   const summary = summaryLabel
-    ? ancestorContaining(summaryLabel, ['Vulnerable Citizen Locations', 'Showing'], 3)
+    ? ancestorContaining(
+        summaryLabel,
+        ['Vulnerable Citizen Locations', 'Showing'],
+        3,
+      )
     : null
 
   const legendLabel = findVisibleExact<HTMLElement>(workspace, 'p', 'Marker Legend')
@@ -257,7 +259,11 @@ function markMapAnchors() {
     ? ancestorContaining(emptyLabel, ['The map only displays valid locations'], 4)
     : null
 
+  // MapLibre creates marker buttons after the React map shell is mounted.
+  // Wait for either a real marker or the confirmed final empty state.
   const markerTarget = marker ?? emptyState
+  if (!markerTarget) return false
+
   const drawer = findOpenDrawer(workspace)
   const details = drawer
     ? Array.from(drawer.querySelectorAll<HTMLElement>('div')).find(
@@ -272,9 +278,11 @@ function markMapAnchors() {
     ? findVisibleButton(drawer, 'View full profile')
     : null
 
-  setAnchor(headingBlock, 'vulnerable-map-header')
+  setAnchor(feature.headingBlock, 'vulnerable-map-header')
   setAnchor(workspace, 'vulnerable-map-workspace')
-  setAnchor(summary ?? workspace, 'vulnerable-map-summary')
+
+  if (summary) setAnchor(summary, 'vulnerable-map-summary')
+  else setFallback(workspace, FALLBACK_ATTRIBUTES.summary)
 
   if (legend) setAnchor(legend, 'vulnerable-map-legend')
   else setFallback(summary ?? workspace, FALLBACK_ATTRIBUTES.legend)
@@ -282,17 +290,16 @@ function markMapAnchors() {
   if (controls) setAnchor(controls, 'vulnerable-map-controls')
   else setFallback(workspace, FALLBACK_ATTRIBUTES.controls)
 
-  if (markerTarget) setAnchor(markerTarget, 'vulnerable-map-marker')
-  else setFallback(workspace, FALLBACK_ATTRIBUTES.marker)
+  setAnchor(markerTarget, 'vulnerable-map-marker')
 
   if (drawer) setAnchor(drawer, 'vulnerable-map-drawer')
-  else setFallback(markerTarget ?? workspace, FALLBACK_ATTRIBUTES.drawer)
+  else setFallback(markerTarget, FALLBACK_ATTRIBUTES.drawer)
 
   if (details) setAnchor(details, 'vulnerable-map-drawer-details')
-  else setFallback(markerTarget ?? workspace, FALLBACK_ATTRIBUTES.details)
+  else setFallback(drawer ?? markerTarget, FALLBACK_ATTRIBUTES.details)
 
   if (fullProfile) setAnchor(fullProfile, 'vulnerable-map-full-profile')
-  else setFallback(drawer ?? markerTarget ?? workspace, FALLBACK_ATTRIBUTES.fullProfile)
+  else setFallback(drawer ?? markerTarget, FALLBACK_ATTRIBUTES.fullProfile)
 
   return true
 }
@@ -300,37 +307,45 @@ function markMapAnchors() {
 async function openFirstMarker() {
   if (!isMapVisible()) return
 
-  markMapAnchors()
-
-  const heading = findMapHeading()
-  const featureRoot =
-    heading?.parentElement?.parentElement instanceof HTMLElement
-      ? heading.parentElement.parentElement
-      : document
-  const workspace = findMapWorkspace(featureRoot)
+  const feature = getFeatureRoot()
+  if (!feature) return
+  const workspace = findMapWorkspace(feature.root)
   if (!workspace) return
 
   if (!findOpenDrawer(workspace)) {
     const marker = Array.from(
       workspace.querySelectorAll<HTMLButtonElement>('.crms-maplibre-marker'),
     ).find(isVisible)
+
     marker?.click()
     await nextPaint()
-    await delay(520)
+    await delay(540)
   }
 
   markMapAnchors()
 }
 
-async function closeMapDrawer() {
-  const heading = findMapHeading()
-  if (!heading) return
+async function showFullProfileAction() {
+  await openFirstMarker()
 
-  const featureRoot =
-    heading.parentElement?.parentElement instanceof HTMLElement
-      ? heading.parentElement.parentElement
-      : document
-  const workspace = findMapWorkspace(featureRoot)
+  const feature = getFeatureRoot()
+  if (!feature) return
+  const workspace = findMapWorkspace(feature.root)
+  if (!workspace) return
+
+  const drawer = findOpenDrawer(workspace)
+  const button = drawer ? findVisibleButton(drawer, 'View full profile') : null
+
+  button?.scrollIntoView({ behavior: 'auto', block: 'nearest' })
+  await nextPaint()
+  await delay(120)
+  markMapAnchors()
+}
+
+async function closeMapDrawer() {
+  const feature = getFeatureRoot()
+  if (!feature) return
+  const workspace = findMapWorkspace(feature.root)
   if (!workspace) return
 
   const closeButton = Array.from(
@@ -342,7 +357,7 @@ async function closeMapDrawer() {
   if (closeButton) {
     closeButton.click()
     await nextPaint()
-    await delay(450)
+    await delay(460)
   }
 
   markMapAnchors()
@@ -451,11 +466,11 @@ export function VulnerableMapWalkthrough({ user }: { user: AuthUser }) {
           id: 'full-profile',
           title: 'Open the full profile only when the task requires it',
           description:
-            'View full profile opens the complete registered record, including personal, contact, location, vulnerability, medical, and emergency-contact information. The walkthrough highlights this action but will not press it. Close the record as soon as the authorized task is complete.',
+            'View full profile opens the complete registered record, including personal, contact, location, vulnerability, medical, and emergency-contact information. The walkthrough brings this action into view but will not press it. Close the record as soon as the authorized task is complete.',
           target: TARGETS.fullProfile,
           placement: 'top',
           padding: 3,
-          beforeEnter: openFirstMarker,
+          beforeEnter: showFullProfileAction,
         },
         {
           id: 'decision-support',
@@ -523,13 +538,14 @@ export function VulnerableMapWalkthrough({ user }: { user: AuthUser }) {
 
       if (discover()) return
 
-      discoveryIntervalRef.current = window.setInterval(() => {
-        discover()
-      }, DISCOVERY_INTERVAL_MS)
-
-      discoveryTimeoutRef.current = window.setTimeout(() => {
-        stopDiscovery()
-      }, DISCOVERY_TIMEOUT_MS)
+      discoveryIntervalRef.current = window.setInterval(
+        discover,
+        DISCOVERY_INTERVAL_MS,
+      )
+      discoveryTimeoutRef.current = window.setTimeout(
+        stopDiscovery,
+        DISCOVERY_TIMEOUT_MS,
+      )
     }
 
     const leaveFeature = () => {
@@ -538,9 +554,7 @@ export function VulnerableMapWalkthrough({ user }: { user: AuthUser }) {
       setFeatureState(false)
       void closeMapDrawer()
 
-      if (activeTourIdRef.current === tour.id) {
-        closeTour()
-      }
+      if (activeTourIdRef.current === tour.id) closeTour()
     }
 
     const handleNavigationClick = (event: MouseEvent) => {
@@ -558,14 +572,11 @@ export function VulnerableMapWalkthrough({ user }: { user: AuthUser }) {
     }
 
     const viewObserver = new MutationObserver(() => {
-      if (featureOpenRef.current && !isMapVisible()) {
-        leaveFeature()
-      }
+      if (featureOpenRef.current && !isMapVisible()) leaveFeature()
     })
 
     document.addEventListener('click', handleNavigationClick, true)
     viewObserver.observe(document.body, { childList: true, subtree: true })
-
     discover()
 
     return () => {
