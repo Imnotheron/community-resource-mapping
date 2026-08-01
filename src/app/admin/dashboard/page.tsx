@@ -12,6 +12,7 @@ import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registra
 import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
 import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief-approval-tour'
 import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
+import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -67,6 +68,7 @@ export default function DashboardRoute() {
       <RegistrationFormWalkthrough user={user} />
       <ReliefApprovalWalkthrough user={user} />
       <AnnouncementsWalkthrough user={user} />
+      <FeedbackWalkthrough user={user} />
     </>
   )
 }
