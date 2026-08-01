@@ -133,13 +133,15 @@ function ancestorContaining(
 function nextPaint() {
   return new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(resolve)
+      window.requestAnimationFrame(() => resolve())
     })
   })
 }
 
 function delay(milliseconds: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
+  return new Promise<void>((resolve) => {
+    window.setTimeout(() => resolve(), milliseconds)
+  })
 }
 
 function findMapHeading() {
@@ -259,8 +261,6 @@ function markMapAnchors() {
     ? ancestorContaining(emptyLabel, ['The map only displays valid locations'], 4)
     : null
 
-  // MapLibre creates marker buttons after the React map shell is mounted.
-  // Wait for either a real marker or the confirmed final empty state.
   const markerTarget = marker ?? emptyState
   if (!markerTarget) return false
 
