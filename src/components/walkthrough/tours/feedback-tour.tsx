@@ -328,6 +328,7 @@ export function FeedbackWalkthrough({ user }: { user: AuthUser }) {
   const [featureOpen, setFeatureOpen] = useState(false)
   const featureOpenRef = useRef(false)
   const activeTourIdRef = useRef<string | null>(null)
+  const tourWasActiveRef = useRef(false)
   const discoveryIntervalRef = useRef<number | null>(null)
   const discoveryTimeoutRef = useRef<number | null>(null)
 
@@ -441,7 +442,17 @@ export function FeedbackWalkthrough({ user }: { user: AuthUser }) {
 
   useEffect(() => {
     activeTourIdRef.current = activeTourId
-  }, [activeTourId])
+
+    if (activeTourId === tour.id) {
+      tourWasActiveRef.current = true
+      return
+    }
+
+    if (tourWasActiveRef.current) {
+      tourWasActiveRef.current = false
+      void closeResponseDialog()
+    }
+  }, [activeTourId, tour.id])
 
   useEffect(() => {
     const setFeatureState = (open: boolean) => {
