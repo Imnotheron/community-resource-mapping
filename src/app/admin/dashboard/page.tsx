@@ -14,6 +14,7 @@ import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief
 import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
 import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
 import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
+import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -71,6 +72,7 @@ export default function DashboardRoute() {
       <AnnouncementsWalkthrough user={user} />
       <FeedbackWalkthrough user={user} />
       <VulnerableMapWalkthrough user={user} />
+      <DailyReportsWalkthrough user={user} />
     </>
   )
 }
