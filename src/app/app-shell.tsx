@@ -13,6 +13,7 @@ import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief
 import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
 import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
 import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
+import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -208,6 +209,7 @@ function AppShellContent() {
         <AnnouncementsWalkthrough user={user} />
         <FeedbackWalkthrough user={user} />
         <VulnerableMapWalkthrough user={user} />
+        <DailyReportsWalkthrough user={user} />
         {setupReminder}
       </>
     )
