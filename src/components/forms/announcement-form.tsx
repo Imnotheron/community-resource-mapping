@@ -106,23 +106,32 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="an-title">Title</Label>
-        <Input id="an-title" {...register('title')} placeholder="Announcement title" />
-        {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+    <form
+      data-tour="announcement-create-form"
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-4"
+    >
+      <div data-tour="announcement-message-fields" className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="an-title">Title</Label>
+          <Input id="an-title" {...register('title')} placeholder="Announcement title" />
+          {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="an-content">Content</Label>
+          <Textarea
+            id="an-content"
+            {...register('content')}
+            placeholder="Announcement details..."
+            rows={5}
+          />
+          {errors.content && <p className="text-xs text-destructive">{errors.content.message}</p>}
+        </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="an-content">Content</Label>
-        <Textarea
-          id="an-content"
-          {...register('content')}
-          placeholder="Announcement details..."
-          rows={5}
-        />
-        {errors.content && <p className="text-xs text-destructive">{errors.content.message}</p>}
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div
+        data-tour="announcement-classification-fields"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+      >
         <div className="space-y-2">
           <Label>Type</Label>
           <Select value={typeValue} onValueChange={(v) => setValue('type', v)}>
@@ -151,7 +160,10 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
           </Select>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div
+        data-tour="announcement-event-fields"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+      >
         <div className="space-y-2">
           <Label htmlFor="an-date">Event date (optional)</Label>
           <Input id="an-date" type="date" {...register('eventDate')} />
@@ -165,7 +177,12 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
           <Input id="an-loc" {...register('location')} placeholder="Venue" />
         </div>
       </div>
-      <Button type="submit" disabled={submitting} className="w-full gap-2">
+      <Button
+        data-tour="announcement-publish-button"
+        type="submit"
+        disabled={submitting}
+        className="w-full gap-2"
+      >
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
         Publish Announcement
       </Button>
