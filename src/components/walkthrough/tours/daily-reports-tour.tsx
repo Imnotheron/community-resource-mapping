@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileChartColumnIncreasing } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { AuthUser } from '@/lib/api-client'
@@ -16,18 +16,15 @@ import {
 import type { WalkthroughTour } from '@/components/walkthrough/types'
 
 const ANCHOR_ATTRIBUTE = 'data-daily-reports-tour-anchor'
-const FALLBACK_ATTRIBUTE = 'data-daily-reports-tour-fallback'
 const DISCOVERY_INTERVAL_MS = 150
 const DISCOVERY_TIMEOUT_MS = 12_000
 
 const TARGETS = {
   header: '[data-tour="daily-reports-header"]',
   actions: '[data-tour="daily-reports-actions"]',
-  filters: '[data-tour="daily-reports-filters"]',
   date: '[data-tour="daily-reports-date"]',
   barangay: '[data-tour="daily-reports-barangay"]',
   worker: '[data-tour="daily-reports-worker"]',
-  report: '[data-tour="daily-reports-report"]',
   summary: '[data-tour="daily-reports-summary"]',
   distributions: '[data-tour="daily-reports-distributions"]',
   registrations: '[data-tour="daily-reports-registrations"]',
@@ -59,10 +56,6 @@ function clearReportAnchors() {
       element.removeAttribute('data-tour')
       element.removeAttribute(ANCHOR_ATTRIBUTE)
     })
-
-  document
-    .querySelectorAll<HTMLElement>(`[${FALLBACK_ATTRIBUTE}="true"]`)
-    .forEach((element) => element.removeAttribute(FALLBACK_ATTRIBUTE))
 }
 
 function setAnchor(element: HTMLElement | null, name: string) {
@@ -162,7 +155,11 @@ function markDailyReportAnchors() {
         ? print.parentElement
         : null
 
-  const filtersTitle = findVisibleExact<HTMLElement>(root, 'h3', 'Report Filters')
+  const filtersTitle = findVisibleExact<HTMLElement>(
+    root,
+    '[data-slot="card-title"], h2, h3, div',
+    'Report Filters',
+  )
   const filters = filtersTitle
     ? ancestorContaining(filtersTitle, ['Report date', 'Barangay', 'Worker'], 5)
     : null
@@ -217,11 +214,9 @@ function markDailyReportAnchors() {
 
   setAnchor(header, 'daily-reports-header')
   setAnchor(actions ?? header, 'daily-reports-actions')
-  setAnchor(filters, 'daily-reports-filters')
   setAnchor(dateGroup, 'daily-reports-date')
   setAnchor(barangayGroup ?? filters, 'daily-reports-barangay')
   setAnchor(workerGroup ?? filters, 'daily-reports-worker')
-  setAnchor(reportTarget, 'daily-reports-report')
   setAnchor(summary ?? reportTarget, 'daily-reports-summary')
   setAnchor(distributions ?? reportTarget, 'daily-reports-distributions')
   setAnchor(registrations ?? reportTarget, 'daily-reports-registrations')
@@ -494,7 +489,7 @@ export function DailyReportsWalkthrough({ user }: { user: AuthUser }) {
       aria-label="Open Daily Reports guide"
       className="fixed bottom-24 right-4 z-40 rounded-full border-emerald-200 bg-white/95 text-emerald-700 shadow-lg backdrop-blur-xl hover:bg-emerald-50 sm:right-6"
     >
-      <FileChartColumnIncreasing className="h-4 w-4" />
+      <FileText className="h-4 w-4" />
       Daily Reports guide
     </Button>
   )
