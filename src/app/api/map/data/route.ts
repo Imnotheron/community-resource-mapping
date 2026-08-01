@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
           .replace(/\s+/g, ' ')
           .trim(),
         email: profile.emailAddress,
-        mobileNumber: profile.mobileNumber,
+        mobileNumber: profile.mobileNumber || 'Not recorded',
         latitude: profile.latitude!,
         longitude: profile.longitude!,
         barangay: profile.barangay,
