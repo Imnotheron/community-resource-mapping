@@ -8,10 +8,12 @@ const ANNOUNCEMENT_TYPES = new Set([
   'GENERAL',
   'EMERGENCY',
   'RELIEF',
+  'RELIEF_DISTRIBUTION',
   'MEETING',
   'HEALTH',
   'WEATHER',
   'SYSTEM',
+  'IMPORTANT',
 ])
 
 const PRIORITIES = new Set(['LOW', 'NORMAL', 'HIGH', 'URGENT'])
