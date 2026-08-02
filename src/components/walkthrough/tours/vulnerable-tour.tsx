@@ -35,13 +35,7 @@ function visibleElement(selector: string) {
 async function prepareTarget(selector: string) {
   const target = visibleElement(selector)
   if (!target) return
-
-  target.scrollIntoView({
-    behavior: 'auto',
-    block: 'center',
-    inline: 'nearest',
-  })
-
+  target.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' })
   await new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => resolve())
@@ -85,11 +79,15 @@ function mobileNavStep(
 
 export function VulnerableWalkthrough({ user }: { user: AuthUser }) {
   const [isDesktop, setIsDesktop] = useState(false)
+  const [layoutReady, setLayoutReady] = useState(false)
   const { activeTourId } = useWalkthrough()
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)')
-    const update = () => setIsDesktop(media.matches)
+    const update = () => {
+      setIsDesktop(media.matches)
+      setLayoutReady(true)
+    }
     update()
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
@@ -234,8 +232,10 @@ export function VulnerableWalkthrough({ user }: { user: AuthUser }) {
   }, [isDesktop, user.id, user.name])
 
   const { start } = useWalkthroughTour(tour, {
-    autoStart: isNewWalkthroughAccount(user.createdAt),
+    autoStart: layoutReady && isNewWalkthroughAccount(user.createdAt),
   })
+
+  if (!layoutReady) return null
 
   return (
     <Button
