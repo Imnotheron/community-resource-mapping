@@ -13,9 +13,12 @@ import {
   useWalkthrough,
   useWalkthroughTour,
 } from '@/components/walkthrough/walkthrough-provider'
-import type { WalkthroughTour } from '@/components/walkthrough/types'
+import type {
+  WalkthroughRole,
+  WalkthroughTour,
+} from '@/components/walkthrough/types'
 
-const ANCHOR_ATTRIBUTE = 'data-profile-settings-tour-anchor'
+const ANCHOR = 'data-profile-settings-tour-anchor'
 const DISCOVERY_INTERVAL_MS = 150
 const DISCOVERY_TIMEOUT_MS = 12_000
 
@@ -34,11 +37,17 @@ const TARGETS = {
   save: '[data-tour="profile-settings-save"]',
 } as const
 
-function normalizedText(value: string | null | undefined) {
+function roleOf(user: AuthUser): WalkthroughRole {
+  if (user.role === 'admin') return 'ADMIN'
+  if (user.role === 'worker') return 'WORKER'
+  return 'VULNERABLE'
+}
+
+function text(value: string | null | undefined) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
-function isVisible(element: HTMLElement) {
+function visible(element: HTMLElement) {
   const rect = element.getBoundingClientRect()
   const style = window.getComputedStyle(element)
   return (
@@ -50,144 +59,140 @@ function isVisible(element: HTMLElement) {
   )
 }
 
-function clearAnchors() {
-  document
-    .querySelectorAll<HTMLElement>(`[${ANCHOR_ATTRIBUTE}="true"]`)
-    .forEach((element) => {
-      element.removeAttribute('data-tour')
-      element.removeAttribute(ANCHOR_ATTRIBUTE)
-    })
-}
-
-function setAnchor(element: HTMLElement | null, name: string) {
-  if (!element) return false
-  element.setAttribute('data-tour', name)
-  element.setAttribute(ANCHOR_ATTRIBUTE, 'true')
-  return true
-}
-
-function findVisibleExact<T extends HTMLElement>(
+function exact<T extends HTMLElement>(
   root: ParentNode,
   selector: string,
-  text: string,
+  value: string,
 ) {
   return (
     Array.from(root.querySelectorAll<T>(selector)).find(
-      (element) =>
-        isVisible(element) && normalizedText(element.textContent) === text,
+      (element) => visible(element) && text(element.textContent) === value,
     ) ?? null
   )
 }
 
-function findButton(root: ParentNode, text: string) {
-  return (
-    Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) =>
-        isVisible(button) && normalizedText(button.textContent) === text,
-    ) ?? null
-  )
+function button(root: ParentNode, value: string) {
+  return exact<HTMLButtonElement>(root, 'button', value)
 }
 
-function ancestorContaining(
+function ancestor(
   start: HTMLElement | null,
-  requiredText: string[],
-  stopAfter = 8,
+  evidence: string[],
+  limit = 8,
 ) {
-  let candidate = start
+  let current = start
   let depth = 0
 
-  while (candidate && depth <= stopAfter) {
-    const text = normalizedText(candidate.textContent)
-    if (requiredText.every((value) => text.includes(value))) {
-      return candidate
-    }
-    candidate = candidate.parentElement
+  while (current && depth <= limit) {
+    const content = text(current.textContent)
+    if (evidence.every((item) => content.includes(item))) return current
+    current = current.parentElement
     depth += 1
   }
 
   return null
 }
 
-function findHeading() {
-  return findVisibleExact<HTMLHeadingElement>(
-    document,
-    'h1',
-    'Profile & Settings',
+function clearAnchors() {
+  document
+    .querySelectorAll<HTMLElement>(`[${ANCHOR}="true"]`)
+    .forEach((element) => {
+      element.removeAttribute('data-tour')
+      element.removeAttribute(ANCHOR)
+    })
+}
+
+function mark(element: HTMLElement | null, name: string) {
+  if (!element) return false
+  element.setAttribute('data-tour', name)
+  element.setAttribute(ANCHOR, 'true')
+  return true
+}
+
+function heading() {
+  return exact<HTMLHeadingElement>(document, 'h1', 'Profile & Settings')
+}
+
+function profileVisible() {
+  return Boolean(heading())
+}
+
+function card(root: ParentNode, title: string) {
+  return (
+    exact<HTMLElement>(
+      root,
+      '[data-slot="card-title"], h2, h3',
+      title,
+    )?.closest<HTMLElement>('[data-slot="card"]') ?? null
   )
 }
 
-function isProfileVisible() {
-  return Boolean(findHeading())
+function labelledSection(
+  root: ParentNode,
+  label: string,
+  evidence: string[],
+) {
+  const labelElement = exact<HTMLElement>(root, 'label', label)
+  return labelElement
+    ? ancestor(labelElement, [label, ...evidence], 4)
+    : null
 }
 
-function findCard(root: ParentNode, title: string) {
-  const cardTitle = findVisibleExact<HTMLElement>(
-    root,
-    '[data-slot="card-title"], h2, h3',
-    title,
-  )
-  return cardTitle?.closest<HTMLElement>('[data-slot="card"]') ?? null
-}
-
-function findSectionByLabel(root: ParentNode, labelText: string, evidence: string[]) {
-  const label = findVisibleExact<HTMLElement>(root, 'label', labelText)
-  return label ? ancestorContaining(label, [labelText, ...evidence], 4) : null
-}
-
-/** Labels the existing Profile UI without changing form values or clicking controls. */
 function markProfileAnchors() {
   clearAnchors()
 
-  const heading = findHeading()
-  if (!heading) return false
+  const title = heading()
+  if (!title) return false
 
-  const header = ancestorContaining(heading, [
+  const header = ancestor(title, [
     'Profile & Settings',
     'Preview your edits, then save everything once at the bottom.',
   ], 3)
-  if (!header) return false
-
-  const root = ancestorContaining(header, [
+  const root = ancestor(header, [
     'Account',
     'Appearance',
     'Security',
     'Save Changes',
   ], 5)
-  if (!root) return false
+  if (!header || !root) return false
 
-  const back = findButton(root, 'Back to Dashboard')
-  const account = findCard(root, 'Account')
-  const appearance = findCard(root, 'Appearance')
-  const security = findCard(root, 'Security')
-  const choosePhoto = findButton(account ?? root, 'Choose photo')
-  const removePhoto = findButton(account ?? root, 'Remove')
+  const back = button(root, 'Back to Dashboard')
+  const account = card(root, 'Account')
+  const appearance = card(root, 'Appearance')
+  const security = card(root, 'Security')
+  const choosePhoto = button(account ?? root, 'Choose photo')
+  const removePhoto = button(account ?? root, 'Remove')
   const photo = choosePhoto
-    ? ancestorContaining(choosePhoto, ['Choose photo'], 4)
+    ? ancestor(choosePhoto, ['Choose photo'], 4)
     : removePhoto
-      ? ancestorContaining(removePhoto, ['Remove'], 4)
+      ? ancestor(removePhoto, ['Remove'], 4)
       : account
 
   const nameInput = root.querySelector<HTMLInputElement>('#profile-name')
   const identity = nameInput
-    ? ancestorContaining(nameInput, ['Name', 'Email', 'Phone', 'Role'], 5)
+    ? ancestor(nameInput, ['Name', 'Email', 'Phone', 'Role'], 5)
     : account
 
   const theme = appearance
-    ? findSectionByLabel(appearance, 'Theme mode', ['Light', 'Dark'])
+    ? labelledSection(appearance, 'Theme mode', ['Light', 'Dark'])
     : null
   const accent = appearance
-    ? findSectionByLabel(appearance, 'Accent color', ['Emerald', 'Teal'])
+    ? labelledSection(appearance, 'Accent color', ['Emerald', 'Teal'])
     : null
   const size = appearance
-    ? findSectionByLabel(appearance, 'Text and interface size', ['Small', 'Default', 'Large'])
+    ? labelledSection(
+        appearance,
+        'Text and interface size',
+        ['Small', 'Default', 'Large'],
+      )
     : null
 
-  const save = findButton(root, 'Save Changes')
-  const revert = findButton(root, 'Revert')
+  const save = button(root, 'Save Changes')
+  const revert = button(root, 'Revert')
   const actions = save
-    ? ancestorContaining(save, ['Save Changes', 'Revert'], 5)
+    ? ancestor(save, ['Save Changes', 'Revert'], 5)
     : revert
-      ? ancestorContaining(revert, ['Revert'], 5)
+      ? ancestor(revert, ['Revert'], 5)
       : null
 
   if (!back || !account || !appearance || !security || !actions || !save) {
@@ -195,19 +200,18 @@ function markProfileAnchors() {
     return false
   }
 
-  setAnchor(header, 'profile-settings-header')
-  setAnchor(back, 'profile-settings-back')
-  setAnchor(account, 'profile-settings-account')
-  setAnchor(photo ?? account, 'profile-settings-photo')
-  setAnchor(identity ?? account, 'profile-settings-identity')
-  setAnchor(appearance, 'profile-settings-appearance')
-  setAnchor(theme ?? appearance, 'profile-settings-theme')
-  setAnchor(accent ?? appearance, 'profile-settings-accent')
-  setAnchor(size ?? appearance, 'profile-settings-size')
-  setAnchor(security, 'profile-settings-security')
-  setAnchor(actions, 'profile-settings-actions')
-  setAnchor(save, 'profile-settings-save')
-
+  mark(header, 'profile-settings-header')
+  mark(back, 'profile-settings-back')
+  mark(account, 'profile-settings-account')
+  mark(photo ?? account, 'profile-settings-photo')
+  mark(identity ?? account, 'profile-settings-identity')
+  mark(appearance, 'profile-settings-appearance')
+  mark(theme ?? appearance, 'profile-settings-theme')
+  mark(accent ?? appearance, 'profile-settings-accent')
+  mark(size ?? appearance, 'profile-settings-size')
+  mark(security, 'profile-settings-security')
+  mark(actions, 'profile-settings-actions')
+  mark(save, 'profile-settings-save')
   return true
 }
 
@@ -215,9 +219,8 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
   const [featureOpen, setFeatureOpen] = useState(false)
   const featureOpenRef = useRef(false)
   const activeTourIdRef = useRef<string | null>(null)
-  const discoveryIntervalRef = useRef<number | null>(null)
-  const discoveryTimeoutRef = useRef<number | null>(null)
-
+  const intervalRef = useRef<number | null>(null)
+  const timeoutRef = useRef<number | null>(null)
   const { hydrated, activeTourId, startTour, closeTour } = useWalkthrough()
 
   const tour = useMemo<WalkthroughTour>(
@@ -225,7 +228,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
       id: userScopedTourId('profile-settings-first-use', user.id),
       version: 1,
       title: 'Profile & Settings guide',
-      role: String(user.role || '').toUpperCase(),
+      role: roleOf(user),
       steps: [
         {
           id: 'welcome',
@@ -239,7 +242,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'purpose',
           title: 'Preview first, then save once',
           description:
-            'Name, phone, photo, appearance, interface size, and an optional password change are saved together from the bottom of the page. Appearance choices can preview immediately, but they are not permanent until Save Changes succeeds.',
+            'Name, phone, photo, appearance, interface size, and an optional password change are saved together from the bottom of the page. Appearance choices preview immediately, but they are not permanent until Save Changes succeeds.',
           target: TARGETS.header,
           placement: 'bottom',
           padding: 4,
@@ -255,16 +258,16 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
         },
         {
           id: 'account',
-          title: 'Account details belong to the signed-in user',
+          title: 'Account settings belong to the signed-in user',
           description:
-            'This card updates the account name, phone, and profile photo. Email and Role are displayed as read-only. For a Vulnerable Citizen, these account settings do not replace or directly edit the separate vulnerable-registration record under My Profile.',
+            'This card updates the account name, phone, and profile photo. Email and Role are read-only. For a Vulnerable Citizen, account settings do not directly edit the separate vulnerable-registration record under My Profile.',
           target: TARGETS.account,
           placement: 'auto',
           padding: 4,
         },
         {
           id: 'photo',
-          title: 'A photo change is staged until Save Changes',
+          title: 'Photo changes remain staged until saving',
           description:
             'Choose photo accepts JPG, PNG, or WebP files up to 5 MB. Remove also stages a change. The preview is not the final saved photo until the complete settings save succeeds.',
           target: TARGETS.photo,
@@ -275,7 +278,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'identity',
           title: 'Check name and phone before saving',
           description:
-            'Name is required. Phone is optional but should belong to the account holder or an authorized contact. Email and Role cannot be changed on this page.',
+            'Name is required. Phone is optional but should belong to the account holder or an authorized contact. Email and Role cannot be changed here.',
           target: TARGETS.identity,
           placement: 'auto',
           padding: 3,
@@ -284,7 +287,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'appearance',
           title: 'Appearance applies across the whole account',
           description:
-            'Theme, accent color, and interface size affect dashboards, navigation, cards, forms, dialogs, controls, and labels. Choose settings that remain readable in the places and devices where the account is normally used.',
+            'Theme, accent, and interface size affect dashboards, navigation, cards, forms, dialogs, controls, and labels. Choose settings that remain readable on the devices normally used for this account.',
           target: TARGETS.appearance,
           placement: 'auto',
           padding: 4,
@@ -293,7 +296,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'theme',
           title: 'Theme changes brightness',
           description:
-            'Light uses bright surfaces. Dark reduces glare in dim environments. Selecting either option previews it immediately; Revert, Back, or leaving without saving restores the previously saved theme.',
+            'Light uses bright surfaces. Dark reduces glare in dim environments. Selecting either option previews it immediately; Revert, Back, or leaving without saving restores the saved theme.',
           target: TARGETS.theme,
           placement: 'auto',
           padding: 3,
@@ -302,7 +305,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'accent',
           title: 'Accent changes buttons and highlights',
           description:
-            'Emerald, Teal, Green, and Amber change the main interface accent. Accent color is decorative and must not be treated as a status by itself—always read the accompanying text and label.',
+            'Emerald, Teal, Green, and Amber change the main accent. Accent is decorative and must not be treated as a status by itself—always read the accompanying text and label.',
           target: TARGETS.accent,
           placement: 'auto',
           padding: 3,
@@ -311,25 +314,25 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'size',
           title: 'Interface size scales more than body text',
           description:
-            'Small, Default, and Large scale text, controls, spacing, forms, dialogs, cards, and navigation across the account. Check that important buttons and long forms remain comfortable to read before saving.',
+            'Small, Default, and Large scale text, controls, spacing, forms, dialogs, cards, and navigation. Check that important buttons and long forms remain comfortable to use before saving.',
           target: TARGETS.size,
           placement: 'auto',
           padding: 3,
         },
         {
           id: 'security',
-          title: 'Leave both password fields empty to keep the current password',
+          title: 'Leave both password fields empty to keep the password',
           description:
-            'To change a password, enter both the current password and a new password of at least six characters. The system verifies the current password before accepting the change. Never share either value in feedback, notes, screenshots, or support messages.',
+            'To change it, enter the current password and a new password of at least six characters. Never share either value in feedback, field notes, screenshots, or support messages.',
           target: TARGETS.security,
           placement: 'auto',
           padding: 4,
         },
         {
           id: 'actions',
-          title: 'Use the unsaved-change bar as the final checkpoint',
+          title: 'Use the unsaved-change bar as the checkpoint',
           description:
-            'Revert restores the last saved account and appearance values. Save Changes validates the form and sends the current settings. A disabled Save button usually means there is nothing new to save or a save is already running.',
+            'Revert restores the last saved values. Save Changes validates and sends the current settings. A disabled Save button normally means there is nothing new to save or a save is already running.',
           target: TARGETS.actions,
           placement: 'top',
           padding: 4,
@@ -338,7 +341,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'save',
           title: 'Save only after reviewing every changed section',
           description:
-            'Save Changes can update identity details, appearance, interface size, password, and profile photo in one workflow. The guide highlights the button but will not press it. Wait for the success message before assuming the changes are permanent.',
+            'Save Changes can update identity details, appearance, interface size, password, and profile photo. The guide highlights it but never presses it. Wait for the success message before assuming changes are permanent.',
           target: TARGETS.save,
           placement: 'top',
           padding: 3,
@@ -347,13 +350,13 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
           id: 'finish',
           title: 'Keep account settings accurate and private',
           description:
-            'Final check: Is the account name correct? Is the phone authorized? Is the interface readable? Are password fields empty unless I intend to change the password? Am I ready for every staged change to be saved together?',
+            'Final check: Is the name correct? Is the phone authorized? Is the interface readable? Are password fields empty unless I intend to change the password? Am I ready for every staged change to be saved together?',
           placement: 'center',
           eyebrow: 'Good account practice',
         },
       ],
     }),
-    [user.id, user.role],
+    [user],
   )
 
   const { start } = useWalkthroughTour(tour)
@@ -368,60 +371,48 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
       setFeatureOpen(open)
     }
 
-    const stopDiscovery = () => {
-      if (discoveryIntervalRef.current !== null) {
-        window.clearInterval(discoveryIntervalRef.current)
-        discoveryIntervalRef.current = null
+    const stop = () => {
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
       }
-      if (discoveryTimeoutRef.current !== null) {
-        window.clearTimeout(discoveryTimeoutRef.current)
-        discoveryTimeoutRef.current = null
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
       }
     }
 
     const discover = () => {
       const found = markProfileAnchors()
       setOpen(found)
-      if (found) stopDiscovery()
+      if (found) stop()
       return found
     }
 
-    const beginDiscovery = () => {
-      stopDiscovery()
-      clearAnchors()
-      setOpen(false)
-
-      if (discover()) return
-
-      discoveryIntervalRef.current = window.setInterval(
-        discover,
-        DISCOVERY_INTERVAL_MS,
-      )
-      discoveryTimeoutRef.current = window.setTimeout(
-        stopDiscovery,
-        DISCOVERY_TIMEOUT_MS,
-      )
-    }
-
-    const leaveFeature = () => {
-      stopDiscovery()
+    const leave = () => {
+      stop()
       clearAnchors()
       setOpen(false)
       if (activeTourIdRef.current === tour.id) closeTour()
     }
 
     const observer = new MutationObserver(() => {
-      if (featureOpenRef.current && !isProfileVisible()) {
-        leaveFeature()
-      }
+      if (featureOpenRef.current && !profileVisible()) leave()
     })
 
     observer.observe(document.body, { childList: true, subtree: true })
-    beginDiscovery()
+    clearAnchors()
+    if (!discover()) {
+      intervalRef.current = window.setInterval(
+        discover,
+        DISCOVERY_INTERVAL_MS,
+      )
+      timeoutRef.current = window.setTimeout(stop, DISCOVERY_TIMEOUT_MS)
+    }
 
     return () => {
       observer.disconnect()
-      stopDiscovery()
+      stop()
       clearAnchors()
     }
   }, [closeTour, tour.id])
@@ -437,7 +428,7 @@ export function ProfileSettingsWalkthrough({ user }: { user: AuthUser }) {
     }
 
     const timer = window.setTimeout(() => {
-      if (!isProfileVisible() || !markProfileAnchors()) {
+      if (!profileVisible() || !markProfileAnchors()) {
         featureOpenRef.current = false
         setFeatureOpen(false)
         return
