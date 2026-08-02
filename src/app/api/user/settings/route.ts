@@ -4,13 +4,11 @@ import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { requireMatchingRequestUser } from '@/lib/request-user-session'
 
 type ThemeChoice = 'light' | 'dark'
 type AccentColor = 'emerald' | 'teal' | 'green' | 'amber'
-type FontSizeChoice =
-  | 'small'
-  | 'medium'
-  | 'large'
+type FontSizeChoice = 'small' | 'medium' | 'large'
 
 type UserPreferences = {
   theme?: ThemeChoice
@@ -38,12 +36,8 @@ function normalizeAccent(value: unknown): AccentColor | null {
     : null
 }
 
-function normalizeFontSize(
-  value: unknown,
-): FontSizeChoice | null {
-  return value === 'small' ||
-    value === 'medium' ||
-    value === 'large'
+function normalizeFontSize(value: unknown): FontSizeChoice | null {
+  return value === 'small' || value === 'medium' || value === 'large'
     ? value
     : null
 }
@@ -55,10 +49,7 @@ function parsePreferences(
 
   try {
     const parsed = JSON.parse(value)
-
-    return parsed && typeof parsed === 'object'
-      ? parsed
-      : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
   } catch (error) {
     console.warn('Invalid user preferences JSON:', error)
     return {}
@@ -72,9 +63,7 @@ function serializeUser(user: any) {
     ...user,
     theme: normalizeTheme(preferences.theme) || 'light',
     accent: normalizeAccent(preferences.accent) || 'emerald',
-    fontSize:
-      normalizeFontSize(preferences.fontSize) ||
-      'medium',
+    fontSize: normalizeFontSize(preferences.fontSize) || 'medium',
   }
 }
 
@@ -86,13 +75,6 @@ async function getUserColumns() {
   return new Set(columns.map((column) => column.name))
 }
 
-/**
- * Older local SQLite databases may not contain newer User columns even when
- * schema.prisma and the generated Prisma client already know about them.
- *
- * This keeps the settings endpoint usable while `prisma db push` is pending.
- * ALTER TABLE ADD COLUMN is supported by SQLite and Turso/libSQL.
- */
 async function ensureSettingsColumns() {
   let columns = await getUserColumns()
 
@@ -145,9 +127,7 @@ function errorResponse(
       ...(DEVELOPMENT
         ? {
             details:
-              error instanceof Error
-                ? error.message
-                : String(error),
+              error instanceof Error ? error.message : String(error),
           }
         : {}),
     },
@@ -157,22 +137,13 @@ function errorResponse(
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 },
-      )
-    }
+    const auth = requireMatchingRequestUser(request)
+    if ('error' in auth) return auth.error
 
     await ensureSettingsColumns()
 
     const user = await db.user.findUnique({
-      where: { id: userId },
+      where: { id: auth.userId },
       select: {
         id: true,
         name: true,
@@ -189,10 +160,7 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User not found',
-        },
+        { success: false, error: 'User not found' },
         { status: 404 },
       )
     }
@@ -202,33 +170,20 @@ export async function GET(request: NextRequest) {
       user: serializeUser(user),
     })
   } catch (error) {
-    return errorResponse(
-      'Failed to fetch user settings',
-      error,
-    )
+    return errorResponse('Failed to fetch user settings', error)
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
-        { status: 401 },
-      )
-    }
+    const auth = requireMatchingRequestUser(request)
+    if ('error' in auth) return auth.error
 
     await ensureSettingsColumns()
 
     const body = await request.json()
-
     const currentUser = await db.user.findUnique({
-      where: { id: userId },
+      where: { id: auth.userId },
       select: {
         id: true,
         password: true,
@@ -238,38 +193,27 @@ export async function PUT(request: NextRequest) {
 
     if (!currentUser) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User not found',
-        },
+        { success: false, error: 'User not found' },
         { status: 404 },
       )
     }
 
     const updates: Record<string, unknown> = {}
-    const preferences = parsePreferences(
-      currentUser.preferences,
-    )
+    const preferences = parsePreferences(currentUser.preferences)
 
     if (body.name !== undefined) {
       const cleanName = String(body.name).trim()
 
       if (!cleanName) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Name is required',
-          },
+          { success: false, error: 'Name is required' },
           { status: 400 },
         )
       }
 
       if (cleanName.length > 120) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Name is too long',
-          },
+          { success: false, error: 'Name is too long' },
           { status: 400 },
         )
       }
@@ -282,10 +226,7 @@ export async function PUT(request: NextRequest) {
 
       if (cleanPhone.length > 40) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Phone number is too long',
-          },
+          { success: false, error: 'Phone number is too long' },
           { status: 400 },
         )
       }
@@ -298,10 +239,7 @@ export async function PUT(request: NextRequest) {
 
       if (!theme) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid theme value',
-          },
+          { success: false, error: 'Invalid theme value' },
           { status: 400 },
         )
       }
@@ -310,15 +248,11 @@ export async function PUT(request: NextRequest) {
     }
 
     if (body.fontSize !== undefined) {
-      const fontSize =
-        normalizeFontSize(body.fontSize)
+      const fontSize = normalizeFontSize(body.fontSize)
 
       if (!fontSize) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid font size',
-          },
+          { success: false, error: 'Invalid font size' },
           { status: 400 },
         )
       }
@@ -331,10 +265,7 @@ export async function PUT(request: NextRequest) {
 
       if (!accent) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid accent color',
-          },
+          { success: false, error: 'Invalid accent color' },
           { status: 400 },
         )
       }
@@ -343,21 +274,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const wantsPasswordChange =
-      body.currentPassword !== undefined ||
-      body.newPassword !== undefined
+      body.currentPassword !== undefined || body.newPassword !== undefined
 
     if (wantsPasswordChange) {
-      const currentPassword = String(
-        body.currentPassword || '',
-      )
+      const currentPassword = String(body.currentPassword || '')
       const newPassword = String(body.newPassword || '')
 
       if (!currentPassword || !newPassword) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              'Current password and new password are both required',
+            error: 'Current password and new password are both required',
           },
           { status: 400 },
         )
@@ -367,8 +294,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              'Password must be at least 6 characters',
+            error: 'Password must be at least 6 characters',
           },
           { status: 400 },
         )
@@ -381,10 +307,7 @@ export async function PUT(request: NextRequest) {
 
       if (!validPassword) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Current password is incorrect',
-          },
+          { success: false, error: 'Current password is incorrect' },
           { status: 401 },
         )
       }
@@ -398,7 +321,7 @@ export async function PUT(request: NextRequest) {
     updates.preferences = JSON.stringify(preferences)
 
     const updatedUser = await db.user.update({
-      where: { id: userId },
+      where: { id: auth.userId },
       data: updates,
       select: {
         id: true,
@@ -420,9 +343,6 @@ export async function PUT(request: NextRequest) {
       message: 'Settings updated successfully',
     })
   } catch (error) {
-    return errorResponse(
-      'Failed to update user settings',
-      error,
-    )
+    return errorResponse('Failed to update user settings', error)
   }
 }
