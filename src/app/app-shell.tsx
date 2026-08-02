@@ -14,6 +14,9 @@ import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announc
 import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
 import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
 import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
+import { ProfileSettingsWalkthrough } from '@/components/walkthrough/tours/profile-settings-tour'
+import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
+import { VulnerableWalkthrough } from '@/components/walkthrough/tours/vulnerable-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -165,11 +168,14 @@ function AppShellContent() {
           <ViewLoader label="Loading profile…" />
         }
       >
-        <ProfileView
-          user={user}
-          onBack={() => setMode('dashboard')}
-          onUserUpdated={refreshUser}
-        />
+        <>
+          <ProfileView
+            user={user}
+            onBack={() => setMode('dashboard')}
+            onUserUpdated={refreshUser}
+          />
+          <ProfileSettingsWalkthrough user={user} />
+        </>
       </Suspense>
     )
   }
@@ -230,6 +236,7 @@ function AppShellContent() {
           />
         </Suspense>
 
+        <WorkerWalkthrough user={user} />
         {setupReminder}
       </>
     )
@@ -249,6 +256,7 @@ function AppShellContent() {
         />
       </Suspense>
 
+      <VulnerableWalkthrough user={user} />
       {setupReminder}
     </>
   )
