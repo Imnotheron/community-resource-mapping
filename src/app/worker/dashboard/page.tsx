@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { WorkerDashboard } from '@/components/dashboards/worker-dashboard'
+import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
 
 const ROLE = 'worker'
 const LOGIN_PATH = '/login?role=worker'
@@ -27,5 +28,14 @@ export default function DashboardRoute() {
     )
   }
 
-  return <WorkerDashboard user={user} onLogout={logout} onProfile={() => router.push('/profile')} />
+  return (
+    <>
+      <WorkerDashboard
+        user={user}
+        onLogout={logout}
+        onProfile={() => router.push('/profile')}
+      />
+      <WorkerWalkthrough user={user} />
+    </>
+  )
 }
