@@ -1,89 +1,41 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['WORKER'],
+    })
+    if ('error' in auth) return auth.error
+
     const profiles = await db.vulnerableProfile.findMany({
       select: {
         id: true,
-        userId: true,
-        lastName: true,
         firstName: true,
         middleName: true,
+        lastName: true,
         suffix: true,
-        dateOfBirth: true,
-        gender: true,
-        civilStatus: true,
-        mobileNumber: true,
-        landlineNumber: true,
-        emailAddress: true,
-        houseNumber: true,
-        street: true,
         barangay: true,
-        municipality: true,
-        province: true,
-        latitude: true,
-        longitude: true,
-        educationalAttainment: true,
-        employmentStatus: true,
-        employmentDetails: true,
-        vulnerabilityTypes: true,
-        disabilityType: true,
-        disabilityCause: true,
-        disabilityIdNumber: true,
-        emergencyContact: true,
-        emergencyPhone: true,
-        hasMedicalCondition: true,
-        medicalConditions: true,
-        needsAssistance: true,
-        assistanceType: true,
-        hasRepresentative: true,
-        representativeName: true,
-        representativeRelationship: true,
-        representativePhone: true,
-        representativeEmail: true,
-        hasAuthorizationLetter: true,
         registrationStatus: true,
-        rejectionReason: true,
+        needsAssistance: true,
         createdAt: true,
-        updatedAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            phone: true,
-            profilePicture: true,
-            createdAt: true
-          }
-        },
-        documents: {
-          select: {
-            id: true,
-            documentType: true,
-            fileName: true,
-            fileUrl: true,
-            uploadedAt: true
-          }
-        }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { lastName: 'asc' },
+        { firstName: 'asc' },
+      ],
     })
 
-    return NextResponse.json({
-      success: true,
-      profiles
-    })
+    return NextResponse.json({ success: true, profiles })
   } catch (error) {
-    console.error('Error fetching profiles:', error)
+    console.error('Error fetching worker profile directory:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch profiles' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
