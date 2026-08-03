@@ -1,43 +1,65 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json().catch(() => ({}))
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['WORKER'],
+      requestedUserId: String(body.workerId || '').trim(),
+    })
+    if ('error' in auth) return auth.error
 
-    const { workerId, note } = body
-
-    if (!workerId || !note) {
+    const note = String(body.note || '').trim()
+    if (!note) {
       return NextResponse.json(
-        { success: false, error: 'Worker ID and note are required' },
-        { status: 400 }
+        { success: false, error: 'A field note is required' },
+        { status: 400 },
       )
     }
 
-    // For now, we'll store field notes as feedback with type 'FIELD_NOTE'
-    // If you have a separate FieldNote model, update this accordingly
+    if (note.length > 4_000) {
+      return NextResponse.json(
+        { success: false, error: 'Field notes must be 4,000 characters or fewer' },
+        { status: 400 },
+      )
+    }
+
     const feedback = await db.feedback.create({
       data: {
-        userId: workerId,
+        userId: auth.userId,
         type: 'FIELD_NOTE' as any,
         subject: 'Field Note',
         message: note,
-        status: 'SUBMITTED'
-      }
+        status: 'SUBMITTED',
+      },
+      select: {
+        id: true,
+        type: true,
+        subject: true,
+        message: true,
+        status: true,
+        createdAt: true,
+      },
     })
 
-    return NextResponse.json({
-      success: true,
-      message: 'Field note submitted successfully',
-      feedback
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Field note saved',
+        feedback,
+      },
+      { status: 201 },
+    )
   } catch (error) {
     console.error('Error submitting field note:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to submit field note' },
-      { status: 500 }
+      { success: false, error: 'Failed to save field note' },
+      { status: 500 },
     )
   }
 }
