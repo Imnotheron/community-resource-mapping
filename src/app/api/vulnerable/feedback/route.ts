@@ -1,96 +1,129 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
+
 type FeedbackType = 'MESSAGE' | 'FEEDBACK' | 'REPORT'
+const VALID_TYPES = new Set<FeedbackType>(['MESSAGE', 'FEEDBACK', 'REPORT'])
+
+function positiveInteger(value: string | null, fallback: number, maximum: number) {
+  const parsed = Number.parseInt(value || '', 10)
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback
+  return Math.min(parsed, maximum)
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { reliefDistributionId, userId, feedbackType, message } = body
+    const body = await request.json().catch(() => ({}))
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['VULNERABLE'],
+      requestedUserId: String(body.userId || '').trim(),
+    })
+    if ('error' in auth) return auth.error
 
-    // Validate required fields
-    if (!reliefDistributionId || !userId || !feedbackType || !message) {
+    const reliefDistributionId = String(body.reliefDistributionId || '').trim()
+    const feedbackType = String(body.feedbackType || '').trim().toUpperCase() as FeedbackType
+    const message = String(body.message || '').trim()
+
+    if (!reliefDistributionId || !VALID_TYPES.has(feedbackType)) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
+        { success: false, error: 'Distribution and feedback type are required' },
+        { status: 400 },
       )
     }
 
-    // Validate feedback type
-    if (!['MESSAGE', 'FEEDBACK', 'REPORT'].includes(feedbackType)) {
+    if (message.length < 10 || message.length > 4_000) {
       return NextResponse.json(
-        { error: 'Invalid feedback type' },
-        { status: 400 }
+        {
+          success: false,
+          error: 'Message must contain between 10 and 4,000 characters',
+        },
+        { status: 400 },
       )
     }
 
-    // Verify the relief distribution exists and belongs to the user
     const distribution = await db.reliefDistribution.findUnique({
       where: { id: reliefDistributionId },
-      include: { vulnerableProfile: true }
+      select: {
+        id: true,
+        status: true,
+        vulnerableProfile: {
+          select: { userId: true },
+        },
+      },
     })
 
     if (!distribution) {
       return NextResponse.json(
-        { error: 'Relief distribution not found' },
-        { status: 404 }
+        { success: false, error: 'Relief distribution not found' },
+        { status: 404 },
       )
     }
 
-    // Check if the user is authorized to give feedback for this distribution
-    if (distribution.vulnerableProfile?.userId !== userId) {
+    if (distribution.vulnerableProfile?.userId !== auth.userId) {
       return NextResponse.json(
-        { error: 'Unauthorized to give feedback for this distribution' },
-        { status: 403 }
+        { success: false, error: 'This distribution does not belong to your profile' },
+        { status: 403 },
       )
     }
 
-    // Check if user already submitted feedback for this distribution
+    if (distribution.status !== 'APPROVED') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Feedback can be submitted after the distribution is approved',
+        },
+        { status: 409 },
+      )
+    }
+
     const existingFeedback = await db.reliefFeedback.findFirst({
       where: {
-        reliefDistributionId,
-        userId
-      }
+        reliefDistributionId: distribution.id,
+        userId: auth.userId,
+      },
+      select: { id: true },
     })
 
     if (existingFeedback) {
       return NextResponse.json(
-        { error: 'You have already submitted feedback for this relief distribution' },
-        { status: 409 }
+        {
+          success: false,
+          error: 'Feedback has already been submitted for this distribution',
+        },
+        { status: 409 },
       )
     }
 
-    // Create the feedback
     const feedback = await db.reliefFeedback.create({
       data: {
-        reliefDistributionId,
-        userId,
-        feedbackType: feedbackType as FeedbackType,
+        reliefDistributionId: distribution.id,
+        userId: auth.userId,
+        feedbackType,
         message,
-        status: 'SUBMITTED'
+        status: 'SUBMITTED',
       },
-      include: {
-        reliefDistribution: {
-          include: {
-            worker: true
-          }
-        },
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        }
-      }
+      select: {
+        id: true,
+        reliefDistributionId: true,
+        feedbackType: true,
+        message: true,
+        status: true,
+        createdAt: true,
+      },
     })
 
-    return NextResponse.json({ success: true, feedback }, { status: 201 })
-  } catch (error) {
-    console.error('Error creating feedback:', error)
     return NextResponse.json(
-      { error: 'Failed to submit feedback' },
-      { status: 500 }
+      { success: true, feedback },
+      { status: 201 },
+    )
+  } catch (error) {
+    console.error('Error creating relief feedback:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to submit feedback' },
+      { status: 500 },
     )
   }
 }
@@ -98,75 +131,58 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get('userId')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const status = searchParams.get('status')
     const adminView = searchParams.get('adminView') === 'true'
+    const requestedUserId = searchParams.get('userId')
+    const auth = await requireRequestUser(request, {
+      allowedRoles: adminView ? ['ADMIN'] : ['VULNERABLE'],
+      requestedUserId: adminView ? null : requestedUserId,
+    })
+    if ('error' in auth) return auth.error
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    const page = positiveInteger(searchParams.get('page'), 1, 100_000)
+    const limit = positiveInteger(searchParams.get('limit'), 10, 100)
+    const status = String(searchParams.get('status') || 'ALL').toUpperCase()
 
-    // Build where clause
     const where: any = {}
-    
-    if (status && status !== 'ALL') {
-      where.status = status
+    if (status !== 'ALL') where.status = status
+    if (adminView) {
+      if (requestedUserId) where.userId = requestedUserId
+    } else {
+      where.userId = auth.userId
     }
 
-    // If not admin view, only show user's own feedback
-    if (!adminView) {
-      where.userId = userId
-    }
-
-    // Get total count for pagination
     const total = await db.reliefFeedback.count({ where })
-    const totalPages = Math.ceil(total / limit)
-
-    // Get paginated feedback
     const feedback = await db.reliefFeedback.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        reliefDistributionId: true,
+        feedbackType: true,
+        message: true,
+        status: true,
+        adminResponse: true,
+        responseDate: true,
+        createdAt: true,
         reliefDistribution: {
-          include: {
-            worker: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            vulnerableProfile: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true
-                  }
-                }
-              }
-            }
-          }
-        },
-        user: {
           select: {
             id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        }
+            distributionType: true,
+            itemsProvided: true,
+            quantity: true,
+            distributionDate: true,
+            status: true,
+            worker: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        user: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
-      orderBy: {
-        createdAt: 'desc'
-      },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
-      take: limit
+      take: limit,
     })
 
     return NextResponse.json({
@@ -174,16 +190,16 @@ export async function GET(request: NextRequest) {
       feedback,
       pagination: {
         total,
-        totalPages,
+        totalPages: Math.ceil(total / limit),
         currentPage: page,
-        limit
-      }
+        limit,
+      },
     })
   } catch (error) {
-    console.error('Error fetching feedback:', error)
+    console.error('Error fetching relief feedback:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch feedback' },
-      { status: 500 }
+      { success: false, error: 'Failed to fetch feedback' },
+      { status: 500 },
     )
   }
 }
