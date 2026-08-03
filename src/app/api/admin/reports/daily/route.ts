@@ -1,82 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
-
-type TokenPayload = {
-  userId?: string
-  role?: string
-}
-
-function normalizeRole(value: unknown) {
-  return String(value || '').trim().toUpperCase()
-}
-
-function readToken(request: NextRequest) {
-  const authorization = request.headers.get('authorization') || ''
-  const bearerToken = authorization.startsWith('Bearer ')
-    ? authorization.slice('Bearer '.length).trim()
-    : ''
-
-  return bearerToken || request.cookies.get('token')?.value || ''
-}
-
-function decodeToken(token: string): TokenPayload | null {
-  if (!token) return null
-
-  try {
-    const decoded = Buffer.from(token, 'base64').toString('utf8')
-    const payload = JSON.parse(decoded) as TokenPayload
-    return payload && typeof payload === 'object' ? payload : null
-  } catch {
-    return null
-  }
-}
-
-async function requireAdmin(request: NextRequest) {
-  const payload = decodeToken(readToken(request))
-  const tokenUserId = String(payload?.userId || '').trim()
-
-  if (!tokenUserId) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: 'Authentication is required to generate an administrative report.' },
-        { status: 401 },
-      ),
-    }
-  }
-
-  const requestedUserId = String(
-    request.nextUrl.searchParams.get('userId') ||
-      request.headers.get('x-user-id') ||
-      '',
-  ).trim()
-
-  if (requestedUserId && requestedUserId !== tokenUserId) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: 'The requested user does not match the current session.' },
-        { status: 403 },
-      ),
-    }
-  }
-
-  const user = await db.user.findUnique({
-    where: { id: tokenUserId },
-    select: { id: true, role: true },
-  })
-
-  if (!user || normalizeRole(user.role) !== 'ADMIN') {
-    return {
-      error: NextResponse.json(
-        { success: false, error: 'Administrator access is required.' },
-        { status: 403 },
-      ),
-    }
-  }
-
-  return { user }
-}
+import { requireRequestUser } from '@/lib/request-user-session'
 
 function todayInManila() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -92,32 +19,46 @@ function getDayRange(value: string | null) {
     ? value
     : todayInManila()
 
-  // Asia/Manila is UTC+08:00 and does not observe daylight-saving time.
   const start = new Date(`${date}T00:00:00.000+08:00`)
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1_000)
 
   return { date, start, end }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
     if ('error' in auth) return auth.error
 
-    const { date, start, end } = getDayRange(request.nextUrl.searchParams.get('date'))
+    const { date, start, end } = getDayRange(
+      request.nextUrl.searchParams.get('date'),
+    )
     const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
     const workerId = request.nextUrl.searchParams.get('workerId')?.trim() || null
 
-    const profileWhere = {
-      ...(barangay ? { barangay } : {}),
+    if (workerId) {
+      const worker = await db.user.findUnique({
+        where: { id: workerId },
+        select: { id: true, role: true },
+      })
+      if (!worker || worker.role !== 'WORKER') {
+        return NextResponse.json(
+          { success: false, error: 'The selected Worker account was not found' },
+          { status: 400 },
+        )
+      }
     }
 
-    const dailyProfileWhere = {
+    const profileWhere: any = {
+      ...(barangay ? { barangay } : {}),
+    }
+    const dailyProfileWhere: any = {
       ...profileWhere,
       createdAt: { gte: start, lt: end },
     }
-
-    const distributionWhere = {
+    const distributionWhere: any = {
       distributionDate: { gte: start, lt: end },
       ...(workerId ? { workerId } : {}),
       ...(barangay
@@ -137,7 +78,7 @@ export async function GET(request: NextRequest) {
       announcementsCreated,
       distributions,
       registrations,
-      fieldNotes,
+      fieldNoteRows,
       workers,
       barangayProfiles,
       allBarangayRows,
@@ -157,8 +98,19 @@ export async function GET(request: NextRequest) {
       db.announcement.count({ where: { createdAt: { gte: start, lt: end } } }),
       db.reliefDistribution.findMany({
         where: distributionWhere,
-        include: {
-          worker: { select: { id: true, name: true, email: true } },
+        select: {
+          id: true,
+          distributionType: true,
+          itemsProvided: true,
+          quantity: true,
+          distributionDate: true,
+          notes: true,
+          status: true,
+          rejectionReason: true,
+          createdAt: true,
+          worker: {
+            select: { id: true, name: true, email: true },
+          },
           vulnerableProfile: {
             select: {
               id: true,
@@ -182,12 +134,21 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      db.fieldNote.findMany({
+      db.feedback.findMany({
         where: {
+          type: 'FIELD_NOTE',
           createdAt: { gte: start, lt: end },
           ...(workerId ? { userId: workerId } : {}),
         },
-        include: { user: { select: { id: true, name: true } } },
+        select: {
+          id: true,
+          message: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: { id: true, name: true },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       db.user.findMany({
@@ -228,9 +189,22 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    const approvedDistributions = distributions.filter((item) => item.status === 'APPROVED').length
-    const pendingDistributions = distributions.filter((item) => item.status === 'PENDING').length
-    const rejectedDistributions = distributions.filter((item) => item.status === 'REJECTED').length
+    const approvedDistributions = distributions.filter(
+      (item) => item.status === 'APPROVED',
+    ).length
+    const pendingDistributions = distributions.filter(
+      (item) => item.status === 'PENDING',
+    ).length
+    const rejectedDistributions = distributions.filter(
+      (item) => item.status === 'REJECTED',
+    ).length
+    const fieldNotes = fieldNoteRows.map((item) => ({
+      id: item.id,
+      note: item.message,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      user: item.user,
+    }))
 
     return NextResponse.json({
       success: true,
@@ -255,14 +229,16 @@ export async function GET(request: NextRequest) {
         distributions,
         fieldNotes,
         barangaySummary,
-        barangays: allBarangayRows.map((item) => item.barangay).filter(Boolean),
+        barangays: allBarangayRows
+          .map((item) => item.barangay)
+          .filter(Boolean),
         workers,
       },
     })
   } catch (error) {
     console.error('Error generating admin daily report:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to generate daily report', details: String(error) },
+      { success: false, error: 'Failed to generate daily report' },
       { status: 500 },
     )
   }
