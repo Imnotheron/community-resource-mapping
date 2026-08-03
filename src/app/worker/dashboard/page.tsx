@@ -6,6 +6,8 @@ import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { WorkerDashboard } from '@/components/dashboards/worker-dashboard'
 import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
+import { WorkerFeatureWalkthroughs } from '@/components/walkthrough/tours/worker-feature-tours'
+import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
 
 const ROLE = 'worker'
 const LOGIN_PATH = '/login?role=worker'
@@ -36,6 +38,8 @@ export default function DashboardRoute() {
         onProfile={() => router.push('/profile')}
       />
       <WorkerWalkthrough user={user} />
+      <WorkerFeatureWalkthroughs user={user} />
+      <RegistrationFormWalkthrough user={user} />
     </>
   )
 }
