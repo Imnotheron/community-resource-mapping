@@ -1,6 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { CalendarDays, FileText, Printer, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -107,17 +113,13 @@ function SignatureBlock({
 }) {
   return (
     <section className="report-signatures mt-12 grid grid-cols-2 gap-16 text-center text-sm">
-      <div>
-        <div className="border-t border-slate-900 pt-2">{leftLabel}</div>
-      </div>
-      <div>
-        <div className="border-t border-slate-900 pt-2">{rightLabel}</div>
-      </div>
+      <div className="border-t border-slate-900 pt-2">{leftLabel}</div>
+      <div className="border-t border-slate-900 pt-2">{rightLabel}</div>
     </section>
   )
 }
 
-function ReportTable({ children }: { children: React.ReactNode }) {
+function ReportTable({ children }: { children: ReactNode }) {
   return (
     <div className="report-table-wrap overflow-hidden rounded-xl border border-slate-200">
       {children}
@@ -139,31 +141,13 @@ function AdminReport({ report }: { report: any }) {
           Executive Summary
         </h2>
         <div className="report-summary-grid grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Metric
-            label="Registered Citizens"
-            value={report.summary.totalVulnerableCitizens}
-          />
-          <Metric
-            label="New Registrations"
-            value={report.summary.newRegistrations}
-          />
+          <Metric label="Registered Citizens" value={report.summary.totalVulnerableCitizens} />
+          <Metric label="New Registrations" value={report.summary.newRegistrations} />
           <Metric label="Active Workers" value={report.summary.activeWorkers} />
-          <Metric
-            label="Workers Online Today"
-            value={report.summary.workersOnlineToday}
-          />
-          <Metric
-            label="Distributions Recorded"
-            value={report.summary.distributionsRecorded}
-          />
-          <Metric
-            label="Approved"
-            value={report.summary.approvedDistributions}
-          />
-          <Metric
-            label="Pending"
-            value={report.summary.pendingDistributions}
-          />
+          <Metric label="Workers Online Today" value={report.summary.workersOnlineToday} />
+          <Metric label="Distributions Recorded" value={report.summary.distributionsRecorded} />
+          <Metric label="Approved" value={report.summary.approvedDistributions} />
+          <Metric label="Pending" value={report.summary.pendingDistributions} />
           <Metric label="Field Notes" value={report.summary.fieldNotesCreated} />
         </div>
       </section>
@@ -187,10 +171,7 @@ function AdminReport({ report }: { report: any }) {
             <tbody>
               {report.distributions.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-3 py-6 text-center text-slate-500"
-                  >
+                  <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
                     No distributions recorded for this date.
                   </td>
                 </tr>
@@ -235,10 +216,7 @@ function AdminReport({ report }: { report: any }) {
             <tbody>
               {report.registrations.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={3}
-                    className="px-3 py-6 text-center text-slate-500"
-                  >
+                  <td colSpan={3} className="px-3 py-6 text-center text-slate-500">
                     No new registrations for this date.
                   </td>
                 </tr>
@@ -284,10 +262,7 @@ function AdminReport({ report }: { report: any }) {
         </ReportTable>
       </section>
 
-      <SignatureBlock
-        leftLabel="Prepared by"
-        rightLabel="Reviewed / Approved by"
-      />
+      <SignatureBlock leftLabel="Prepared by" rightLabel="Reviewed / Approved by" />
     </div>
   )
 }
@@ -306,7 +281,7 @@ function WorkerReport({ report }: { report: any }) {
           <strong>Worker:</strong> {report.worker.name}
         </p>
         <p>
-          <strong>Email:</strong> {report.worker.email}
+          <strong>Email:</strong> {report.worker.email || '—'}
         </p>
       </section>
 
@@ -315,28 +290,13 @@ function WorkerReport({ report }: { report: any }) {
           Daily Summary
         </h2>
         <div className="report-summary-grid grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Metric
-            label="Distributions"
-            value={report.summary.distributionsRecorded}
-          />
-          <Metric
-            label="Approved"
-            value={report.summary.approvedDistributions}
-          />
-          <Metric
-            label="Pending"
-            value={report.summary.pendingDistributions}
-          />
-          <Metric
-            label="Rejected"
-            value={report.summary.rejectedDistributions}
-          />
+          <Metric label="Distributions" value={report.summary.distributionsRecorded} />
+          <Metric label="Approved" value={report.summary.approvedDistributions} />
+          <Metric label="Pending" value={report.summary.pendingDistributions} />
+          <Metric label="Rejected" value={report.summary.rejectedDistributions} />
           <Metric label="Total Quantity" value={report.summary.totalQuantity} />
           <Metric label="Field Notes" value={report.summary.fieldNotesCreated} />
-          <Metric
-            label="Assigned Households"
-            value={report.summary.assignedHouseholds}
-          />
+          <Metric label="Assigned Households" value={report.summary.assignedHouseholds} />
         </div>
       </section>
 
@@ -358,10 +318,7 @@ function WorkerReport({ report }: { report: any }) {
             <tbody>
               {report.distributions.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-3 py-6 text-center text-slate-500"
-                  >
+                  <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
                     No distributions recorded for this date.
                   </td>
                 </tr>
@@ -374,9 +331,7 @@ function WorkerReport({ report }: { report: any }) {
                         : item.household?.headOfHousehold || 'Household'}
                     </td>
                     <td className="px-3 py-2">
-                      {item.vulnerableProfile?.barangay ||
-                        item.household?.barangay ||
-                        '—'}
+                      {item.vulnerableProfile?.barangay || item.household?.barangay || '—'}
                     </td>
                     <td className="px-3 py-2">
                       {item.distributionType} — {item.itemsProvided}
@@ -416,10 +371,7 @@ function WorkerReport({ report }: { report: any }) {
         </div>
       </section>
 
-      <SignatureBlock
-        leftLabel="Field Worker"
-        rightLabel="Reviewed by Supervisor"
-      />
+      <SignatureBlock leftLabel="Field Worker" rightLabel="Reviewed by Supervisor" />
     </div>
   )
 }
@@ -470,13 +422,12 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             margin: 12mm;
           }
 
-          html {
-            background: #ffffff !important;
-            zoom: 1 !important;
-          }
-
+          html,
           body {
+            width: auto !important;
             min-width: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
@@ -496,11 +447,69 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             visibility: visible !important;
           }
 
+          aside,
+          footer,
+          nav,
+          header:not(.report-document-header),
+          button,
+          .no-print,
+          .crms-dashboard-theme .md\\:hidden,
+          [data-walkthrough-overlay="true"],
+          [data-registration-form-controls="true"] {
+            display: none !important;
+          }
+
+          .crms-dashboard-theme {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+          }
+
+          .crms-dashboard-theme > div,
+          .crms-dashboard-theme > div > div {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          main {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          main > div {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 1 !important;
+            filter: none !important;
+            transform: none !important;
+          }
+
+          .daily-reports-screen {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
           .report-print-root {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 2147483647 !important;
+            position: static !important;
             display: block !important;
             width: 100% !important;
             max-width: none !important;
@@ -513,6 +522,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             background: #ffffff !important;
             box-shadow: none !important;
             color: #0f172a !important;
+            opacity: 1 !important;
+            filter: none !important;
             transform: none !important;
           }
 
@@ -527,6 +538,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           }
 
           .report-document-header {
+            display: block !important;
             margin: 0 0 6mm !important;
             padding: 0 0 4mm !important;
             border-bottom: 1.2pt solid #0f172a !important;
@@ -535,6 +547,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           }
 
           .report-government-heading {
+            display: flex !important;
             gap: 3mm !important;
           }
 
@@ -584,6 +597,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           }
 
           .report-section {
+            display: block !important;
             margin: 0 0 5mm !important;
           }
 
@@ -630,6 +644,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           }
 
           .report-table {
+            display: table !important;
             width: 100% !important;
             table-layout: auto !important;
             border-collapse: collapse !important;
@@ -645,12 +660,14 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           }
 
           .report-table tr {
+            display: table-row !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
 
           .report-table th,
           .report-table td {
+            display: table-cell !important;
             padding: 2mm 2.5mm !important;
             border-color: #cbd5e1 !important;
             vertical-align: top !important;
@@ -683,12 +700,6 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
-
-          .no-print,
-          [data-walkthrough-overlay="true"],
-          [data-registration-form-controls="true"] {
-            display: none !important;
-          }
         }
       `}</style>
 
@@ -701,20 +712,12 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             Daily Reports
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Generate a date-based report, verify the figures, then print it on
-            A4 paper.
+            Generate a date-based report, verify the figures, then print it on A4 paper.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={load}
-            disabled={loading}
-            className="gap-2"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
+          <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button
@@ -795,9 +798,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="h-10 w-10 text-slate-400" />
-            <p className="mt-3 text-sm text-slate-500">
-              No report data is available.
-            </p>
+            <p className="mt-3 text-sm text-slate-500">No report data is available.</p>
           </CardContent>
         </Card>
       ) : (
@@ -810,11 +811,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               : 'Daily Worker Accomplishment Report'
           }
         >
-          {isAdmin ? (
-            <AdminReport report={report} />
-          ) : (
-            <WorkerReport report={report} />
-          )}
+          {isAdmin ? <AdminReport report={report} /> : <WorkerReport report={report} />}
         </div>
       )}
     </div>
