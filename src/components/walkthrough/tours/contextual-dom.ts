@@ -1,3 +1,7 @@
+const ALIAS_MARKER = 'data-contextual-tour-alias'
+const POSITION_PATCH = 'data-contextual-tour-position-patched'
+const ORIGINAL_POSITION = 'data-contextual-tour-original-position'
+
 export function normalizedText(value: string | null | undefined) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
@@ -78,20 +82,57 @@ export function findHeading(text: string) {
   return findExact<HTMLHeadingElement>(document, 'h1', text)
 }
 
+function restorePosition(element: HTMLElement) {
+  if (element.getAttribute(POSITION_PATCH) !== 'true') return
+
+  const original = element.getAttribute(ORIGINAL_POSITION) || ''
+  element.style.position = original
+  element.removeAttribute(POSITION_PATCH)
+  element.removeAttribute(ORIGINAL_POSITION)
+}
+
 export function clearTourAnchors(attribute: string) {
   document
     .querySelectorAll<HTMLElement>(`[${attribute}="true"]`)
     .forEach((element) => {
+      if (element.getAttribute(ALIAS_MARKER) === 'true') {
+        const host = element.parentElement
+        element.remove()
+        if (host instanceof HTMLElement && !host.querySelector(`[${ALIAS_MARKER}="true"]`)) {
+          restorePosition(host)
+        }
+        return
+      }
+
       element.removeAttribute('data-tour')
-      element.removeAttribute('data-tour-aliases')
       element.removeAttribute(attribute)
+      if (!element.querySelector(`[${ALIAS_MARKER}="true"]`)) {
+        restorePosition(element)
+      }
     })
 }
 
+function aliasHost(element: HTMLElement) {
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement ||
+    element instanceof HTMLImageElement ||
+    element instanceof SVGElement
+  ) {
+    return element.parentElement instanceof HTMLElement
+      ? element.parentElement
+      : element
+  }
+
+  return element
+}
+
 /**
- * A real empty-state card can legitimately support several guide steps. Keep
- * the first target as the primary `data-tour` value and store later names as
- * tokenized aliases so one fallback element is not overwritten repeatedly.
+ * A real empty-state card can support several guide steps. Keep the first name
+ * on the real element and create non-interactive absolute aliases for later
+ * names. Every alias has the same rectangle as the host and is removed during
+ * cleanup, so no visible layout or click behavior is changed.
  */
 export function setTourAnchor(
   element: HTMLElement | null,
@@ -101,19 +142,32 @@ export function setTourAnchor(
   if (!element) return false
 
   const current = element.getAttribute('data-tour')
-  if (!current) {
+  if (!current || current === name) {
     element.setAttribute('data-tour', name)
-  } else if (current !== name) {
-    const aliases = new Set(
-      String(element.getAttribute('data-tour-aliases') || '')
-        .split(/\s+/)
-        .filter(Boolean),
-    )
-    aliases.add(name)
-    element.setAttribute('data-tour-aliases', Array.from(aliases).join(' '))
+    element.setAttribute(attribute, 'true')
+    return true
   }
 
-  element.setAttribute(attribute, 'true')
+  const host = aliasHost(element)
+  if (window.getComputedStyle(host).position === 'static') {
+    host.setAttribute(ORIGINAL_POSITION, host.style.position || '')
+    host.setAttribute(POSITION_PATCH, 'true')
+    host.style.position = 'relative'
+  }
+
+  const alias = document.createElement('span')
+  alias.setAttribute('data-tour', name)
+  alias.setAttribute(attribute, 'true')
+  alias.setAttribute(ALIAS_MARKER, 'true')
+  alias.setAttribute('aria-hidden', 'true')
+  alias.style.position = 'absolute'
+  alias.style.inset = '0'
+  alias.style.display = 'block'
+  alias.style.pointerEvents = 'none'
+  alias.style.borderRadius = 'inherit'
+  alias.style.zIndex = '0'
+  host.appendChild(alias)
+
   return true
 }
 
