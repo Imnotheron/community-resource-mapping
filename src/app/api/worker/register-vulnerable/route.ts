@@ -1,141 +1,225 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { NextRequest, NextResponse } from 'next/server'
+
+import { db } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
+import { requireRequestUser } from '@/lib/request-user-session'
+
+function clean(value: unknown) {
+  return String(value || '').trim()
+}
+
+function optional(value: unknown) {
+  const text = clean(value)
+  return text || null
+}
+
+function coordinate(value: unknown) {
+  const parsed = Number.parseFloat(String(value))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function temporaryPassword() {
+  const letters = 'abcdefghjkmnpqrstuvwxyz'
+  const digits = '23456789'
+  let password = ''
+
+  for (let index = 0; index < 4; index += 1) {
+    password += letters.charAt(Math.floor(Math.random() * letters.length))
+  }
+  for (let index = 0; index < 4; index += 1) {
+    password += digits.charAt(Math.floor(Math.random() * digits.length))
+  }
+
+  return password
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-
-    const {
-      lastName,
-      firstName,
-      middleName,
-      suffix,
-      dateOfBirth,
-      gender,
-      civilStatus,
-      mobileNumber,
-      landlineNumber,
-      emailAddress,
-      houseNumber,
-      street,
-      barangay,
-      municipality,
-      province,
-      latitude,
-      longitude,
-      educationalAttainment,
-      employmentStatus,
-      employmentDetails,
-      vulnerabilityTypes,
-      disabilityType,
-      disabilityCause,
-      disabilityIdNumber,
-      emergencyContact,
-      emergencyPhone,
-      hasMedicalCondition,
-      medicalConditions,
-      needsAssistance,
-      assistanceType,
-      workerId
-    } = body
-
-    // Generate a simple, readable temporary password (easy to type from email)
-    const generateSimplePassword = () => {
-      const letters = 'abcdefghjkmnpqrstuvwxyz' // no i, l, o to avoid confusion
-      const digits = '23456789' // no 0, 1 to avoid confusion
-      let password = ''
-      for (let i = 0; i < 4; i++) {
-        password += letters.charAt(Math.floor(Math.random() * letters.length))
-      }
-      for (let i = 0; i < 4; i++) {
-        password += digits.charAt(Math.floor(Math.random() * digits.length))
-      }
-      return password
-    }
-    const defaultPassword = generateSimplePassword()
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10)
-
-    // Create user first
-    const user = await db.user.create({
-      data: {
-        name: `${lastName}, ${firstName} ${middleName || ''} ${suffix || ''}`.trim(),
-        email: emailAddress,
-        role: 'VULNERABLE',
-        phone: mobileNumber,
-        password: hashedPassword,
-        temporaryPasswordIssued: true,
-        passwordChangedAt: null,
-        onboardingReminderDismissedAt: null
-      }
+    const body = await request.json().catch(() => ({}))
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['WORKER'],
+      requestedUserId: clean(body.workerId),
     })
+    if ('error' in auth) return auth.error
 
-    // Create vulnerable profile
-    const profile = await db.vulnerableProfile.create({
-      data: {
-        userId: user.id,
-        lastName,
-        firstName,
-        middleName,
-        suffix,
-        dateOfBirth: new Date(dateOfBirth),
-        gender,
-        civilStatus,
-        mobileNumber,
-        landlineNumber,
-        emailAddress,
-        houseNumber,
-        street,
-        barangay,
-        municipality,
-        province,
-        latitude: parseFloat(latitude) || 0,
-        longitude: parseFloat(longitude) || 0,
-        educationalAttainment,
-        employmentStatus,
-        employmentDetails,
-        vulnerabilityTypes: JSON.stringify(vulnerabilityTypes || []),
-        disabilityType,
-        disabilityCause,
-        disabilityIdNumber,
-        emergencyContact,
-        emergencyPhone,
-        hasMedicalCondition: !!hasMedicalCondition,
-        medicalConditions,
-        needsAssistance: !!needsAssistance,
-        assistanceType,
-        registrationStatus: 'PENDING',
-        hasRepresentative: false
-      }
-    })
+    const lastName = clean(body.lastName)
+    const firstName = clean(body.firstName)
+    const emailAddress = clean(body.emailAddress).toLowerCase()
+    const dateOfBirthText = clean(body.dateOfBirth)
+    const gender = clean(body.gender)
+    const civilStatus = clean(body.civilStatus)
+    const barangay = clean(body.barangay)
+    const municipality = clean(body.municipality)
+    const province = clean(body.province)
+    const emergencyContact = clean(body.emergencyContact)
+    const emergencyPhone = clean(body.emergencyPhone)
 
-    // Send welcome email with credentials (fire-and-forget — don't block the response)
-    // We pass defaultPassword here BEFORE it's hashed, as we can't recover it later
-    if (user.email) {
-      sendWelcomeEmail(user.email, user.name || 'User', 'VULNERABLE', defaultPassword).catch(err =>
-        console.error('Failed to send welcome email to vulnerable user:', err)
+    if (
+      !lastName ||
+      !firstName ||
+      !emailAddress ||
+      !dateOfBirthText ||
+      !gender ||
+      !civilStatus ||
+      !barangay ||
+      !municipality ||
+      !province ||
+      !emergencyContact ||
+      !emergencyPhone
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Complete all required identity, address, and emergency-contact fields',
+        },
+        { status: 400 },
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Vulnerable person registered successfully',
-      profile
+    const dateOfBirth = new Date(dateOfBirthText)
+    if (Number.isNaN(dateOfBirth.getTime()) || dateOfBirth > new Date()) {
+      return NextResponse.json(
+        { success: false, error: 'Enter a valid date of birth' },
+        { status: 400 },
+      )
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(emailAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Enter a valid email address' },
+        { status: 400 },
+      )
+    }
+
+    const latitude = coordinate(body.latitude)
+    const longitude = coordinate(body.longitude)
+    if (
+      (latitude !== null && (latitude < -90 || latitude > 90)) ||
+      (longitude !== null && (longitude < -180 || longitude > 180))
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'The selected map coordinates are invalid' },
+        { status: 400 },
+      )
+    }
+
+    const vulnerabilityTypes = Array.isArray(body.vulnerabilityTypes)
+      ? body.vulnerabilityTypes
+          .map((value: unknown) => clean(value).toUpperCase())
+          .filter(Boolean)
+          .slice(0, 30)
+      : []
+
+    const plainPassword = temporaryPassword()
+    const hashedPassword = await bcrypt.hash(plainPassword, 10)
+
+    const created = await db.$transaction(async (transaction) => {
+      const user = await transaction.user.create({
+        data: {
+          name: `${lastName}, ${firstName} ${clean(body.middleName)} ${clean(body.suffix)}`
+            .replace(/\s+/g, ' ')
+            .trim(),
+          email: emailAddress,
+          role: 'VULNERABLE',
+          phone: optional(body.mobileNumber),
+          password: hashedPassword,
+          temporaryPasswordIssued: true,
+          passwordChangedAt: null,
+          onboardingReminderDismissedAt: null,
+        },
+        select: { id: true, email: true, name: true },
+      })
+
+      const profile = await transaction.vulnerableProfile.create({
+        data: {
+          userId: user.id,
+          lastName,
+          firstName,
+          middleName: optional(body.middleName),
+          suffix: optional(body.suffix),
+          dateOfBirth,
+          gender,
+          civilStatus,
+          mobileNumber: optional(body.mobileNumber),
+          landlineNumber: optional(body.landlineNumber),
+          emailAddress,
+          houseNumber: optional(body.houseNumber),
+          street: optional(body.street),
+          barangay,
+          municipality,
+          province,
+          latitude,
+          longitude,
+          educationalAttainment: optional(body.educationalAttainment),
+          employmentStatus: optional(body.employmentStatus),
+          employmentDetails: optional(body.employmentDetails),
+          vulnerabilityTypes: JSON.stringify(
+            vulnerabilityTypes.length > 0 ? vulnerabilityTypes : ['OTHER'],
+          ),
+          disabilityType: optional(body.disabilityType),
+          disabilityCause: optional(body.disabilityCause),
+          disabilityIdNumber: optional(body.disabilityIdNumber),
+          emergencyContact,
+          emergencyPhone,
+          hasMedicalCondition: Boolean(body.hasMedicalCondition),
+          medicalConditions: optional(body.medicalConditions),
+          needsAssistance: Boolean(body.needsAssistance),
+          assistanceType: optional(body.assistanceType),
+          registrationStatus: 'PENDING',
+          hasRepresentative: false,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          emailAddress: true,
+          barangay: true,
+          registrationStatus: true,
+          createdAt: true,
+        },
+      })
+
+      return { user, profile }
     })
+
+    if (created.user.email) {
+      void sendWelcomeEmail(
+        created.user.email,
+        created.user.name || 'User',
+        'VULNERABLE',
+        plainPassword,
+      ).catch((error) => {
+        console.error('Failed to send vulnerable welcome email:', error)
+      })
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Citizen profile submitted for Administrator approval',
+        profile: created.profile,
+      },
+      { status: 201 },
+    )
   } catch (error: any) {
-    console.error('Error registering vulnerable person (worker):', error)
+    console.error('Error registering vulnerable citizen:', error)
+
     if (error?.code === 'P2002') {
       return NextResponse.json(
-        { success: false, error: 'This email address is already registered in the system.' },
-        { status: 400 }
+        {
+          success: false,
+          error: 'This email address is already registered in the system',
+        },
+        { status: 409 },
       )
     }
+
     return NextResponse.json(
-      { success: false, error: 'Failed to register vulnerable person', details: error.message, code: error.code },
-      { status: 500 }
+      { success: false, error: 'Failed to register vulnerable citizen' },
+      { status: 500 },
     )
   }
 }
