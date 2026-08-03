@@ -16,7 +16,9 @@ import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnera
 import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
 import { ProfileSettingsWalkthrough } from '@/components/walkthrough/tours/profile-settings-tour'
 import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
+import { WorkerFeatureWalkthroughs } from '@/components/walkthrough/tours/worker-feature-tours'
 import { VulnerableWalkthrough } from '@/components/walkthrough/tours/vulnerable-tour'
+import { VulnerableFeatureWalkthroughs } from '@/components/walkthrough/tours/vulnerable-feature-tours'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 const LandingPage = lazy(() =>
@@ -237,6 +239,8 @@ function AppShellContent() {
         </Suspense>
 
         <WorkerWalkthrough user={user} />
+        <WorkerFeatureWalkthroughs user={user} />
+        <RegistrationFormWalkthrough user={user} />
         {setupReminder}
       </>
     )
@@ -257,6 +261,7 @@ function AppShellContent() {
       </Suspense>
 
       <VulnerableWalkthrough user={user} />
+      <VulnerableFeatureWalkthroughs user={user} />
       {setupReminder}
     </>
   )
