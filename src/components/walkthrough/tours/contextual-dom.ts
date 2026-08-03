@@ -83,17 +83,36 @@ export function clearTourAnchors(attribute: string) {
     .querySelectorAll<HTMLElement>(`[${attribute}="true"]`)
     .forEach((element) => {
       element.removeAttribute('data-tour')
+      element.removeAttribute('data-tour-aliases')
       element.removeAttribute(attribute)
     })
 }
 
+/**
+ * A real empty-state card can legitimately support several guide steps. Keep
+ * the first target as the primary `data-tour` value and store later names as
+ * tokenized aliases so one fallback element is not overwritten repeatedly.
+ */
 export function setTourAnchor(
   element: HTMLElement | null,
   name: string,
   attribute: string,
 ) {
   if (!element) return false
-  element.setAttribute('data-tour', name)
+
+  const current = element.getAttribute('data-tour')
+  if (!current) {
+    element.setAttribute('data-tour', name)
+  } else if (current !== name) {
+    const aliases = new Set(
+      String(element.getAttribute('data-tour-aliases') || '')
+        .split(/\s+/)
+        .filter(Boolean),
+    )
+    aliases.add(name)
+    element.setAttribute('data-tour-aliases', Array.from(aliases).join(' '))
+  }
+
   element.setAttribute(attribute, 'true')
   return true
 }
