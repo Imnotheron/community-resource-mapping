@@ -1,15 +1,23 @@
-import type { WalkthroughTour } from '@/components/walkthrough/types'
+import type {
+  WalkthroughRole,
+  WalkthroughTour,
+} from '@/components/walkthrough/types'
 import {
   REGISTRATION_MODAL_TARGETS as TARGETS,
   showRegistrationModalStep,
 } from '@/components/walkthrough/registration-modal-dom'
 
-export function createRegistrationFormTour(tourId: string): WalkthroughTour {
+export function createRegistrationFormTour(
+  tourId: string,
+  role: Extract<WalkthroughRole, 'ADMIN' | 'WORKER'> = 'ADMIN',
+): WalkthroughTour {
+  const workerMode = role === 'WORKER'
+
   return {
     id: tourId,
-    version: 2,
+    version: 3,
     title: 'Registration form guide',
-    role: 'ADMIN',
+    role,
     steps: [
       {
         id: 'welcome',
@@ -88,8 +96,9 @@ export function createRegistrationFormTour(tourId: string): WalkthroughTour {
       {
         id: 'documents',
         title: '4. Documents — record the supporting documents available',
-        description:
-          'Use this section for supporting documents such as proof of identity, proof of residence, medical records, or ID photos when available. If you loaded a saved draft, choose the files again because drafts do not retain file attachments.',
+        description: workerMode
+          ? 'Use this section to record which supporting documents are available. The current Worker submission sends the document-availability flags but does not upload the selected File objects yet. Saved drafts also do not retain attachments, so keep required source documents through the approved municipal process.'
+          : 'Use this section for supporting documents such as proof of identity, proof of residence, medical records, or ID photos when available. If you loaded a saved draft, choose the files again because drafts do not retain file attachments.',
         target: TARGETS.section,
         placement: 'bottom',
         padding: 3,
@@ -98,8 +107,9 @@ export function createRegistrationFormTour(tourId: string): WalkthroughTour {
       {
         id: 'review',
         title: '5. Review — check everything before creating the account',
-        description:
-          'Review all details carefully. If an important field is missing, the form shows what still needs attention. A profile created directly by an Administrator is created as Approved, so correct mistakes before confirming the registration.',
+        description: workerMode
+          ? 'Review all details carefully. If an important field is missing, the form shows what still needs attention. A profile submitted by a Worker remains Pending for Administrator review, so correct mistakes before confirming the registration.'
+          : 'Review all details carefully. If an important field is missing, the form shows what still needs attention. A profile created directly by an Administrator is created as Approved, so correct mistakes before confirming the registration.',
         target: TARGETS.section,
         placement: 'bottom',
         padding: 3,
