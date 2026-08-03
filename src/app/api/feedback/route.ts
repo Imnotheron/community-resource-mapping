@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const status = String(searchParams.get('status') || 'ALL').toUpperCase()
     const type = String(searchParams.get('type') || 'ALL').toUpperCase()
 
-    const where: Record<string, unknown> = {}
+    const where: any = {}
     if (status !== 'ALL') where.status = status
     if (type !== 'ALL') where.type = type
 
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         message: true,
         status: true,
         adminResponse: true,
-        responseDate: true,
+        adminResponseDate: true,
         createdAt: true,
         updatedAt: true,
         user: {
