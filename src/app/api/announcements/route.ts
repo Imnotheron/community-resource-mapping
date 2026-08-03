@@ -1,8 +1,10 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
 import { sendAnnouncementEmailNotifications } from '@/lib/announcement-email'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 const ANNOUNCEMENT_TYPES = new Set([
   'GENERAL',
@@ -69,7 +71,9 @@ function normalizePriority(value: unknown) {
 
 function normalizeTargetRole(value: unknown) {
   const raw = cleanText(value).toUpperCase()
-  if (!raw || raw === 'EVERYONE' || raw === 'ALL USERS' || raw === 'ALL') return 'ALL'
+  if (!raw || raw === 'EVERYONE' || raw === 'ALL USERS' || raw === 'ALL') {
+    return 'ALL'
+  }
   if (raw.includes('WORKER')) return 'WORKER'
   if (raw.includes('CITIZEN') || raw.includes('VULNERABLE')) return 'VULNERABLE'
   if (raw.includes('ADMIN')) return 'ADMIN'
@@ -81,10 +85,7 @@ function normalizeTargetRole(value: unknown) {
 function normalizeTime(value: unknown) {
   const text = cleanText(value)
   if (!text) return null
-
-  // Accept browser input type="time" values like HH:mm or HH:mm:ss.
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(text)) return text.slice(0, 5)
-
   return text.slice(0, 30)
 }
 
@@ -108,7 +109,7 @@ function normalizeRow(row: AnnouncementRow) {
 
 async function getColumns(tableName: string) {
   const columns = await db.$queryRawUnsafe<Array<{ name: string }>>(
-    `PRAGMA table_info("${tableName}")`
+    `PRAGMA table_info("${tableName}")`,
   )
 
   return new Set(columns.map((column) => column.name))
@@ -134,7 +135,6 @@ async function ensureAnnouncementTable() {
   `)
 
   const columns = await getColumns('Announcement')
-
   const addColumn = async (name: string, sql: string) => {
     if (!columns.has(name)) {
       await db.$executeRawUnsafe(`ALTER TABLE "Announcement" ADD COLUMN ${sql}`)
@@ -159,8 +159,6 @@ async function createNotificationsForTarget(announcement: {
   content: string
   targetRole: string
 }) {
-  // Notifications are a convenience, not a blocker. If the current schema is older,
-  // the announcement should still be created successfully.
   try {
     const notificationColumns = await getColumns('Notification')
     if (!notificationColumns.has('userId')) return
@@ -191,15 +189,26 @@ async function createNotificationsForTarget(announcement: {
   }
 }
 
+/**
+ * Signed-in users receive their real role's audience. URL role claims are not
+ * trusted. Visitors without a session receive active ALL/public notices only.
+ */
+async function viewerRole(request: NextRequest) {
+  const auth = await requireRequestUser(request)
+  if ('error' in auth) return 'PUBLIC'
+  return auth.role
+}
+
 export async function GET(request: NextRequest) {
   try {
     await ensureAnnouncementTable()
 
-    const requestedRole = normalizeTargetRole(
-      request.nextUrl.searchParams.get('userRole') || request.nextUrl.searchParams.get('role') || 'ALL'
-    )
-    const includeInactive = request.nextUrl.searchParams.get('includeInactive') === 'true'
+    const role = await viewerRole(request)
+    const includeInactive =
+      role === 'ADMIN' &&
+      request.nextUrl.searchParams.get('includeInactive') === 'true'
 
+    const audienceRole = role === 'PUBLIC' ? 'ALL' : role
     const rows = await db.$queryRawUnsafe<AnnouncementRow[]>(
       `
         SELECT
@@ -236,8 +245,8 @@ export async function GET(request: NextRequest) {
           END,
           "createdAt" DESC
       `,
-      requestedRole,
-      requestedRole
+      audienceRole,
+      audienceRole,
     )
 
     return NextResponse.json({
@@ -251,17 +260,20 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         message: error?.message || 'Failed to load announcements.',
-        details: String(error),
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureAnnouncementTable()
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
 
+    await ensureAnnouncementTable()
     const body = await request.json().catch(() => ({}))
 
     const title = cleanText(body.title)
@@ -272,23 +284,32 @@ export async function POST(request: NextRequest) {
     const eventDate = toIsoDate(body.eventDate)
     const eventTime = normalizeTime(body.eventTime)
     const location = cleanText(body.location) || null
-    const createdBy =
-      cleanText(body.createdBy || body.requesterId || body.adminId) ||
-      cleanText(request.headers.get('x-user-id')) ||
-      'SYSTEM'
     const shouldSendEmail = body.sendEmail !== false
 
-    if (title.length < 3) {
+    if (title.length < 3 || title.length > 180) {
       return NextResponse.json(
-        { success: false, message: 'Announcement title must be at least 3 characters.' },
-        { status: 400 }
+        {
+          success: false,
+          message: 'Announcement title must contain between 3 and 180 characters.',
+        },
+        { status: 400 },
       )
     }
 
-    if (content.length < 5) {
+    if (content.length < 5 || content.length > 10_000) {
       return NextResponse.json(
-        { success: false, message: 'Announcement content must be at least 5 characters.' },
-        { status: 400 }
+        {
+          success: false,
+          message: 'Announcement content must contain between 5 and 10,000 characters.',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (location && location.length > 300) {
+      return NextResponse.json(
+        { success: false, message: 'Location must be 300 characters or fewer.' },
+        { status: 400 },
       )
     }
 
@@ -322,9 +343,9 @@ export async function POST(request: NextRequest) {
       eventTime,
       location,
       priority,
-      createdBy,
+      auth.userId,
       now,
-      now
+      now,
     )
 
     const rows = await db.$queryRawUnsafe<AnnouncementRow[]>(
@@ -347,7 +368,7 @@ export async function POST(request: NextRequest) {
         WHERE "id" = ?
         LIMIT 1
       `,
-      id
+      id,
     )
 
     const announcement = normalizeRow(rows[0])
@@ -390,7 +411,7 @@ export async function POST(request: NextRequest) {
         announcement,
         emailNotification,
       },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (error: any) {
     console.error('Failed to create announcement:', error)
@@ -399,9 +420,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         message: error?.message || 'Failed to create announcement.',
-        details: String(error),
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
