@@ -1,22 +1,20 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, message: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['VULNERABLE'],
+      requestedUserId: request.nextUrl.searchParams.get('userId'),
+    })
+    if ('error' in auth) return auth.error
 
     const profile = await db.vulnerableProfile.findUnique({
-      where: { userId },
+      where: { userId: auth.userId },
       include: {
         user: {
           select: {
@@ -24,51 +22,51 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true,
             phone: true,
-            profilePicture: true
-          }
+            profilePicture: true,
+          },
         },
         reliefDistributions: {
-          include: {
+          select: {
+            id: true,
+            distributionType: true,
+            itemsProvided: true,
+            quantity: true,
+            distributionDate: true,
+            notes: true,
+            status: true,
+            rejectionReason: true,
+            createdAt: true,
             worker: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
+              select: { id: true, name: true },
             },
             feedback: {
-              where: { userId },
+              where: { userId: auth.userId },
               select: {
                 id: true,
                 feedbackType: true,
                 status: true,
-                createdAt: true
-              }
-            }
+                createdAt: true,
+              },
+            },
           },
-          orderBy: {
-            distributionDate: 'desc'
-          }
-        }
-      }
+          orderBy: { distributionDate: 'desc' },
+        },
+      },
     })
 
     if (!profile) {
       return NextResponse.json(
-        { success: false, message: 'Profile not found' },
-        { status: 404 }
+        { success: false, message: 'Vulnerable profile not found' },
+        { status: 404 },
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      profile
-    })
+    return NextResponse.json({ success: true, profile })
   } catch (error) {
-    console.error('Error fetching profile:', error)
+    console.error('Error fetching vulnerable profile:', error)
     return NextResponse.json(
       { success: false, message: 'Failed to fetch profile' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
