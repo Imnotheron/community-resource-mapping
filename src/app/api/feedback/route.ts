@@ -1,63 +1,90 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-type FeedbackType = 'MESSAGE' | 'FEEDBACK' | 'REPORT' | 'BUG_REPORT' | 'FEATURE_REQUEST' | 'COMPLIMENT' | 'SUGGESTION' | 'SERVICE_COMPLAINT' | 'OTHER'
 
-// GET - List all feedback with pagination and filters
+import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
+
+type FeedbackType =
+  | 'MESSAGE'
+  | 'FEEDBACK'
+  | 'REPORT'
+  | 'BUG_REPORT'
+  | 'FEATURE_REQUEST'
+  | 'COMPLIMENT'
+  | 'SUGGESTION'
+  | 'SERVICE_COMPLAINT'
+  | 'OTHER'
+
+const VALID_TYPES = new Set<FeedbackType>([
+  'MESSAGE',
+  'FEEDBACK',
+  'REPORT',
+  'BUG_REPORT',
+  'FEATURE_REQUEST',
+  'COMPLIMENT',
+  'SUGGESTION',
+  'SERVICE_COMPLAINT',
+  'OTHER',
+])
+
+function positiveInteger(value: string | null, fallback: number, maximum: number) {
+  const parsed = Number.parseInt(value || '', 10)
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback
+  return Math.min(parsed, maximum)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const status = searchParams.get('status') || 'ALL'
-    const type = searchParams.get('type') || 'ALL'
-    const userId = searchParams.get('userId')
     const adminView = searchParams.get('adminView') === 'true'
+    const requestedUserId = searchParams.get('userId')
+    const auth = await requireRequestUser(request, {
+      allowedRoles: adminView ? ['ADMIN'] : [],
+      requestedUserId: adminView ? null : requestedUserId,
+    })
+    if ('error' in auth) return auth.error
 
-    // Build where clause
-    const where: any = {}
+    const page = positiveInteger(searchParams.get('page'), 1, 100_000)
+    const limit = positiveInteger(searchParams.get('limit'), 10, 100)
+    const status = String(searchParams.get('status') || 'ALL').toUpperCase()
+    const type = String(searchParams.get('type') || 'ALL').toUpperCase()
 
-    // Status filter
-    if (status !== 'ALL') {
-      where.status = status
+    const where: Record<string, unknown> = {}
+    if (status !== 'ALL') where.status = status
+    if (type !== 'ALL') where.type = type
+
+    if (adminView) {
+      if (requestedUserId) where.userId = requestedUserId
+    } else {
+      where.userId = auth.userId
     }
 
-    // Type filter
-    if (type !== 'ALL') {
-      where.type = type
-    }
-
-    // User filter (if not admin view, only show user's own feedback)
-    if (userId && !adminView) {
-      where.userId = userId
-    } else if (userId && adminView) {
-      // Admin can filter by specific user
-      where.userId = userId
-    }
-
-    // Get total count for pagination
     const total = await db.feedback.count({ where })
-    const totalPages = Math.ceil(total / limit)
-
-    // Get paginated feedback
     const feedback = await db.feedback.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        type: true,
+        subject: true,
+        message: true,
+        status: true,
+        adminResponse: true,
+        responseDate: true,
+        createdAt: true,
+        updatedAt: true,
         user: {
           select: {
             id: true,
             name: true,
             email: true,
-            role: true
-          }
-        }
+            role: true,
+          },
+        },
       },
-      orderBy: {
-        createdAt: 'desc'
-      },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
-      take: limit
+      take: limit,
     })
 
     return NextResponse.json({
@@ -65,96 +92,81 @@ export async function GET(request: NextRequest) {
       feedback,
       pagination: {
         total,
-        totalPages,
+        totalPages: Math.ceil(total / limit),
         currentPage: page,
-        limit
-      }
+        limit,
+      },
     })
   } catch (error) {
     console.error('Error fetching feedback:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch feedback' },
-      { status: 500 }
+      { success: false, error: 'Failed to fetch feedback' },
+      { status: 500 },
     )
   }
 }
 
-// POST - Create new feedback
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId, type, subject, message } = body
+    const auth = await requireRequestUser(request)
+    if ('error' in auth) return auth.error
 
-    // Validate required fields
-    if (!userId || !type) {
+    const body = await request.json().catch(() => ({}))
+    const type = String(body.type || '').trim().toUpperCase() as FeedbackType
+    const subject = String(body.subject || '').trim()
+    const message = String(body.message || '').trim()
+
+    if (!VALID_TYPES.has(type)) {
       return NextResponse.json(
-        { error: 'Missing required fields: userId and type' },
-        { status: 400 }
+        { success: false, error: 'Select a valid feedback type' },
+        { status: 400 },
       )
     }
 
-    // Validate feedback type
-    const validTypes: FeedbackType[] = [
-      'MESSAGE',
-      'FEEDBACK',
-      'REPORT',
-      'BUG_REPORT',
-      'FEATURE_REQUEST',
-      'COMPLIMENT',
-      'SUGGESTION',
-      'SERVICE_COMPLAINT',
-      'OTHER'
-    ]
-
-    if (!validTypes.includes(type as FeedbackType)) {
+    if (subject.length > 120) {
       return NextResponse.json(
-        { error: 'Invalid feedback type' },
-        { status: 400 }
+        { success: false, error: 'Subject must be 120 characters or fewer' },
+        { status: 400 },
       )
     }
 
-    // Verify user exists
-    const user = await db.user.findUnique({
-      where: { id: userId }
-    })
-
-    if (!user) {
+    if (message.length < 10 || message.length > 4_000) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        {
+          success: false,
+          error: 'Message must contain between 10 and 4,000 characters',
+        },
+        { status: 400 },
       )
     }
 
-    // Create the feedback
     const feedback = await db.feedback.create({
       data: {
-        userId,
-        type: type as FeedbackType,
+        userId: auth.userId,
+        type,
         subject: subject || null,
-        message: message || '',
-        status: 'SUBMITTED'
+        message,
+        status: 'SUBMITTED',
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        }
-      }
+      select: {
+        id: true,
+        type: true,
+        subject: true,
+        message: true,
+        status: true,
+        createdAt: true,
+      },
     })
 
     return NextResponse.json(
       { success: true, feedback },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (error) {
     console.error('Error creating feedback:', error)
     return NextResponse.json(
-      { error: 'Failed to submit feedback' },
-      { status: 500 }
+      { success: false, error: 'Failed to submit feedback' },
+      { status: 500 },
     )
   }
 }
