@@ -32,17 +32,24 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
     startTour,
   } = useWalkthrough()
 
+  const registrationRole = String(user.role || '').toUpperCase() === 'WORKER'
+    ? 'WORKER'
+    : 'ADMIN'
+  const baseTourId = registrationRole === 'WORKER'
+    ? 'worker-registration-form-first-use'
+    : 'admin-registration-form-first-use'
+
   const tour = useMemo(
     () =>
       createRegistrationFormTour(
-        userScopedTourId('admin-registration-form-first-use', user.id),
+        userScopedTourId(baseTourId, user.id),
+        registrationRole,
       ),
-    [user.id],
+    [baseTourId, registrationRole, user.id],
   )
 
-  // Registers this contextual tour with the shared walkthrough provider.
-  // We intentionally start it through startTour below so the Form guide can
-  // take over from a page-level guide instead of becoming a disabled button.
+  // Register without automatic provider start. The modal detector below starts
+  // the role-specific tour only after the real registration window exists.
   useWalkthroughTour(tour)
 
   useEffect(() => {
@@ -78,12 +85,6 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
   useEffect(() => {
     if (!experience) return
 
-    // Radix Dialog normally dismisses when a pointer or focus moves outside the
-    // DialogContent. Walkthrough controls are intentionally portaled to the
-    // document body, so without this guard, clicking Next/Back can be mistaken
-    // for an outside click and close a partially completed registration form.
-    // While this data-entry modal is open, users close it explicitly with X or
-    // Cancel instead of losing work through an accidental outside interaction.
     const preventDismiss = (event: Event) => {
       event.preventDefault()
     }
@@ -141,10 +142,8 @@ export function RegistrationFormWalkthrough({ user }: { user: AuthUser }) {
   const openGuide = () => {
     markRegistrationModalExperience()
 
-    // A Registrations page guide may still be active when the Administrator
-    // opens this modal. Do not leave the Form guide disabled in that state.
-    // Close the previous tour and then start this one on the next paint so the
-    // provider has a clean transition between the two walkthroughs.
+    // A page-level registration guide may still be active when the modal opens.
+    // Close it first, then force-start the form guide on the next paint.
     if (activeTourId && activeTourId !== tour.id) {
       closeTour()
     }
