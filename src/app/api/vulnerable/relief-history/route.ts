@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
             message: true,
             status: true,
             adminResponse: true,
-            responseDate: true,
+            adminResponseDate: true,
             createdAt: true,
           },
           orderBy: { createdAt: 'desc' },
