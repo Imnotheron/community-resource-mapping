@@ -36,10 +36,7 @@ export async function POST(request: NextRequest) {
 
     if (message.length < 10 || message.length > 4_000) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Message must contain between 10 and 4,000 characters',
-        },
+        { success: false, error: 'Message must contain between 10 and 4,000 characters' },
         { status: 400 },
       )
     }
@@ -49,9 +46,7 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         status: true,
-        vulnerableProfile: {
-          select: { userId: true },
-        },
+        vulnerableProfile: { select: { userId: true } },
       },
     })
 
@@ -71,28 +66,19 @@ export async function POST(request: NextRequest) {
 
     if (distribution.status !== 'APPROVED') {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Feedback can be submitted after the distribution is approved',
-        },
+        { success: false, error: 'Feedback can be submitted after the distribution is approved' },
         { status: 409 },
       )
     }
 
     const existingFeedback = await db.reliefFeedback.findFirst({
-      where: {
-        reliefDistributionId: distribution.id,
-        userId: auth.userId,
-      },
+      where: { reliefDistributionId: distribution.id, userId: auth.userId },
       select: { id: true },
     })
 
     if (existingFeedback) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Feedback has already been submitted for this distribution',
-        },
+        { success: false, error: 'Feedback has already been submitted for this distribution' },
         { status: 409 },
       )
     }
@@ -115,10 +101,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(
-      { success: true, feedback },
-      { status: 201 },
-    )
+    return NextResponse.json({ success: true, feedback }, { status: 201 })
   } catch (error) {
     console.error('Error creating relief feedback:', error)
     return NextResponse.json(
@@ -161,7 +144,7 @@ export async function GET(request: NextRequest) {
         message: true,
         status: true,
         adminResponse: true,
-        responseDate: true,
+        adminResponseDate: true,
         createdAt: true,
         reliefDistribution: {
           select: {
@@ -171,14 +154,10 @@ export async function GET(request: NextRequest) {
             quantity: true,
             distributionDate: true,
             status: true,
-            worker: {
-              select: { id: true, name: true },
-            },
+            worker: { select: { id: true, name: true } },
           },
         },
-        user: {
-          select: { id: true, name: true, email: true, role: true },
-        },
+        user: { select: { id: true, name: true, email: true, role: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
