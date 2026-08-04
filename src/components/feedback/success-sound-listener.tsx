@@ -9,7 +9,7 @@ const SUCCESS_ACTION_PATTERNS = [
   /profile settings saved/i,
   /administrator account created/i,
   /worker account created/i,
-  /vulnerable (citizen|person).*(registered|created)/i,
+  /(vulnerable )?(citizen|person).*(registered|created)/i,
   /(registration|citizen registration).*(successful|completed|submitted|created)/i,
 ]
 
