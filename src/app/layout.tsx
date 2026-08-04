@@ -7,6 +7,7 @@ import './analytics-visual-refresh.css'
 import './report-summary-cleanup.css'
 
 import ClickSpark from '@/components/effects/ClickSpark'
+import { SuccessSoundListener } from '@/components/feedback/success-sound-listener'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AccentProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
@@ -124,6 +125,7 @@ export default function RootLayout({
         </ThemeProvider>
 
         <Toaster />
+        <SuccessSoundListener />
       </body>
     </html>
   )
