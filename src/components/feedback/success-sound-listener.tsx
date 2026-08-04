@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 
 import { playSuccessSound } from '@/lib/success-sound'
 
@@ -12,50 +13,33 @@ const SUCCESS_ACTION_PATTERNS = [
   /(registration|citizen registration).*(successful|completed|submitted|created)/i,
 ]
 
-function isTargetSuccessMessage(message: string) {
+function isTargetSuccessMessage(message: unknown) {
+  if (typeof message !== 'string') return false
   return SUCCESS_ACTION_PATTERNS.some((pattern) => pattern.test(message))
 }
 
 export function SuccessSoundListener() {
   useEffect(() => {
-    const handledToasts = new WeakSet<Element>()
+    const sonnerToast = toast as typeof toast & {
+      success: (...args: any[]) => any
+    }
+    const originalSuccess = sonnerToast.success
 
-    function inspect(root: ParentNode) {
-      const matchingRoot =
-        root instanceof Element && root.matches('[data-sonner-toast]')
-          ? [root]
-          : Array.from(root.querySelectorAll?.('[data-sonner-toast]') || [])
-
-      for (const toast of matchingRoot) {
-        if (handledToasts.has(toast)) continue
-        handledToasts.add(toast)
-
-        const message = toast.textContent?.trim() || ''
-        if (
-          toast.getAttribute('data-type') === 'success' &&
-          isTargetSuccessMessage(message)
-        ) {
-          playSuccessSound()
-        }
+    const successWithSound = (...args: any[]) => {
+      if (isTargetSuccessMessage(args[0])) {
+        playSuccessSound()
       }
+
+      return originalSuccess(...args)
     }
 
-    inspect(document)
+    sonnerToast.success = successWithSound
 
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node instanceof Element) inspect(node)
-        }
+    return () => {
+      if (sonnerToast.success === successWithSound) {
+        sonnerToast.success = originalSuccess
       }
-    })
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    })
-
-    return () => observer.disconnect()
+    }
   }, [])
 
   return null
