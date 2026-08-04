@@ -7,6 +7,7 @@ import './analytics-visual-refresh.css'
 import './report-summary-cleanup.css'
 
 import ClickSpark from '@/components/effects/ClickSpark'
+import { DeleteAccountHoverSound } from '@/components/feedback/delete-account-hover-sound'
 import { SuccessSoundListener } from '@/components/feedback/success-sound-listener'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AccentProvider } from '@/components/providers/theme-provider'
@@ -126,6 +127,7 @@ export default function RootLayout({
 
         <Toaster />
         <SuccessSoundListener />
+        <DeleteAccountHoverSound />
       </body>
     </html>
   )
