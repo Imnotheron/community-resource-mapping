@@ -26,7 +26,7 @@ export function FeatureSlider({ liveAssets }: FeatureSliderProps) {
   return (
     <section
       id="features"
-      className="relative px-4 pb-20 pt-6 md:px-8 md:pb-28 md:pt-10"
+      className="relative px-4 pb-20 pt-2 md:px-8 md:pb-28 md:pt-4"
     >
       <div className="mx-auto max-w-7xl">
         {/* Section header — scroll-triggered */}
@@ -121,16 +121,6 @@ export function FeatureSlider({ liveAssets }: FeatureSliderProps) {
             </div>
           )}
         />
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3 }}
-          className="mt-4 text-center text-[0.6875rem] text-emerald-500/40"
-        >
-          Use ← → arrow keys to navigate · Space to pause · Auto-advances every 6.5s
-        </motion.p>
       </div>
     </section>
   )
