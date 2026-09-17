@@ -26,7 +26,7 @@ export function FeatureSlider({ liveAssets }: FeatureSliderProps) {
   return (
     <section
       id="features"
-      className="relative px-4 py-20 md:px-8 md:py-28"
+      className="relative px-4 pb-20 pt-6 md:px-8 md:pb-28 md:pt-10"
     >
       <div className="mx-auto max-w-7xl">
         {/* Section header — scroll-triggered */}
