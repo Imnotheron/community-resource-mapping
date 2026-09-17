@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { ArrowRight, Activity, ShieldCheck } from 'lucide-react'
-import { HERO_STATS } from '@/lib/mock-data'
 
 // Lazy-load LocatorVisual because it imports Three.js (~600KB), which is the
 // single heaviest dependency in the landing page. Loading it client-side only
@@ -184,34 +183,6 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
               Explore Features
             </a>
           </motion.div>
-
-          {/* Stats row */}
-          <motion.dl
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="mt-4 grid w-full grid-cols-2 gap-4 border-t border-emerald-500/15 pt-6 sm:grid-cols-4"
-          >
-            {HERO_STATS.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: 0.15 + i * 0.08 }}
-                className="flex flex-col gap-0.5"
-              >
-                <dt className="text-[0.625rem] font-medium uppercase tracking-wider text-emerald-400/60">
-                  {stat.label}
-                </dt>
-                <dd className="text-2xl font-bold tracking-tight text-emerald-50 md:text-3xl">
-                  {stat.value.toLocaleString()}
-                  <span className="text-emerald-400">{stat.suffix}</span>
-                </dd>
-              </motion.div>
-            ))}
-          </motion.dl>
         </div>
 
         {/* Right — locator visual */}
