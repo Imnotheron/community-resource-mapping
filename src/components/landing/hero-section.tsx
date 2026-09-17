@@ -75,7 +75,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
   return (
     <section
       id="overview"
-      className="relative min-h-screen overflow-hidden px-4 pb-16 pt-28 md:px-8 md:pt-32"
+      className="relative overflow-hidden px-4 pb-8 pt-28 md:px-8 md:pb-10 md:pt-32 lg:pb-6"
     >
       {/* Ambient background glows */}
       <div
