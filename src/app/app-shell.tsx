@@ -1,9 +1,10 @@
 'use client'
 
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
+import { LoginWelcome } from '@/components/onboarding/login-welcome'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
@@ -20,6 +21,7 @@ import { WorkerFeatureWalkthroughs } from '@/components/walkthrough/tours/worker
 import { VulnerableWalkthrough } from '@/components/walkthrough/tours/vulnerable-tour'
 import { VulnerableFeatureWalkthroughs } from '@/components/walkthrough/tours/vulnerable-feature-tours'
 import { useUserSync } from '@/hooks/use-user-sync'
+import type { AuthUser } from '@/lib/api-client'
 
 const LandingPage = lazy(() =>
   import('@/components/landing/landing-page').then(
@@ -95,6 +97,11 @@ function AppShellContent() {
   const [mode, setMode] = useState<
     'landing' | 'auth' | 'profile' | 'dashboard'
   >('landing')
+  const [welcomeUser, setWelcomeUser] = useState<AuthUser | null>(null)
+
+  const finishWelcome = useCallback(() => {
+    setWelcomeUser(null)
+  }, [])
 
   if (loading) {
     return <ViewLoader />
@@ -119,6 +126,7 @@ function AppShellContent() {
                 password,
                 role,
               )
+              setWelcomeUser(result.user)
               setMode('dashboard')
               return result
             }}
@@ -157,11 +165,21 @@ function AppShellContent() {
   }
 
   const handleLogout = async () => {
+    setWelcomeUser(null)
     await logout()
     setMode('landing')
   }
 
   const handleProfile = () => setMode('profile')
+
+  if (welcomeUser) {
+    return (
+      <LoginWelcome
+        user={welcomeUser}
+        onComplete={finishWelcome}
+      />
+    )
+  }
 
   if (mode === 'profile') {
     return (
