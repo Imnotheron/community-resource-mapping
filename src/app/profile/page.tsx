@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { ProfileView } from '@/components/profile-view'
+import { ProfileSettingsWalkthrough } from '@/components/walkthrough/tours/profile-settings-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
 export default function ProfilePage() {
@@ -30,10 +31,13 @@ export default function ProfilePage() {
         : '/vulnerable/dashboard'
 
   return (
-    <ProfileView
-      user={user}
-      onBack={() => router.push(backPath)}
-      onUserUpdated={refreshUser}
-    />
+    <>
+      <ProfileView
+        user={user}
+        onBack={() => router.push(backPath)}
+        onUserUpdated={refreshUser}
+      />
+      <ProfileSettingsWalkthrough user={user} />
+    </>
   )
 }

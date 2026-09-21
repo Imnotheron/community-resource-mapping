@@ -58,6 +58,7 @@ const userSelect = {
   temporaryPasswordIssued: true,
   passwordChangedAt: true,
   onboardingReminderDismissedAt: true,
+  createdAt: true,
   vulnerableProfile: {
     select: {
       id: true,
@@ -161,6 +162,7 @@ export async function POST(request: NextRequest) {
           user.onboardingReminderDismissedAt
             ? user.onboardingReminderDismissedAt.toISOString()
             : null,
+        createdAt: user.createdAt.toISOString(),
       },
       token,
     })

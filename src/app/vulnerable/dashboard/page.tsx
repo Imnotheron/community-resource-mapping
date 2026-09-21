@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { VulnerableDashboard } from '@/components/dashboards/vulnerable-dashboard'
+import { VulnerableWalkthrough } from '@/components/walkthrough/tours/vulnerable-tour'
+import { VulnerableFeatureWalkthroughs } from '@/components/walkthrough/tours/vulnerable-feature-tours'
 
 const ROLE = 'vulnerable'
 const LOGIN_PATH = '/login?role=vulnerable'
@@ -27,5 +29,15 @@ export default function DashboardRoute() {
     )
   }
 
-  return <VulnerableDashboard user={user} onLogout={logout} onProfile={() => router.push('/profile')} />
+  return (
+    <>
+      <VulnerableDashboard
+        user={user}
+        onLogout={logout}
+        onProfile={() => router.push('/profile')}
+      />
+      <VulnerableWalkthrough user={user} />
+      <VulnerableFeatureWalkthroughs user={user} />
+    </>
+  )
 }

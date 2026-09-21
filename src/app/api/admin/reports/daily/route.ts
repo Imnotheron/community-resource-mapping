@@ -1,42 +1,80 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
+
+function todayInManila() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
 
 function getDayRange(value: string | null) {
   const date = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? value
-    : new Date().toISOString().slice(0, 10)
+    : todayInManila()
 
-  const start = new Date(`${date}T00:00:00.000Z`)
-  const end = new Date(start)
-  end.setUTCDate(end.getUTCDate() + 1)
+  const start = new Date(`${date}T00:00:00.000+08:00`)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1_000)
 
   return { date, start, end }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { date, start, end } = getDayRange(request.nextUrl.searchParams.get('date'))
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
+    const { date, start, end } = getDayRange(
+      request.nextUrl.searchParams.get('date'),
+    )
     const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
     const workerId = request.nextUrl.searchParams.get('workerId')?.trim() || null
+    const personId = request.nextUrl.searchParams.get('personId')?.trim() || null
+    const lastName = request.nextUrl.searchParams.get('lastName')?.trim() || null
 
-    const profileWhere = {
-      ...(barangay ? { barangay } : {}),
+    if (workerId) {
+      const worker = await db.user.findUnique({
+        where: { id: workerId },
+        select: { id: true, role: true },
+      })
+      if (!worker || worker.role !== 'WORKER') {
+        return NextResponse.json(
+          { success: false, error: 'The selected Worker account was not found' },
+          { status: 400 },
+        )
+      }
     }
 
-    const dailyProfileWhere = {
+    const profileWhere: any = {
+      ...(barangay ? { barangay } : {}),
+      ...(personId ? { id: personId } : {}),
+      ...(lastName ? { lastName } : {}),
+    }
+    const dailyProfileWhere: any = {
       ...profileWhere,
       createdAt: { gte: start, lt: end },
     }
+    const beneficiaryWhere: any = {
+      ...(barangay ? { barangay } : {}),
+      ...(personId ? { id: personId } : {}),
+      ...(lastName ? { lastName } : {}),
+    }
 
-    const distributionWhere = {
+    const distributionWhere: any = {
       distributionDate: { gte: start, lt: end },
       ...(workerId ? { workerId } : {}),
-      ...(barangay
+      ...((barangay || personId || lastName)
         ? {
             vulnerableProfile: {
-              is: { barangay },
+              is: beneficiaryWhere,
             },
           }
         : {}),
@@ -50,10 +88,11 @@ export async function GET(request: NextRequest) {
       announcementsCreated,
       distributions,
       registrations,
-      fieldNotes,
+      fieldNoteRows,
       workers,
       barangayProfiles,
       allBarangayRows,
+      allPeopleRows,
     ] = await Promise.all([
       db.vulnerableProfile.count({ where: profileWhere }),
       db.vulnerableProfile.count({ where: dailyProfileWhere }),
@@ -70,8 +109,19 @@ export async function GET(request: NextRequest) {
       db.announcement.count({ where: { createdAt: { gte: start, lt: end } } }),
       db.reliefDistribution.findMany({
         where: distributionWhere,
-        include: {
-          worker: { select: { id: true, name: true, email: true } },
+        select: {
+          id: true,
+          distributionType: true,
+          itemsProvided: true,
+          quantity: true,
+          distributionDate: true,
+          notes: true,
+          status: true,
+          rejectionReason: true,
+          createdAt: true,
+          worker: {
+            select: { id: true, name: true, email: true },
+          },
           vulnerableProfile: {
             select: {
               id: true,
@@ -95,12 +145,21 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      db.fieldNote.findMany({
+      db.feedback.findMany({
         where: {
+          type: 'FIELD_NOTE',
           createdAt: { gte: start, lt: end },
           ...(workerId ? { userId: workerId } : {}),
         },
-        include: { user: { select: { id: true, name: true } } },
+        select: {
+          id: true,
+          message: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: { id: true, name: true },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       db.user.findMany({
@@ -116,6 +175,20 @@ export async function GET(request: NextRequest) {
         select: { barangay: true },
         distinct: ['barangay'],
         orderBy: { barangay: 'asc' },
+      }),
+      db.vulnerableProfile.findMany({
+        select: {
+          id: true,
+          firstName: true,
+          middleName: true,
+          lastName: true,
+          suffix: true,
+          barangay: true,
+        },
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' },
+        ],
       }),
     ])
 
@@ -141,16 +214,30 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    const approvedDistributions = distributions.filter((item) => item.status === 'APPROVED').length
-    const pendingDistributions = distributions.filter((item) => item.status === 'PENDING').length
-    const rejectedDistributions = distributions.filter((item) => item.status === 'REJECTED').length
+    const approvedDistributions = distributions.filter(
+      (item) => item.status === 'APPROVED',
+    ).length
+    const pendingDistributions = distributions.filter(
+      (item) => item.status === 'PENDING',
+    ).length
+    const rejectedDistributions = distributions.filter(
+      (item) => item.status === 'REJECTED',
+    ).length
+    const fieldNotes = fieldNoteRows.map((item) => ({
+      id: item.id,
+      note: item.message,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      user: item.user,
+    }))
 
     return NextResponse.json({
       success: true,
       report: {
         date,
         generatedAt: new Date().toISOString(),
-        filters: { barangay, workerId },
+        timeZone: 'Asia/Manila',
+        filters: { barangay, workerId, personId, lastName },
         summary: {
           totalVulnerableCitizens,
           newRegistrations,
@@ -167,14 +254,17 @@ export async function GET(request: NextRequest) {
         distributions,
         fieldNotes,
         barangaySummary,
-        barangays: allBarangayRows.map((item) => item.barangay).filter(Boolean),
+        barangays: allBarangayRows
+          .map((item) => item.barangay)
+          .filter(Boolean),
         workers,
+        people: allPeopleRows,
       },
     })
   } catch (error) {
     console.error('Error generating admin daily report:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to generate daily report', details: String(error) },
+      { success: false, error: 'Failed to generate daily report' },
       { status: 500 },
     )
   }

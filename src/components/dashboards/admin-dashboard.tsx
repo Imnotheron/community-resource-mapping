@@ -3,6 +3,7 @@
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal';
 import { CreateStaffAccountDialog } from "@/components/admin/create-staff-account-dialog";
 import { ApprovalCenter } from "@/components/admin/approval-center";
+import { OperationsHistory } from "@/components/admin/operations-history";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
 import dynamic from "next/dynamic";
@@ -30,6 +31,13 @@ import {
   Siren,
   Activity,
   Printer,
+  Eye,
+  Phone,
+  Mail,
+  CalendarDays,
+  History,
+  Search,
+  FileSpreadsheet,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
@@ -123,6 +131,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "registrations", label: "Registrations", icon: UserCheck },
   { id: "users", label: "Users", icon: Users },
   { id: "distributions", label: "Relief Approval", icon: Package },
+  { id: "history", label: "Operations History", icon: History },
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "feedback", label: "Feedback", icon: MessageSquare },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -187,6 +196,7 @@ export function AdminDashboard({
       {view === "registrations" && <RegistrationsView />}
       {view === "users" && <UsersView />}
       {view === "distributions" && <DistributionsView />}
+      {view === "history" && <OperationsHistory />}
       {view === "announcements" && <AnnouncementsView />}
       {view === "feedback" && <FeedbackView />}
       {view === "analytics" && <AnalyticsView />}
@@ -361,9 +371,6 @@ function OverviewView() {
                 interactiveMarkers={false}
               />
 
-              <div className="pointer-events-none absolute right-4 top-4 z-[30] rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm backdrop-blur-xl">
-                Overview markers locked
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -566,10 +573,74 @@ function OverviewSkeleton() {
 }
 
 // =================== REGISTRATIONS ===================
+
+async function loadRegistrationExcelParser() {
+  const existing = (window as any).XLSX
+  if (existing) return existing
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
+    script.async = true
+    script.onload = () => resolve()
+    script.onerror = () =>
+      reject(
+        new Error(
+          'Unable to load the Excel parser. Check your internet connection and try again.',
+        ),
+      )
+    document.head.appendChild(script)
+  })
+
+  const loaded = (window as any).XLSX
+  if (!loaded) throw new Error('Excel parser did not load correctly.')
+  return loaded
+}
+
+function normalizeRegistrationImportRow(row: Record<string, any>) {
+  const normalized: Record<string, any> = {}
+
+  Object.entries(row || {}).forEach(([key, value]) => {
+    normalized[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = value
+  })
+
+  return normalized
+}
+
+function importBoolean(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return ['1', 'true', 'yes', 'y', 'on'].includes(normalized)
+}
+
+function importedSectors(value: unknown) {
+  return String(value || '')
+    .split(/[,;|]/)
+    .map((entry) =>
+      entry
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, '_'),
+    )
+    .filter(Boolean)
+}
+
+function registrationSectorValues(profile: any) {
+  const sectors = formatVulnerabilityTypes(profile?.vulnerabilityTypes)
+  return sectors.length ? sectors : ['OTHER']
+}
+
+function registrationSectorLabel(value: string) {
+  return vulnerabilityLabel(value || 'OTHER')
+}
+
 function RegistrationsView() {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('PENDING')
+  const [query, setQuery] = useState('')
+  const [sortBy, setSortBy] = useState('LAST_NAME')
+  const [sectorFilter, setSectorFilter] = useState('ALL')
+  const [importing, setImporting] = useState(false)
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRegisterVulnerable, setShowRegisterVulnerable] = useState(false)
@@ -591,9 +662,215 @@ function RegistrationsView() {
     load()
   }, [load])
 
-  const filtered = profiles.filter(
-    (p) => filter === 'ALL' || p.registrationStatus === filter
+  const sectors = Array.from(
+    new Set(profiles.flatMap((profile) => registrationSectorValues(profile))),
+  ).sort((a, b) =>
+    registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
   )
+
+  const filtered = profiles
+    .filter((p) => filter === 'ALL' || p.registrationStatus === filter)
+    .filter(
+      (p) =>
+        sectorFilter === 'ALL' ||
+        registrationSectorValues(p).includes(sectorFilter),
+    )
+    .filter((p) => {
+      const search = query.trim().toLowerCase()
+      if (!search) return true
+
+      return [
+        p.firstName,
+        p.middleName,
+        p.lastName,
+        p.emailAddress,
+        p.mobileNumber,
+        p.barangay,
+        p.gender,
+        p.registrationStatus,
+        ...registrationSectorValues(p).map(registrationSectorLabel),
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(search)
+    })
+    .sort((a, b) => {
+      if (sortBy === 'SECTOR') {
+        const compared = registrationSectorLabel(
+          registrationSectorValues(a)[0],
+        ).localeCompare(
+          registrationSectorLabel(registrationSectorValues(b)[0]),
+        )
+        if (compared !== 0) return compared
+      }
+
+      if (sortBy === 'BARANGAY') {
+        const compared = String(a.barangay || '').localeCompare(String(b.barangay || ''))
+        if (compared !== 0) return compared
+      }
+
+      if (sortBy === 'DATE_DESC') {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      }
+
+      if (sortBy === 'DATE_ASC') {
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+      }
+
+      const compared = String(a.lastName || '').localeCompare(String(b.lastName || ''))
+      if (compared !== 0) return compared
+      return String(a.firstName || '').localeCompare(String(b.firstName || ''))
+    })
+
+  const handleRegistrationExcelImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    const adminId = getAdminId()
+    if (!adminId) {
+      toast.error('Admin session missing', {
+        description: 'Please sign in again before importing registrations.',
+      })
+      return
+    }
+
+    setImporting(true)
+
+    try {
+      const XLSX = await loadRegistrationExcelParser()
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(firstSheet, {
+        defval: '',
+      }) as Record<string, any>[]
+
+      if (!rows.length) {
+        toast.error('The Excel file is empty')
+        return
+      }
+
+      if (rows.length > 200) {
+        toast.error('Import is limited to 200 registrations at a time')
+        return
+      }
+
+      let imported = 0
+      const failed: string[] = []
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = normalizeRegistrationImportRow(rows[index])
+
+        const firstName = String(row.firstname || '').trim()
+        const lastName = String(row.lastname || '').trim()
+        const emailAddress = String(
+          row.emailaddress || row.email || '',
+        )
+          .trim()
+          .toLowerCase()
+        const mobileNumber = String(
+          row.mobilenumber || row.mobile || row.phone || '',
+        ).trim()
+        const barangay = String(row.barangay || '').trim()
+
+        if (
+          !firstName ||
+          !lastName ||
+          !emailAddress ||
+          !mobileNumber ||
+          !barangay
+        ) {
+          failed.push(`Row ${index + 2}: missing required fields`)
+          continue
+        }
+
+        const vulnerabilityTypes = importedSectors(
+          row.sector ||
+            row.sectors ||
+            row.vulnerabilitytype ||
+            row.vulnerabilitytypes ||
+            row.category,
+        )
+
+        const payload = {
+          adminId,
+          firstName,
+          lastName,
+          middleName: String(row.middlename || '').trim(),
+          suffix: String(row.suffix || '').trim(),
+          emailAddress,
+          mobileNumber,
+          landlineNumber: String(row.landlinenumber || '').trim(),
+          dateOfBirth: String(row.dateofbirth || row.birthdate || '').trim(),
+          gender: String(row.gender || '').trim(),
+          civilStatus: String(row.civilstatus || '').trim(),
+          houseNumber: String(row.housenumber || '').trim(),
+          street: String(row.street || '').trim(),
+          barangay,
+          municipality:
+            String(row.municipality || '').trim() || 'San Policarpo',
+          province:
+            String(row.province || '').trim() || 'Eastern Samar',
+          latitude: String(row.latitude || '').trim(),
+          longitude: String(row.longitude || '').trim(),
+          educationalAttainment: String(
+            row.educationalattainment || '',
+          ).trim(),
+          employmentStatus: String(row.employmentstatus || '').trim(),
+          employmentDetails: String(row.employmentdetails || '').trim(),
+          emergencyContact: String(row.emergencycontact || '').trim(),
+          emergencyPhone: String(row.emergencyphone || '').trim(),
+          hasMedicalCondition: importBoolean(row.hasmedicalcondition),
+          medicalConditions: String(row.medicalconditions || '').trim(),
+          needsAssistance: importBoolean(row.needsassistance),
+          assistanceType: String(row.assistancetype || '').trim(),
+          vulnerabilityTypes,
+          hasDisability: importBoolean(row.hasdisability),
+          disabilityType: String(row.disabilitytype || '').trim(),
+          disabilityCause: String(row.disabilitycause || '').trim(),
+        }
+
+        try {
+          await apiFetch('/api/admin/register-vulnerable', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          imported += 1
+        } catch (error: any) {
+          failed.push(
+            `Row ${index + 2}: ${error?.message || 'import failed'}`,
+          )
+        }
+      }
+
+      if (imported > 0) {
+        toast.success(
+          `${imported} registration${imported === 1 ? '' : 's'} imported`,
+          {
+            description: failed.length
+              ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
+              : 'All Excel registrations were added successfully.',
+          },
+        )
+        await load()
+      } else {
+        toast.error('No registrations were imported', {
+          description:
+            failed[0] ||
+            'Check the required Excel columns and try again.',
+        })
+      }
+    } catch (error: any) {
+      toast.error('Excel import failed', {
+        description:
+          error?.message || 'Unable to read the selected spreadsheet.',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const approve = async (profileId: string) => {
     try {
@@ -698,6 +975,15 @@ function RegistrationsView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search registrations..."
+              className="w-[250px] pl-9"
+            />
+          </div>
           <Button
             type="button"
             onClick={() => setShowRegisterVulnerable(true)}
@@ -705,6 +991,24 @@ function RegistrationsView() {
           >
             <UserCheck className="h-4 w-4" />
             Register Vulnerable Person
+          </Button>
+
+          <Button asChild type="button" variant="outline" className="gap-1.5">
+            <label className={importing ? 'pointer-events-none opacity-60' : 'cursor-pointer'}>
+              {importing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
+              {importing ? 'Importing...' : 'Import Excel'}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={importing}
+                onChange={handleRegistrationExcelImport}
+              />
+            </label>
           </Button>
 
           <Select value={filter} onValueChange={setFilter}>
@@ -716,6 +1020,33 @@ function RegistrationsView() {
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
               <SelectItem value="ALL">All</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sectorFilter} onValueChange={setSectorFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto">
+              <SelectItem value="ALL">All sectors</SelectItem>
+              {sectors.map((sector) => (
+                <SelectItem key={sector} value={sector}>
+                  {registrationSectorLabel(sector)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+              <SelectItem value="SECTOR">Sort: Sector</SelectItem>
+              <SelectItem value="BARANGAY">Sort: Barangay</SelectItem>
+              <SelectItem value="DATE_DESC">Sort: Newest</SelectItem>
+              <SelectItem value="DATE_ASC">Sort: Oldest</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -737,7 +1068,7 @@ function RegistrationsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
           {filtered.map((p) => {
             const vuln = formatVulnerabilityTypes(p.vulnerabilityTypes)
 
@@ -1019,9 +1350,16 @@ function UsersView() {
   const [showCreate, setShowCreate] = useState(false);
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("ALL");
   const [presenceFilter, setPresenceFilter] = useState<PresenceFilter>("ALL");
+  const [userSectorFilter, setUserSectorFilter] = useState("ALL");
+  const [userSort, setUserSort] = useState("LAST_NAME");
+  const [userQuery, setUserQuery] = useState("");
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [profileTarget, setProfileTarget] = useState<any | null>(null);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [selectedVulnerableProfile, setSelectedVulnerableProfile] = useState<any | null>(null);
 
   const changeRoleFilter = (nextFilter: UserRoleFilter) => {
     if (nextFilter === roleFilter) return;
@@ -1086,6 +1424,22 @@ function UsersView() {
     };
   }, [users]);
 
+  const userSectors = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          users.flatMap((user) =>
+            user?.vulnerableProfile
+              ? registrationSectorValues(user.vulnerableProfile)
+              : [],
+          ),
+        ),
+      ).sort((a, b) =>
+        registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
+      ),
+    [users],
+  );
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const userRole = normalizeRole(user.role);
@@ -1100,9 +1454,92 @@ function UsersView() {
         (presenceFilter === "NOT_ONLINE_TODAY" && presence.notOnlineToday) ||
         (presenceFilter === "OFFLINE" && presence.offline);
 
-      return matchesRole && matchesPresence;
+      const sectors = user?.vulnerableProfile
+        ? registrationSectorValues(user.vulnerableProfile)
+        : [];
+      const matchesSector =
+        userSectorFilter === "ALL" || sectors.includes(userSectorFilter);
+
+      const search = userQuery.trim().toLowerCase();
+      const searchable = [
+        user.name,
+        user.email,
+        user.phone,
+        user.role,
+        user?.vulnerableProfile?.barangay,
+        ...sectors.map(registrationSectorLabel),
+      ].join(" ").toLowerCase();
+
+      return matchesRole && matchesPresence && matchesSector && (!search || searchable.includes(search));
+    }).sort((a, b) => {
+      if (userSort === "SECTOR") {
+        const aSector = a?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(a.vulnerableProfile)[0])
+          : "ZZZ";
+        const bSector = b?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(b.vulnerableProfile)[0])
+          : "ZZZ";
+        const sectorCompare = aSector.localeCompare(bSector);
+        if (sectorCompare !== 0) return sectorCompare;
+      }
+
+      if (userSort === "ROLE") {
+        const roleCompare = normalizeRole(a.role).localeCompare(normalizeRole(b.role));
+        if (roleCompare !== 0) return roleCompare;
+      }
+
+      if (userSort === "JOINED_DESC") {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+
+      if (userSort === "ONLINE") {
+        const onlineCompare = Number(Boolean(b.isOnline)) - Number(Boolean(a.isOnline));
+        if (onlineCompare !== 0) return onlineCompare;
+      }
+
+      const lastName = (value: any) => {
+        const parts = String(value?.name || "").trim().split(/\s+/).filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : "";
+      };
+
+      const nameCompare = lastName(a).localeCompare(lastName(b));
+      if (nameCompare !== 0) return nameCompare;
+
+      return String(a.name || "").localeCompare(String(b.name || ""));
     });
-  }, [users, roleFilter, presenceFilter]);
+  }, [users, roleFilter, presenceFilter, userQuery, userSectorFilter, userSort]);
+
+  const openUserProfile = async (user: any) => {
+    setProfileTarget(user);
+    setProfileDialogOpen(true);
+    setSelectedVulnerableProfile(null);
+
+    if (
+      normalizeRole(user?.role) !== "VULNERABLE" ||
+      !user?.vulnerableProfile?.id
+    ) {
+      return;
+    }
+
+    setProfileLoading(true);
+
+    try {
+      const data = await apiFetch("/api/admin/profiles");
+      const profiles = data.profiles || [];
+      const profile =
+        profiles.find((item: any) => item.id === user.vulnerableProfile.id) ||
+        profiles.find((item: any) => item.userId === user.id) ||
+        null;
+
+      setSelectedVulnerableProfile(profile);
+    } catch (err: any) {
+      toast.error("Failed to load user profile", {
+        description: err.message,
+      });
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const requestDeleteUser = (user: any) => {
     setDeleteTarget(user);
@@ -1196,6 +1633,15 @@ function UsersView() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={userQuery}
+              onChange={(event) => setUserQuery(event.target.value)}
+              placeholder="Search users..."
+              className="h-10 min-w-[230px] pl-9"
+            />
+          </div>
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
             <Select
               value={presenceFilter}
@@ -1210,6 +1656,37 @@ function UsersView() {
                 <SelectItem value="ONLINE_TODAY">Online today ({presenceStats.onlineToday})</SelectItem>
                 <SelectItem value="NOT_ONLINE_TODAY">Not online today ({presenceStats.notOnlineToday})</SelectItem>
                 <SelectItem value="OFFLINE">Offline ({presenceStats.offline})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
+            <Select value={userSectorFilter} onValueChange={setUserSectorFilter}>
+              <SelectTrigger className="h-10 min-w-[200px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end" className="max-h-72 overflow-y-auto">
+                <SelectItem value="ALL">All sectors</SelectItem>
+                {userSectors.map((sector) => (
+                  <SelectItem key={sector} value={sector}>
+                    {registrationSectorLabel(sector)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
+            <Select value={userSort} onValueChange={setUserSort}>
+              <SelectTrigger className="h-10 min-w-[190px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+                <SelectItem value="SECTOR">Sort: Sector</SelectItem>
+                <SelectItem value="ROLE">Sort: Role</SelectItem>
+                <SelectItem value="JOINED_DESC">Sort: Newest joined</SelectItem>
+                <SelectItem value="ONLINE">Sort: Online first</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1295,6 +1772,7 @@ function UsersView() {
               </p>
             </div>
           ) : (
+            <div className="max-h-[68vh] overflow-auto">
             <Table key={`users-table-${roleFilter}-${presenceFilter}-${filterAnimationKey}`}>
               <TableHeader>
                 <TableRow>
@@ -1349,6 +1827,18 @@ function UsersView() {
                       <OnlineStatusBadge user={u} />
                     </TableCell>
                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openUserProfile(u)}
+                          className="text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+                          aria-label={`View ${u.name || u.email || "user"} profile`}
+                          title="View profile"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       {u.id !== getAdminId() ? (
                         <Button
                           type="button"
@@ -1373,11 +1863,13 @@ function UsersView() {
                           Current account
                         </Badge>
                       )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1388,6 +1880,20 @@ function UsersView() {
         onCreated={() => load(false)}
       />
 
+      <UserManagementProfileDialog
+        user={profileTarget}
+        vulnerableProfile={selectedVulnerableProfile}
+        loading={profileLoading}
+        open={profileDialogOpen}
+        onOpenChange={(open) => {
+          setProfileDialogOpen(open);
+          if (!open) {
+            setProfileTarget(null);
+            setSelectedVulnerableProfile(null);
+          }
+        }}
+      />
+
       <DeleteUserConfirmDialog
         user={deleteTarget}
         open={Boolean(deleteTarget)}
@@ -1396,6 +1902,187 @@ function UsersView() {
         onConfirm={confirmDeleteUser}
       />
     </div>
+  );
+}
+
+function UserManagementProfileDialog({
+  user,
+  vulnerableProfile,
+  loading,
+  open,
+  onOpenChange,
+}: {
+  user: any | null;
+  vulnerableProfile: any | null;
+  loading: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const role = normalizeRole(user?.role) || "USER";
+
+  if (role === "VULNERABLE") {
+    return (
+      <AdminMapProfileDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        loading={loading}
+        profile={vulnerableProfile}
+      />
+    );
+  }
+
+  const profile = vulnerableProfile;
+  const displayName = profile
+    ? `${profile.firstName || ""} ${profile.middleName ? profile.middleName + " " : ""}${profile.lastName || ""}${profile.suffix ? ", " + profile.suffix : ""}`.trim()
+    : user?.name || "User";
+
+  const address = profile
+    ? [
+        profile.houseNumber,
+        profile.street,
+        profile.barangay,
+        profile.municipality,
+        profile.province,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+
+  const vulnerabilities = profile
+    ? formatVulnerabilityTypes(profile.vulnerabilityTypes)
+    : [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>User Profile</DialogTitle>
+          <DialogDescription>
+            Account information
+            {role === "VULNERABLE"
+              ? " and registered vulnerable citizen details."
+              : "."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!user ? null : loading ? (
+          <WowLoader
+            compact
+            label="Loading profile"
+            description="Retrieving the full user record..."
+          />
+        ) : (
+          <div className="space-y-5">
+            <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <UserManagementAvatar user={user} />
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-semibold text-slate-950">
+                  {displayName}
+                </h3>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{role}</Badge>
+                  <OnlineStatusBadge user={user} />
+                  {profile?.registrationStatus ? (
+                    <StatusBadge status={profile.registrationStatus} />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Mail className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Email</p>
+                <p className="break-all text-sm font-semibold text-slate-900">
+                  {user.email || profile?.emailAddress || "Not recorded"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Phone className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Phone</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {user.phone || profile?.mobileNumber || "Not recorded"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <CalendarDays className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Account created</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {formatDate(user.createdAt)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Activity className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Last seen</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {user.lastSeenAt ? formatDateTime(user.lastSeenAt) : "Not recorded"}
+                </p>
+              </div>
+            </div>
+
+            {role === "VULNERABLE" ? (
+              profile ? (
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-950">Registered address</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {address || "Not recorded"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm font-semibold text-slate-950">Vulnerability sectors</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {vulnerabilities.length ? (
+                        vulnerabilities.map((type) => (
+                          <Badge key={type} variant="outline" className="bg-emerald-50 text-emerald-700">
+                            {vulnerabilityLabel(type)}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-slate-500">Not specified</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">Assistance status</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {profile.needsAssistance ? "Needs assistance" : "No active assistance flag"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">Latest relief</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {profile.lastDistributionType || "No distribution recorded"}
+                      </p>
+                      {profile.lastDistributionDate ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatDate(profile.lastDistributionDate)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  This vulnerable account does not have an available registered profile record.
+                </div>
+              )
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                This is a {role === "ADMIN" ? "system administrator" : "field worker"} account.
+                Vulnerable citizen registration details do not apply to this role.
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1769,6 +2456,9 @@ function DistributionsView() {
   const [distributions, setDistributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("PENDING");
+  const [sectorFilter, setSectorFilter] = useState("ALL");
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState("DATE_DESC");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1786,9 +2476,93 @@ function DistributionsView() {
     load();
   }, [load]);
 
-  const filtered = distributions.filter(
-    (d) => filter === "ALL" || d.status === filter,
+  const distributionSectors = Array.from(
+    new Set(
+      distributions.flatMap((distribution) =>
+        distribution?.vulnerableProfile
+          ? registrationSectorValues(distribution.vulnerableProfile)
+          : [],
+      ),
+    ),
+  ).sort((a, b) =>
+    registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
   );
+
+  const filtered = distributions
+    .filter((d) => filter === "ALL" || d.status === filter)
+    .filter(
+      (d) =>
+        sectorFilter === "ALL" ||
+        (d.vulnerableProfile &&
+          registrationSectorValues(d.vulnerableProfile).includes(sectorFilter)),
+    )
+    .filter((d) => {
+      const search = query.trim().toLowerCase();
+      if (!search) return true;
+
+      return [
+        d.distributionType,
+        d.itemsProvided,
+        d.status,
+        d.worker?.name,
+        d.vulnerableProfile?.firstName,
+        d.vulnerableProfile?.lastName,
+        d.vulnerableProfile?.barangay,
+        ...(d.vulnerableProfile
+          ? registrationSectorValues(d.vulnerableProfile).map(registrationSectorLabel)
+          : []),
+        d.notes,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(search);
+    })
+    .sort((a, b) => {
+      if (sortBy === "SECTOR") {
+        const aSector = a?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(a.vulnerableProfile)[0])
+          : "ZZZ";
+        const bSector = b?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(b.vulnerableProfile)[0])
+          : "ZZZ";
+        const compared = aSector.localeCompare(bSector);
+        if (compared !== 0) return compared;
+      }
+
+      if (sortBy === "TYPE") {
+        return String(a.distributionType || "").localeCompare(
+          String(b.distributionType || ""),
+        );
+      }
+
+      if (sortBy === "LAST_NAME") {
+        return String(a.vulnerableProfile?.lastName || "").localeCompare(
+          String(b.vulnerableProfile?.lastName || ""),
+        );
+      }
+
+      if (sortBy === "WORKER") {
+        return String(a.worker?.name || "").localeCompare(
+          String(b.worker?.name || ""),
+        );
+      }
+
+      if (sortBy === "STATUS") {
+        return String(a.status || "").localeCompare(String(b.status || ""));
+      }
+
+      if (sortBy === "DATE_ASC") {
+        return (
+          new Date(a.distributionDate || a.createdAt || 0).getTime() -
+          new Date(b.distributionDate || b.createdAt || 0).getTime()
+        );
+      }
+
+      return (
+        new Date(b.distributionDate || b.createdAt || 0).getTime() -
+        new Date(a.distributionDate || a.createdAt || 0).getTime()
+      );
+    });
 
   const act = async (id: string, action: "APPROVE" | "REJECT") => {
     const reason =
@@ -1811,7 +2585,7 @@ function DistributionsView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Relief Distribution Approval
@@ -1820,17 +2594,59 @@ function DistributionsView() {
             Review relief distributions recorded by field workers.
           </p>
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-            <SelectItem value="ALL">All</SelectItem>
-          </SelectContent>
-        </Select>
+
+        <div className="grid w-full min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(280px,1.6fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(180px,0.9fr)]">
+          <div className="relative min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search beneficiary, worker, items..."
+              className="w-full min-w-0 pl-9"
+            />
+          </div>
+
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="ALL">All statuses</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sectorFilter} onValueChange={setSectorFilter}>
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto">
+              <SelectItem value="ALL">All sectors</SelectItem>
+              {distributionSectors.map((sector) => (
+                <SelectItem key={sector} value={sector}>
+                  {registrationSectorLabel(sector)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DATE_DESC">Newest first</SelectItem>
+              <SelectItem value="DATE_ASC">Oldest first</SelectItem>
+              <SelectItem value="SECTOR">Sector</SelectItem>
+              <SelectItem value="TYPE">Distribution type</SelectItem>
+              <SelectItem value="LAST_NAME">Last name</SelectItem>
+              <SelectItem value="WORKER">Worker</SelectItem>
+              <SelectItem value="STATUS">Status</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading ? (
@@ -1846,7 +2662,7 @@ function DistributionsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
           {filtered.map((d) => (
             <Card key={d.id}>
               <CardContent className="p-4">
@@ -1865,6 +2681,14 @@ function DistributionsView() {
                         {d.vulnerableProfile
                           ? `${d.vulnerableProfile.firstName} ${d.vulnerableProfile.lastName}`
                           : "Household"}
+                      </span>
+                      <span>
+                        <b className="text-foreground">Sector:</b>{" "}
+                        {d.vulnerableProfile
+                          ? registrationSectorValues(d.vulnerableProfile)
+                              .map(registrationSectorLabel)
+                              .join(", ")
+                          : "—"}
                       </span>
                       <span>
                         <b className="text-foreground">Worker:</b>{" "}
@@ -1927,6 +2751,7 @@ function AnnouncementsView() {
   const [loadError, setLoadError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1968,6 +2793,23 @@ function AnnouncementsView() {
       setDeletingId(null);
     }
   };
+
+  const filteredAnnouncements = announcements.filter((item) => {
+    const search = query.trim().toLowerCase();
+    if (!search) return true;
+
+    return [
+      item.title,
+      item.content,
+      item.type,
+      item.priority,
+      item.targetRole,
+      item.location,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
 
   const urgentCount = announcements.filter((item) => item.priority === "URGENT" || item.priority === "HIGH").length;
   const workerCount = announcements.filter((item) => item.targetRole === "WORKER" || item.targetRole === "ALL").length;
@@ -2027,7 +2869,20 @@ function AnnouncementsView() {
         </div>
       </div>
 
-      {!showForm && <AnnouncementsCarousel userRole="admin" />}
+      {!showForm && (
+        <>
+          <div className="relative max-w-xl">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search announcements, type, audience, location..."
+              className="pl-9"
+            />
+          </div>
+          <AnnouncementsCarousel userRole="admin" />
+        </>
+      )}
 
       {showForm ? (
         <Card className="overflow-hidden rounded-[1.5rem] border-emerald-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]">
@@ -2072,7 +2927,7 @@ function AnnouncementsView() {
             </Button>
           </CardContent>
         </Card>
-      ) : announcements.length === 0 ? (
+      ) : filteredAnnouncements.length === 0 ? (
         <Card className="rounded-[1.5rem] border-dashed border-slate-200 bg-white">
           <CardContent className="flex flex-col items-center justify-center py-14 text-center">
             <Megaphone className="mb-3 h-9 w-9 text-slate-400" />
@@ -2086,8 +2941,8 @@ function AnnouncementsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {announcements.map((a) => (
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+          {filteredAnnouncements.map((a) => (
             <Card key={a.id} className="rounded-2xl border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -2231,6 +3086,7 @@ function FeedbackView() {
   const [loading, setLoading] = useState(true);
   const [respondTarget, setRespondTarget] = useState<any | null>(null);
   const [response, setResponse] = useState("");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2247,6 +3103,24 @@ function FeedbackView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const filteredFeedback = feedback.filter((item) => {
+    const search = query.trim().toLowerCase();
+    if (!search) return true;
+
+    return [
+      item.type,
+      item.status,
+      item.subject,
+      item.message,
+      item.adminResponse,
+      item.user?.name,
+      item.user?.email,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
 
   const respond = async () => {
     if (!respondTarget) return;
@@ -2269,13 +3143,24 @@ function FeedbackView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Feedback Management
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Review and respond to feedback from citizens and workers.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Feedback Management
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Review and respond to feedback from citizens and workers.
+          </p>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search feedback..."
+            className="w-[270px] pl-9"
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -2284,15 +3169,15 @@ function FeedbackView() {
           label="Loading feedback"
           description="Checking messages and responses..."
         />
-      ) : feedback.length === 0 ? (
+      ) : filteredFeedback.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             No feedback yet.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {feedback.map((f) => (
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+          {filteredFeedback.map((f) => (
             <Card key={f.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -2759,7 +3644,7 @@ function AdminMapProfileDialog({
         <DialogHeader>
           <DialogTitle>Vulnerable Citizen Profile</DialogTitle>
           <DialogDescription>
-            Full registered details for the selected map marker.
+            Full registered details for the selected vulnerable citizen.
           </DialogDescription>
         </DialogHeader>
 
@@ -2775,7 +3660,7 @@ function AdminMapProfileDialog({
               <AlertCircle className="mb-2 h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">No profile loaded.</p>
               <p className="text-xs text-muted-foreground">
-                Select a recorded map marker and choose View full profile.
+                Select a vulnerable citizen and choose View profile.
               </p>
             </CardContent>
           </Card>

@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { AdminDashboard } from '@/components/dashboards/admin-dashboard'
+import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
+import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
+import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
+import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registration-tour'
+import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
+import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief-approval-tour'
+import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
+import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
+import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
+import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -47,10 +57,22 @@ export default function DashboardRoute() {
   }
 
   return (
-    <AdminDashboard
-      user={user}
-      onLogout={logout}
-      onProfile={() => router.push('/profile')}
-    />
+    <>
+      <AdminDashboard
+        user={user}
+        onLogout={logout}
+        onProfile={() => router.push('/profile')}
+      />
+      <AdminWalkthrough user={user} />
+      <AnalyticsWalkthrough user={user} />
+      <ApprovalCenterWalkthrough user={user} />
+      <RegistrationWalkthrough user={user} />
+      <RegistrationFormWalkthrough user={user} />
+      <ReliefApprovalWalkthrough user={user} />
+      <AnnouncementsWalkthrough user={user} />
+      <FeedbackWalkthrough user={user} />
+      <VulnerableMapWalkthrough user={user} />
+      <DailyReportsWalkthrough user={user} />
+    </>
   )
 }

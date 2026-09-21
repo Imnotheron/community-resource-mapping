@@ -562,6 +562,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
   const [barangayFilter, setBarangayFilter] = useState(ALL)
   const [categoryFilter, setCategoryFilter] = useState(ALL)
   const [workerFilter, setWorkerFilter] = useState(ALL)
+  const [sortBy, setSortBy] = useState('LAST_NAME')
 
   const [selectedRegistrations, setSelectedRegistrations] = useState<Set<string>>(new Set())
   const [selectedDistributions, setSelectedDistributions] = useState<Set<string>>(new Set())
@@ -644,8 +645,25 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
         (barangayFilter === ALL || record.barangay === barangayFilter) &&
         (categoryFilter === ALL || categories.includes(categoryFilter))
       )
+    }).sort((a, b) => {
+      if (sortBy === 'BARANGAY') {
+        const compared = String(a.barangay || '').localeCompare(String(b.barangay || ''))
+        if (compared !== 0) return compared
+      }
+
+      if (sortBy === 'DATE_DESC') {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      }
+
+      if (sortBy === 'STATUS') {
+        return status(a.registrationStatus).localeCompare(status(b.registrationStatus))
+      }
+
+      const lastNameCompare = String(a.lastName || '').localeCompare(String(b.lastName || ''))
+      if (lastNameCompare !== 0) return lastNameCompare
+      return String(a.firstName || '').localeCompare(String(b.firstName || ''))
     })
-  }, [barangayFilter, categoryFilter, query, registrations, statusFilter])
+  }, [barangayFilter, categoryFilter, query, registrations, sortBy, statusFilter])
 
   const filteredDistributions = useMemo(() => {
     const search = query.trim().toLowerCase()
@@ -669,12 +687,34 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
         (categoryFilter === ALL || record.distributionType === categoryFilter) &&
         (workerFilter === ALL || record.worker?.name === workerFilter)
       )
+    }).sort((a, b) => {
+      if (sortBy === 'BARANGAY') {
+        const compared = barangayOfDistribution(a).localeCompare(barangayOfDistribution(b))
+        if (compared !== 0) return compared
+      }
+
+      if (sortBy === 'DATE_DESC') {
+        return new Date(b.distributionDate || b.createdAt || 0).getTime() -
+          new Date(a.distributionDate || a.createdAt || 0).getTime()
+      }
+
+      if (sortBy === 'STATUS') {
+        return status(a.status).localeCompare(status(b.status))
+      }
+
+      const aLast = String(a.vulnerableProfile?.lastName || a.household?.headOfHousehold || '')
+      const bLast = String(b.vulnerableProfile?.lastName || b.household?.headOfHousehold || '')
+      const compared = aLast.localeCompare(bLast)
+      if (compared !== 0) return compared
+
+      return beneficiary(a).localeCompare(beneficiary(b))
     })
   }, [
     barangayFilter,
     categoryFilter,
     distributions,
     query,
+    sortBy,
     statusFilter,
     workerFilter,
   ])
@@ -734,6 +774,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
     setBarangayFilter(ALL)
     setCategoryFilter(ALL)
     setWorkerFilter(ALL)
+    setSortBy('LAST_NAME')
   }
 
   function toggle(type: TabName, id: string, checked: boolean) {
@@ -1078,6 +1119,18 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
                     options={workers}
                   />
                 )}
+
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+                    <SelectItem value="BARANGAY">Sort: Barangay</SelectItem>
+                    <SelectItem value="DATE_DESC">Sort: Latest date</SelectItem>
+                    <SelectItem value="STATUS">Sort: Status</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
@@ -1425,6 +1478,12 @@ function TableShell({
     )
   }
 
-  return <Card className="overflow-hidden">{children}</Card>
+  return (
+    <Card className="overflow-hidden">
+      <div className="max-h-[68vh] overflow-auto">
+        {children}
+      </div>
+    </Card>
+  )
 }
 

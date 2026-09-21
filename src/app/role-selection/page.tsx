@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SilkLightBackground } from '@/components/ui/silk-light-background'
 import { User, Shield, Users, LogIn, CheckCircle, Monitor, ArrowLeft } from 'lucide-react'
 
 const DESKTOP_BREAKPOINT = 1024
@@ -111,9 +112,11 @@ export default function RoleSelectionPage() {
   }
 
   return (
-    <div className="min-h-screen !bg-white flex flex-col">
+    <div className="relative min-h-screen overflow-hidden !bg-white flex flex-col">
+      <SilkLightBackground intensity="medium" />
+      <div className="pointer-events-none absolute left-1/2 top-24 h-40 w-[44rem] max-w-[80vw] -translate-x-1/2 rounded-full bg-white/70 blur-3xl" />
       {/* Header with Logos */}
-      <header className="border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
+      <header className="relative z-10 border-b border-white/70 bg-white/68 px-4 py-6 shadow-[0_12px_45px_rgba(15,23,42,0.04)] backdrop-blur-xl sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-3 items-center mb-2">
             {/* Top Left - San Policarpo Logo */}
@@ -164,7 +167,7 @@ export default function RoleSelectionPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <main className="relative z-10 flex-1 px-4 py-8 sm:px-6 md:py-12 lg:px-8">
         <div className="w-full max-w-6xl mx-auto">
           {/* Role Selection */}
           <div className="mb-12">
@@ -180,7 +183,7 @@ export default function RoleSelectionPage() {
                 return (
                   <Card
                     key={role.id}
-                    className={`border-2 ${colors.hover} bg-white transition-all cursor-pointer hover:scale-105 group flex flex-col ${
+                    className={`group flex cursor-pointer flex-col border border-white/80 bg-white/76 shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:scale-[1.015] hover:border-white ${colors.hover} ${
                       selectedRole === role.id ? `ring-2 ring-offset-2 ring-${role.color}-500` : ''
                     }`}
                     onClick={() => handleRoleSelect(role.id)}
@@ -227,7 +230,7 @@ export default function RoleSelectionPage() {
           )}
 
           {/* Quick Info */}
-          <Card className="border border-gray-200 bg-gray-50">
+          <Card className="border border-white/80 bg-white/72 shadow-[0_18px_55px_rgba(15,23,42,0.06)] backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -254,7 +257,7 @@ export default function RoleSelectionPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white py-6">
+      <footer className="relative z-10 border-t border-white/70 bg-white/68 py-6 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-sm text-gray-500">
             © 2026 Community Resource Mapping System • San Policarpo, Eastern Samar

@@ -1,0 +1,30 @@
+/* Keep the Admin daily report focused on activity from the selected date.
+ * Overall registry totals and staffing-presence figures remain available in
+ * analytics, but they are intentionally omitted from the printable daily
+ * Executive Summary.
+ */
+[data-print-report='true'][aria-label='Daily Municipal Operations Report']
+  .report-summary-grid
+  > .report-metric:nth-child(1),
+[data-print-report='true'][aria-label='Daily Municipal Operations Report']
+  .report-summary-grid
+  > .report-metric:nth-child(3),
+[data-print-report='true'][aria-label='Daily Municipal Operations Report']
+  .report-summary-grid
+  > .report-metric:nth-child(4) {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  [data-print-report='true'][aria-label='Daily Municipal Operations Report']
+    .report-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}
+
+@media print {
+  [data-print-report='true'][aria-label='Daily Municipal Operations Report']
+    .report-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}

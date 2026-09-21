@@ -3,12 +3,17 @@ import { Geist, Geist_Mono } from 'next/font/google'
 
 import './globals.css'
 import './ui-scale-fix.css'
+import './analytics-visual-refresh.css'
+import './report-summary-cleanup.css'
 
 import ClickSpark from '@/components/effects/ClickSpark'
+import { DeleteAccountHoverSound } from '@/components/feedback/delete-account-hover-sound'
+import { SuccessSoundListener } from '@/components/feedback/success-sound-listener'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AccentProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { WalkthroughProvider } from '@/components/walkthrough/walkthrough-provider'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -114,13 +119,15 @@ export default function RootLayout({
               duration={500}
             >
               <TooltipProvider>
-                {children}
+                <WalkthroughProvider>{children}</WalkthroughProvider>
               </TooltipProvider>
             </ClickSpark>
           </AccentProvider>
         </ThemeProvider>
 
         <Toaster />
+        <SuccessSoundListener />
+        <DeleteAccountHoverSound />
       </body>
     </html>
   )

@@ -1,10 +1,27 @@
 'use client'
 
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
+import { LoginWelcome } from '@/components/onboarding/login-welcome'
+import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
+import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
+import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
+import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registration-tour'
+import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
+import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief-approval-tour'
+import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
+import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
+import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
+import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
+import { ProfileSettingsWalkthrough } from '@/components/walkthrough/tours/profile-settings-tour'
+import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
+import { WorkerFeatureWalkthroughs } from '@/components/walkthrough/tours/worker-feature-tours'
+import { VulnerableWalkthrough } from '@/components/walkthrough/tours/vulnerable-tour'
+import { VulnerableFeatureWalkthroughs } from '@/components/walkthrough/tours/vulnerable-feature-tours'
 import { useUserSync } from '@/hooks/use-user-sync'
+import type { AuthUser } from '@/lib/api-client'
 
 const LandingPage = lazy(() =>
   import('@/components/landing/landing-page').then(
@@ -80,6 +97,11 @@ function AppShellContent() {
   const [mode, setMode] = useState<
     'landing' | 'auth' | 'profile' | 'dashboard'
   >('landing')
+  const [welcomeUser, setWelcomeUser] = useState<AuthUser | null>(null)
+
+  const finishWelcome = useCallback(() => {
+    setWelcomeUser(null)
+  }, [])
 
   if (loading) {
     return <ViewLoader />
@@ -104,6 +126,7 @@ function AppShellContent() {
                 password,
                 role,
               )
+              setWelcomeUser(result.user)
               setMode('dashboard')
               return result
             }}
@@ -142,11 +165,21 @@ function AppShellContent() {
   }
 
   const handleLogout = async () => {
+    setWelcomeUser(null)
     await logout()
     setMode('landing')
   }
 
   const handleProfile = () => setMode('profile')
+
+  if (welcomeUser) {
+    return (
+      <LoginWelcome
+        user={welcomeUser}
+        onComplete={finishWelcome}
+      />
+    )
+  }
 
   if (mode === 'profile') {
     return (
@@ -155,11 +188,14 @@ function AppShellContent() {
           <ViewLoader label="Loading profile…" />
         }
       >
-        <ProfileView
-          user={user}
-          onBack={() => setMode('dashboard')}
-          onUserUpdated={refreshUser}
-        />
+        <>
+          <ProfileView
+            user={user}
+            onBack={() => setMode('dashboard')}
+            onUserUpdated={refreshUser}
+          />
+          <ProfileSettingsWalkthrough user={user} />
+        </>
       </Suspense>
     )
   }
@@ -190,6 +226,16 @@ function AppShellContent() {
           />
         </Suspense>
 
+        <AdminWalkthrough user={user} />
+        <AnalyticsWalkthrough user={user} />
+        <ApprovalCenterWalkthrough user={user} />
+        <RegistrationWalkthrough user={user} />
+        <RegistrationFormWalkthrough user={user} />
+        <ReliefApprovalWalkthrough user={user} />
+        <AnnouncementsWalkthrough user={user} />
+        <FeedbackWalkthrough user={user} />
+        <VulnerableMapWalkthrough user={user} />
+        <DailyReportsWalkthrough user={user} />
         {setupReminder}
       </>
     )
@@ -210,6 +256,9 @@ function AppShellContent() {
           />
         </Suspense>
 
+        <WorkerWalkthrough user={user} />
+        <WorkerFeatureWalkthroughs user={user} />
+        <RegistrationFormWalkthrough user={user} />
         {setupReminder}
       </>
     )
@@ -229,6 +278,8 @@ function AppShellContent() {
         />
       </Suspense>
 
+      <VulnerableWalkthrough user={user} />
+      <VulnerableFeatureWalkthroughs user={user} />
       {setupReminder}
     </>
   )

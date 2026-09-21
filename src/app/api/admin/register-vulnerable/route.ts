@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
       hasIDPhotos,
       idPhotos,
       
-      adminId
+      adminId,
+      vulnerabilityTypes: submittedVulnerabilityTypes
     } = formData
 
     // Validate required fields
@@ -126,13 +127,34 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Build vulnerability types array
-    const vulnerabilityTypes: string[] = []
+    // Build vulnerability types array. Manual registrations may derive these
+    // from disability/assistance fields, while Excel imports can submit
+    // explicit vulnerability sectors.
+    const vulnerabilityTypes = Array.isArray(submittedVulnerabilityTypes)
+      ? submittedVulnerabilityTypes
+          .map((value: unknown) =>
+            String(value || '')
+              .trim()
+              .toUpperCase()
+              .replace(/[\s-]+/g, '_'),
+          )
+          .filter(Boolean)
+          .slice(0, 30)
+      : []
+
     if (hasDisability && disabilityType) {
-      vulnerabilityTypes.push(disabilityType.toUpperCase().replace(/ /g, '_'))
+      const disabilitySector = disabilityType.toUpperCase().replace(/[\s-]+/g, '_')
+      if (!vulnerabilityTypes.includes(disabilitySector)) {
+        vulnerabilityTypes.push(disabilitySector)
+      }
     }
-    if (needsAssistance) {
+
+    if (needsAssistance && !vulnerabilityTypes.includes('NEEDS_ASSISTANCE')) {
       vulnerabilityTypes.push('NEEDS_ASSISTANCE')
+    }
+
+    if (vulnerabilityTypes.length === 0) {
+      vulnerabilityTypes.push('OTHER')
     }
 
     // Create vulnerable profile with APPROVED status (admin-registered)

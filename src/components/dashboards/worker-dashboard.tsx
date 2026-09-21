@@ -5,10 +5,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, Package, PackagePlus, UserPlus, NotebookPen, Megaphone,
-  Loader2, Check, Users as UsersIcon, BookOpen, Printer,
+  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { DailyReportsView } from '@/components/reports/daily-reports-view'
+import { OperationsHistory } from '@/components/admin/operations-history'
 import { NavItem } from '@/components/layout/sidebar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import { formatDate, formatDateTime, timeAgo, StatusBadge, PriorityBadge, format
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'my-distributions', label: 'My Distributions', icon: Package },
+  { id: 'history', label: 'Operations History', icon: History },
   { id: 'new-distribution', label: 'Record Distribution', icon: PackagePlus },
   { id: 'register-vulnerable', label: 'Register Citizen', icon: UserPlus },
   { id: 'field-notes', label: 'Field Notes', icon: NotebookPen },
@@ -61,6 +63,7 @@ export function WorkerDashboard({ user, onLogout, onProfile }: WorkerDashboardPr
     >
       {view === 'overview' && <OverviewView workerId={user.id} onNavigate={setView} />}
       {view === 'my-distributions' && <MyDistributionsView workerId={user.id} />}
+      {view === 'history' && <OperationsHistory mode="worker" workerId={user.id} />}
       {view === 'new-distribution' && <NewDistributionView workerId={user.id} onDone={() => setView('my-distributions')} />}
       {view === 'register-vulnerable' && <RegisterVulnerableView workerId={user.id} />}
       {view === 'field-notes' && <FieldNotesView workerId={user.id} />}
@@ -135,7 +138,7 @@ function OverviewView({ workerId, onNavigate }: { workerId: string; onNavigate: 
           <CardTitle className="text-base">Recent Distributions</CardTitle>
           <CardDescription>Your latest recorded relief distributions</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="max-h-80 space-y-2 overflow-y-auto pr-2">
           {distributions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No distributions recorded yet.</p>
           ) : (
@@ -170,6 +173,9 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
   const [distributions, setDistributions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('ALL')
+  const [barangayFilter, setBarangayFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState('DATE_DESC')
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -185,24 +191,113 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
 
   useEffect(() => { load() }, [load])
 
-  const filtered = distributions.filter((d) => filter === 'ALL' || d.status === filter)
+  const barangays = Array.from(
+    new Set(
+      distributions
+        .map((d) => String(d.vulnerableProfile?.barangay || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => String(a).localeCompare(String(b)))
+
+  const filtered = distributions
+    .filter((d) => filter === 'ALL' || d.status === filter)
+    .filter(
+      (d) =>
+        barangayFilter === 'ALL' ||
+        d.vulnerableProfile?.barangay === barangayFilter,
+    )
+    .filter((d) => {
+      const search = query.trim().toLowerCase()
+      if (!search) return true
+      return [
+        d.distributionType,
+        d.itemsProvided,
+        d.status,
+        d.vulnerableProfile?.firstName,
+        d.vulnerableProfile?.lastName,
+        d.vulnerableProfile?.barangay,
+        d.notes,
+      ].join(' ').toLowerCase().includes(search)
+    })
+    .sort((a, b) => {
+      if (sortBy === 'LAST_NAME') {
+        return String(a.vulnerableProfile?.lastName || '').localeCompare(
+          String(b.vulnerableProfile?.lastName || ''),
+        )
+      }
+
+      if (sortBy === 'BARANGAY') {
+        const barangayCompare = String(
+          a.vulnerableProfile?.barangay || '',
+        ).localeCompare(String(b.vulnerableProfile?.barangay || ''))
+
+        if (barangayCompare !== 0) return barangayCompare
+
+        return String(a.vulnerableProfile?.lastName || '').localeCompare(
+          String(b.vulnerableProfile?.lastName || ''),
+        )
+      }
+
+      if (sortBy === 'STATUS') {
+        return String(a.status || '').localeCompare(String(b.status || ''))
+      }
+
+      return (
+        new Date(b.distributionDate || b.createdAt).getTime() -
+        new Date(a.distributionDate || a.createdAt).getTime()
+      )
+    })
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Distributions</h1>
           <p className="text-sm text-muted-foreground">Relief distributions you have recorded.</p>
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search distributions..."
+              className="min-w-[220px] pl-9"
+            />
+          </div>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="min-w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All statuses</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto">
+              <SelectItem value="ALL">All barangays</SelectItem>
+              {barangays.map((barangay) => (
+                <SelectItem key={barangay} value={barangay}>
+                  {barangay}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DATE_DESC">Latest date</SelectItem>
+              <SelectItem value="LAST_NAME">Last name</SelectItem>
+              <SelectItem value="BARANGAY">Barangay</SelectItem>
+              <SelectItem value="STATUS">Status</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       {loading ? (
         <WowLoader
@@ -213,7 +308,7 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
       ) : filtered.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No distributions found.</CardContent></Card>
       ) : (
-        <div className="space-y-3">
+        <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-2">
           {filtered.map((d) => (
             <Card key={d.id}>
               <CardContent className="p-4 space-y-1">
@@ -224,6 +319,7 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
                 <p className="text-sm text-muted-foreground">{d.itemsProvided}</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground md:grid-cols-4">
                   <span><b className="text-foreground">Beneficiary:</b> {d.vulnerableProfile ? `${d.vulnerableProfile.firstName} ${d.vulnerableProfile.lastName}` : '—'}</span>
+                  <span><b className="text-foreground">Barangay:</b> {d.vulnerableProfile?.barangay || '—'}</span>
                   <span><b className="text-foreground">Quantity:</b> {d.quantity}</span>
                   <span><b className="text-foreground">Date:</b> {formatDate(d.distributionDate)}</span>
                   <span><b className="text-foreground">Recorded:</b> {timeAgo(d.createdAt)}</span>
@@ -240,10 +336,55 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
 }
 
 // =================== NEW DISTRIBUTION ===================
+function getProfileSectors(profile: any) {
+  const sectors = formatVulnerabilityTypes(profile?.vulnerabilityTypes)
+  return sectors.length ? sectors : ['UNSPECIFIED']
+}
+
+function sectorLabel(value: string) {
+  return String(value || 'UNSPECIFIED')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+async function loadExcelParser() {
+  const existing = (window as any).XLSX
+  if (existing) return existing
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
+    script.async = true
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Unable to load the Excel parser. Check your internet connection and try again.'))
+    document.head.appendChild(script)
+  })
+
+  const loaded = (window as any).XLSX
+  if (!loaded) throw new Error('Excel parser did not load correctly.')
+  return loaded
+}
+
+function normalizeImportRow(row: Record<string, any>) {
+  const normalized: Record<string, any> = {}
+
+  Object.entries(row || {}).forEach(([key, value]) => {
+    const compactKey = key.toLowerCase().replace(/[^a-z0-9]/g, '')
+    normalized[compactKey] = value
+  })
+
+  return normalized
+}
+
 function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: () => void }) {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [barangayFilter, setBarangayFilter] = useState('ALL')
+  const [sectorFilter, setSectorFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState('BARANGAY')
   const [form, setForm] = useState({
     vulnerableProfileId: '',
     distributionType: 'Food Pack',
@@ -264,6 +405,35 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
       }
     })()
   }, [])
+
+  const barangays = Array.from(
+    new Set(profiles.map((p) => String(p.barangay || '').trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const sectors = Array.from(
+    new Set(profiles.flatMap((p) => getProfileSectors(p))),
+  ).sort((a, b) => sectorLabel(a).localeCompare(sectorLabel(b)))
+
+  const visibleProfiles = [...profiles]
+    .filter((profile) => barangayFilter === 'ALL' || profile.barangay === barangayFilter)
+    .filter((profile) => sectorFilter === 'ALL' || getProfileSectors(profile).includes(sectorFilter))
+    .sort((a, b) => {
+      if (sortBy === 'SECTOR') {
+        const sectorCompare = sectorLabel(getProfileSectors(a)[0]).localeCompare(
+          sectorLabel(getProfileSectors(b)[0]),
+        )
+        if (sectorCompare !== 0) return sectorCompare
+      }
+
+      if (sortBy === 'NAME') {
+        return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+      }
+
+      const barangayCompare = String(a.barangay || '').localeCompare(String(b.barangay || ''))
+      if (barangayCompare !== 0) return barangayCompare
+
+      return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+    })
 
   const submit = async () => {
     if (!form.vulnerableProfileId || !form.distributionType || !form.itemsProvided || !form.quantity) {
@@ -289,14 +459,140 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
     }
   }
 
+  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setImporting(true)
+
+    try {
+      const XLSX = await loadExcelParser()
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' }) as Record<string, any>[]
+
+      if (!rows.length) {
+        toast.error('The Excel file is empty')
+        return
+      }
+
+      let imported = 0
+      const failed: string[] = []
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = normalizeImportRow(rows[index])
+
+        const profileId = String(
+          row.profileid || row.vulnerableprofileid || row.beneficiaryid || '',
+        ).trim()
+        const firstName = String(row.firstname || '').trim().toLowerCase()
+        const lastName = String(row.lastname || '').trim().toLowerCase()
+        const barangay = String(row.barangay || '').trim().toLowerCase()
+        const beneficiary = String(row.beneficiary || row.name || '').trim().toLowerCase()
+
+        const profile = profiles.find((candidate) => {
+          if (profileId && candidate.id === profileId) return true
+
+          const candidateFirst = String(candidate.firstName || '').trim().toLowerCase()
+          const candidateLast = String(candidate.lastName || '').trim().toLowerCase()
+          const candidateBarangay = String(candidate.barangay || '').trim().toLowerCase()
+          const candidateFullName = `${candidateFirst} ${candidateLast}`.trim()
+
+          if (firstName && lastName) {
+            return (
+              candidateFirst === firstName &&
+              candidateLast === lastName &&
+              (!barangay || candidateBarangay === barangay)
+            )
+          }
+
+          return beneficiary && candidateFullName === beneficiary && (!barangay || candidateBarangay === barangay)
+        })
+
+        const distributionType = String(
+          row.distributiontype || row.type || 'Food Pack',
+        ).trim()
+        const itemsProvided = String(
+          row.itemsprovided || row.items || row.reliefitems || '',
+        ).trim()
+        const quantity = Number.parseInt(String(row.quantity || row.qty || 1), 10)
+        const notes = String(row.notes || row.note || '').trim()
+
+        if (!profile || !distributionType || !itemsProvided || !Number.isInteger(quantity) || quantity < 1) {
+          failed.push(`Row ${index + 2}`)
+          continue
+        }
+
+        try {
+          await apiFetch('/api/worker/distribute', {
+            method: 'POST',
+            body: JSON.stringify({
+              vulnerableProfileId: profile.id,
+              workerId,
+              distributionType,
+              itemsProvided,
+              quantity,
+              notes,
+            }),
+          })
+          imported += 1
+        } catch {
+          failed.push(`Row ${index + 2}`)
+        }
+      }
+
+      if (imported > 0) {
+        toast.success(`${imported} distribution${imported === 1 ? '' : 's'} imported`, {
+          description: failed.length
+            ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
+            : 'All imported records are pending Administrator approval.',
+        })
+      } else {
+        toast.error('No distributions were imported', {
+          description: 'Check the beneficiary names/Profile IDs and required Excel columns.',
+        })
+      }
+    } catch (err: any) {
+      toast.error('Excel import failed', {
+        description: err?.message || 'Unable to read the selected spreadsheet.',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Record Relief Distribution</h1>
-        <p className="text-sm text-muted-foreground">Log a new relief distribution for an approved citizen.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Record Relief Distribution</h1>
+          <p className="text-sm text-muted-foreground">
+            Log a distribution manually or import multiple distribution records from Excel.
+          </p>
+        </div>
+
+        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-muted">
+          {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+          {importing ? 'Importing...' : 'Import Excel'}
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            disabled={importing || loading}
+            onChange={handleExcelImport}
+          />
+        </label>
       </div>
+
       <Card>
-        <CardContent className="space-y-4 p-6">
+        <CardHeader>
+          <CardTitle className="text-base">Beneficiary Selection</CardTitle>
+          <CardDescription>
+            Filter and sort approved citizens by barangay or vulnerability sector before recording relief.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           {loading ? (
             <WowLoader
               compact
@@ -304,23 +600,84 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
               description="Fetching approved citizens..."
             />
           ) : (
-            <div className="space-y-2">
-              <Label>Beneficiary (approved citizens)</Label>
-              <Select value={form.vulnerableProfileId} onValueChange={(v) => setForm({ ...form, vulnerableProfileId: v })}>
-                <SelectTrigger><SelectValue placeholder="Select a citizen..." /></SelectTrigger>
-                <SelectContent>
-                  {profiles.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName} — {p.barangay}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {profiles.length === 0 && (
-                <p className="text-xs text-muted-foreground">No approved citizens available. Register one first.</p>
-              )}
-            </div>
+            <>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Barangay</Label>
+                  <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-64 overflow-y-auto">
+                      <SelectItem value="ALL">All barangays</SelectItem>
+                      {barangays.map((barangay) => (
+                        <SelectItem key={barangay} value={barangay}>{barangay}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Sector</Label>
+                  <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-64 overflow-y-auto">
+                      <SelectItem value="ALL">All sectors</SelectItem>
+                      {sectors.map((sector) => (
+                        <SelectItem key={sector} value={sector}>{sectorLabel(sector)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Sort by</Label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BARANGAY">Barangay</SelectItem>
+                      <SelectItem value="SECTOR">Sector</SelectItem>
+                      <SelectItem value="NAME">Name</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Beneficiary (approved citizens)</Label>
+                <Select
+                  value={form.vulnerableProfileId}
+                  onValueChange={(v) => setForm({ ...form, vulnerableProfileId: v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select a citizen..." /></SelectTrigger>
+                  <SelectContent className="max-h-72 overflow-y-auto">
+                    {visibleProfiles.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.firstName} {profile.lastName} — {profile.barangay} · {sectorLabel(getProfileSectors(profile)[0])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <p className="text-xs text-muted-foreground">
+                  Showing {visibleProfiles.length} of {profiles.length} approved citizens.
+                </p>
+
+                {profiles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No approved citizens available. Register one first.</p>
+                )}
+              </div>
+            </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Distribution Details</CardTitle>
+          <CardDescription>
+            Excel columns supported: Profile ID or First Name + Last Name + Barangay, Distribution Type, Items Provided, Quantity, and Notes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Distribution Type</Label>
             <Select value={form.distributionType} onValueChange={(v) => setForm({ ...form, distributionType: v })}>
@@ -335,6 +692,7 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label>Items Provided</Label>
             <Input
@@ -343,6 +701,7 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
               placeholder="e.g. Rice 5kg, Canned goods x6, Water 5L"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Quantity</Label>
@@ -354,6 +713,7 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
               />
             </div>
           </div>
+
           <div className="space-y-2">
             <Label>Notes (optional)</Label>
             <Textarea
@@ -363,8 +723,9 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
               rows={3}
             />
           </div>
+
           <Button onClick={submit} disabled={submitting || !form.vulnerableProfileId} className="w-full gap-2">
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Record Distribution
           </Button>
         </CardContent>
@@ -376,6 +737,7 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
 // =================== REGISTER VULNERABLE ===================
 function RegisterVulnerableView({ workerId }: { workerId: string }) {
   const [open, setOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const registerVulnerablePerson = async (formData: any) => {
     const vulnerabilityTypes: string[] = []
@@ -433,6 +795,198 @@ function RegisterVulnerableView({ workerId }: { workerId: string }) {
     }
   }
 
+  const handleRegistrationExcelImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setImporting(true)
+
+    try {
+      const XLSX = await loadExcelParser()
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(firstSheet, {
+        defval: '',
+      }) as Record<string, any>[]
+
+      if (!rows.length) {
+        toast.error('The Excel file is empty')
+        return
+      }
+
+      if (rows.length > 200) {
+        toast.error('Import is limited to 200 registrations at a time')
+        return
+      }
+
+      let imported = 0
+      const failed: string[] = []
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = normalizeImportRow(rows[index])
+
+        const firstName = String(row.firstname || '').trim()
+        const lastName = String(row.lastname || '').trim()
+        const emailAddress = String(
+          row.emailaddress || row.email || '',
+        )
+          .trim()
+          .toLowerCase()
+        const dateOfBirth = String(
+          row.dateofbirth || row.birthdate || '',
+        ).trim()
+        const gender = String(row.gender || '').trim()
+        const civilStatus = String(row.civilstatus || '').trim()
+        const barangay = String(row.barangay || '').trim()
+        const municipality =
+          String(row.municipality || '').trim() || 'San Policarpo'
+        const province =
+          String(row.province || '').trim() || 'Eastern Samar'
+        const emergencyContact = String(
+          row.emergencycontact || '',
+        ).trim()
+        const emergencyPhone = String(
+          row.emergencyphone || '',
+        ).trim()
+
+        if (
+          !firstName ||
+          !lastName ||
+          !emailAddress ||
+          !dateOfBirth ||
+          !gender ||
+          !civilStatus ||
+          !barangay ||
+          !municipality ||
+          !province ||
+          !emergencyContact ||
+          !emergencyPhone
+        ) {
+          failed.push(
+            `Row ${index + 2}: missing required identity, address, or emergency-contact fields`,
+          )
+          continue
+        }
+
+        const vulnerabilityTypes = String(
+          row.sector ||
+            row.sectors ||
+            row.vulnerabilitytype ||
+            row.vulnerabilitytypes ||
+            row.category ||
+            'OTHER',
+        )
+          .split(/[,;|]/)
+          .map((value) =>
+            value
+              .trim()
+              .toUpperCase()
+              .replace(/[\s-]+/g, '_'),
+          )
+          .filter(Boolean)
+
+        const yes = (value: unknown) =>
+          ['1', 'true', 'yes', 'y', 'on'].includes(
+            String(value || '').trim().toLowerCase(),
+          )
+
+        const payload = {
+          workerId,
+          firstName,
+          lastName,
+          middleName: String(row.middlename || '').trim(),
+          suffix: String(row.suffix || '').trim(),
+          emailAddress,
+          mobileNumber: String(
+            row.mobilenumber || row.mobile || row.phone || '',
+          ).trim(),
+          landlineNumber: String(row.landlinenumber || '').trim(),
+          dateOfBirth,
+          gender,
+          civilStatus,
+          houseNumber: String(row.housenumber || '').trim(),
+          street: String(row.street || '').trim(),
+          barangay,
+          municipality,
+          province,
+          latitude: String(row.latitude || '').trim(),
+          longitude: String(row.longitude || '').trim(),
+          educationalAttainment: String(
+            row.educationalattainment || '',
+          ).trim(),
+          employmentStatus: String(
+            row.employmentstatus || '',
+          ).trim(),
+          employmentDetails: String(
+            row.employmentdetails || '',
+          ).trim(),
+          emergencyContact,
+          emergencyPhone,
+          hasMedicalCondition: yes(row.hasmedicalcondition),
+          medicalConditions: String(
+            row.medicalconditions || '',
+          ).trim(),
+          needsAssistance: yes(row.needsassistance),
+          assistanceType: String(
+            row.assistancetype || '',
+          ).trim(),
+          vulnerabilityTypes:
+            vulnerabilityTypes.length > 0
+              ? vulnerabilityTypes
+              : ['OTHER'],
+          disabilityType: String(
+            row.disabilitytype || '',
+          ).trim(),
+          disabilityCause: String(
+            row.disabilitycause || '',
+          ).trim(),
+          disabilityIdNumber: String(
+            row.disabilityidnumber || '',
+          ).trim(),
+        }
+
+        try {
+          await apiFetch('/api/worker/register-vulnerable', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          imported += 1
+        } catch (error: any) {
+          failed.push(
+            `Row ${index + 2}: ${error?.message || 'import failed'}`,
+          )
+        }
+      }
+
+      if (imported > 0) {
+        toast.success(
+          `${imported} registration${imported === 1 ? '' : 's'} imported`,
+          {
+            description: failed.length
+              ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
+              : 'All imported worker registrations were submitted for admin approval.',
+          },
+        )
+      } else {
+        toast.error('No registrations were imported', {
+          description:
+            failed[0] ||
+            'Check the required Excel columns and try again.',
+        })
+      }
+    } catch (error: any) {
+      toast.error('Excel import failed', {
+        description:
+          error?.message || 'Unable to read the selected spreadsheet.',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -453,10 +1007,28 @@ function RegisterVulnerableView({ workerId }: { workerId: string }) {
             Open the shared registration wizard. Worker registrations remain pending for admin approval.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap gap-2">
           <Button onClick={() => setOpen(true)} className="gap-2">
             <UserPlus className="h-4 w-4" />
             Register Vulnerable Person
+          </Button>
+
+          <Button asChild type="button" variant="outline" className="gap-2">
+            <label className={importing ? 'pointer-events-none opacity-60' : 'cursor-pointer'}>
+              {importing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
+              {importing ? 'Importing...' : 'Import Excel'}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={importing}
+                onChange={handleRegistrationExcelImport}
+              />
+            </label>
           </Button>
         </CardContent>
       </Card>
@@ -477,6 +1049,7 @@ function FieldNotesView({ workerId }: { workerId: string }) {
   const [loading, setLoading] = useState(true)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -491,6 +1064,11 @@ function FieldNotesView({ workerId }: { workerId: string }) {
   }, [workerId])
 
   useEffect(() => { load() }, [load])
+
+  const filteredNotes = notes.filter((item) => {
+    const search = query.trim().toLowerCase()
+    return !search || String(item.message || '').toLowerCase().includes(search)
+  })
 
   const submit = async () => {
     if (!note.trim()) return
@@ -531,24 +1109,37 @@ function FieldNotesView({ workerId }: { workerId: string }) {
         </CardContent>
       </Card>
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Recent Notes</h3>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-sm font-medium text-muted-foreground">Recent Notes</h3>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search field notes..."
+              className="w-[240px] pl-9"
+            />
+          </div>
+        </div>
         {loading ? (
           <WowLoader
             compact
             label="Loading field notes"
             description="Fetching recent observations..."
           />
-        ) : notes.length === 0 ? (
+        ) : filteredNotes.length === 0 ? (
           <p className="text-sm text-muted-foreground">No field notes yet.</p>
         ) : (
-          notes.map((n) => (
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-2">
+            {filteredNotes.map((n) => (
             <Card key={n.id}>
               <CardContent className="p-3">
                 <p className="text-sm">{n.message}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(n.createdAt)}</p>
               </CardContent>
             </Card>
-          ))
+          ))}
+          </div>
         )}
       </div>
     </div>
@@ -559,6 +1150,7 @@ function FieldNotesView({ workerId }: { workerId: string }) {
 function WorkerAnnouncementsView() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -573,11 +1165,32 @@ function WorkerAnnouncementsView() {
     })()
   }, [])
 
+  const filteredAnnouncements = announcements.filter((item) => {
+    const search = query.trim().toLowerCase()
+    if (!search) return true
+    return [
+      item.title,
+      item.content,
+      item.type,
+      item.priority,
+      item.location,
+    ].join(' ').toLowerCase().includes(search)
+  })
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">Notices from administrators.</p>
+      </div>
+      <div className="relative max-w-xl">
+        <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search announcements..."
+          className="pl-9"
+        />
       </div>
       <AnnouncementsCarousel userRole="worker" />
       {loading ? (
@@ -586,11 +1199,11 @@ function WorkerAnnouncementsView() {
           label="Loading announcements"
           description="Collecting official notices..."
         />
-      ) : announcements.length === 0 ? (
+      ) : filteredAnnouncements.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No announcements.</CardContent></Card>
       ) : (
-        <div className="space-y-3">
-          {announcements.map((a) => (
+        <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-2">
+          {filteredAnnouncements.map((a) => (
             <Card key={a.id}>
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center gap-2">

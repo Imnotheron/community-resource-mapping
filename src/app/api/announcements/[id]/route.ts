@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 type RouteParams = {
   params: Promise<{ id?: string }> | { id?: string }
@@ -71,6 +73,22 @@ async function ensureAnnouncementTable() {
   `)
 }
 
+async function roleForRequest(request: NextRequest) {
+  const auth = await requireRequestUser(request)
+  return 'error' in auth ? 'PUBLIC' : auth.role
+}
+
+function mayRead(row: AnnouncementRow, role: string) {
+  const active = row.isActive === true || row.isActive === 1 || row.isActive === '1'
+  if (role === 'ADMIN') return true
+  if (!active) return false
+
+  const target = String(row.targetRole || 'ALL').toUpperCase()
+  if (!target || target === 'ALL') return true
+  if (role === 'PUBLIC') return false
+  return target === role
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     await ensureAnnouncementTable()
@@ -81,7 +99,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!id) {
       return NextResponse.json(
         { success: false, message: 'Announcement ID is required.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -105,19 +123,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         WHERE "id" = ?
         LIMIT 1
       `,
-      id
+      id,
     )
 
-    if (!rows[0]) {
+    const row = rows[0]
+    if (!row) {
       return NextResponse.json(
         { success: false, message: 'Announcement not found.' },
-        { status: 404 }
+        { status: 404 },
+      )
+    }
+
+    const role = await roleForRequest(request)
+    if (!mayRead(row, role)) {
+      return NextResponse.json(
+        { success: false, message: 'Announcement not found.' },
+        { status: 404 },
       )
     }
 
     return NextResponse.json({
       success: true,
-      announcement: normalizeRow(rows[0]),
+      announcement: normalizeRow(row),
     })
   } catch (error: any) {
     console.error('Failed to load announcement:', error)
@@ -126,15 +153,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       {
         success: false,
         message: error?.message || 'Failed to load announcement.',
-        details: String(error),
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     await ensureAnnouncementTable()
 
     const resolvedParams = await readParams(params)
@@ -143,26 +174,33 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (!id) {
       return NextResponse.json(
         { success: false, message: 'Announcement ID is required.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     const now = new Date().toISOString()
-
     const result = await db.$executeRawUnsafe(
       `
         UPDATE "Announcement"
         SET "isActive" = false, "updatedAt" = ?
-        WHERE "id" = ?
+        WHERE "id" = ? AND "isActive" = true
       `,
       now,
-      id
+      id,
     )
+
+    const affected = Number(result || 0)
+    if (affected === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Active announcement not found.' },
+        { status: 404 },
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Announcement deleted successfully.',
-      affected: Number(result || 0),
+      message: 'Announcement removed from active views.',
+      affected,
     })
   } catch (error: any) {
     console.error('Failed to delete announcement:', error)
@@ -171,9 +209,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       {
         success: false,
         message: error?.message || 'Failed to delete announcement.',
-        details: String(error),
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
