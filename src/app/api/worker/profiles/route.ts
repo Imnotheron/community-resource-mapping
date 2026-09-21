@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         lastName: true,
         suffix: true,
         barangay: true,
+        vulnerabilityTypes: true,
         registrationStatus: true,
         needsAssistance: true,
         createdAt: true,
