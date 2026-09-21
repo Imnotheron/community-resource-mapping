@@ -1,291 +1,207 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import dynamic from 'next/dynamic'
-import { ArrowRight, Activity, ShieldCheck, Users, ClipboardCheck } from 'lucide-react'
-
-// Lazy-load LocatorVisual because it imports Three.js (~600KB), which is the
-// single heaviest dependency in the landing page. Loading it client-side only
-// keeps the initial server render fast and reduces compilation memory.
-const LocatorVisual = dynamic(
-  () => import('./locator-visual').then((m) => m.LocatorVisual),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex aspect-square w-full max-w-[460px] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-400/30 border-t-emerald-400" />
-      </div>
-    ),
-  }
-)
+import {
+  ArrowRight,
+  ClipboardCheck,
+  Play,
+  ShieldCheck,
+  Users,
+} from 'lucide-react'
 
 interface HeroSectionProps {
   onAccessPortal: () => void
 }
 
-function CrmsLogoImage({ className, alt = 'Community Resource Mapping System' }: { className?: string; alt?: string }) {
-  return (
-    <>
-      <img
-        src="/logos/crms-system-icon.png"
-        alt={alt}
-        className={className}
-        onError={(event) => {
-          const img = event.currentTarget
-
-          if (img.dataset.fallback === 'icon') {
-            img.src = '/favicon.ico'
-            img.dataset.fallback = 'favicon'
-            return
-          }
-
-          if (img.dataset.fallback === 'favicon') {
-            img.src = '/logos/san-policarpo.jpg'
-            img.dataset.fallback = 'seal'
-            return
-          }
-
-          if (img.dataset.fallback === 'seal') {
-            img.style.display = 'none'
-
-            const fallback = img.nextElementSibling as HTMLElement | null
-
-            if (fallback) {
-              fallback.style.display = 'grid'
-            }
-
-            return
-          }
-
-          img.src = '/icon.png'
-          img.dataset.fallback = 'icon'
-        }}
-      />
-      <span
-        className="hidden h-full w-full place-items-center rounded-2xl bg-emerald-50 text-sm font-black text-emerald-700"
-        style={{ display: 'none' }}
-      >
-        CRMS
-      </span>
-    </>
-  )
-}
-
 const ROLE_CARDS = [
   {
     title: 'Administrator',
-    description: 'Review registrations, manage users, approve relief records, publish notices, and monitor operations.',
+    description: 'Manage users, registrations, relief approvals, and reports.',
     icon: ShieldCheck,
+    tone: 'emerald',
   },
   {
     title: 'Field Worker',
-    description: 'Register citizens, record distributions, submit field notes, and prepare daily accomplishment reports.',
+    description: 'Register citizens, record distributions, and submit field updates.',
     icon: ClipboardCheck,
+    tone: 'sky',
   },
   {
     title: 'Vulnerable Citizen',
-    description: 'View registration details, track relief history, read announcements, and send feedback securely.',
+    description: 'View your profile, relief history, announcements, and feedback.',
     icon: Users,
+    tone: 'violet',
   },
 ] as const
 
+const roleStyles = {
+  emerald: {
+    card: 'border-emerald-100 bg-emerald-50/70',
+    icon: 'bg-emerald-100 text-emerald-700',
+  },
+  sky: {
+    card: 'border-sky-100 bg-sky-50/70',
+    icon: 'bg-sky-100 text-sky-700',
+  },
+  violet: {
+    card: 'border-violet-100 bg-violet-50/70',
+    icon: 'bg-violet-100 text-violet-700',
+  },
+} as const
+
 export function HeroSection({ onAccessPortal }: HeroSectionProps) {
   return (
-    <section
-      id="overview"
-      className="relative overflow-hidden px-4 pb-4 pt-28 md:px-8 md:pb-6 md:pt-32"
-    >
-      {/* Ambient background glows */}
-      <div
-        className="pointer-events-none absolute -top-32 left-1/4 h-96 w-96 rounded-full opacity-30 blur-[120px]"
-        style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }}
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute right-0 top-1/3 h-80 w-80 rounded-full opacity-20 blur-[100px]"
-        style={{ background: 'radial-gradient(circle, #34d399, transparent 70%)' }}
-        aria-hidden="true"
-      />
+    <section id="overview" className="relative overflow-hidden pt-24 md:pt-28">
+      <div className="absolute inset-x-0 top-0 h-[620px] bg-[linear-gradient(135deg,#ffffff_0%,#f8fffc_45%,#eefcf7_100%)]" />
+      <div className="pointer-events-none absolute right-[-8rem] top-12 h-96 w-96 rounded-full bg-emerald-100/70 blur-3xl" />
+      <div className="pointer-events-none absolute left-[-7rem] top-72 h-80 w-80 rounded-full bg-sky-100/60 blur-3xl" />
 
-      <div className="mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-8">
-          {/* Left — copy */}
-          <div className="flex flex-col items-start gap-6 text-left">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex items-center gap-4 rounded-3xl border border-emerald-500/20 bg-white/95 px-4 py-3 text-slate-950 shadow-[0_20px_70px_rgba(16,185,129,0.16)] backdrop-blur-sm"
-            >
-              <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-100 bg-white p-1 shadow-sm">
-                <CrmsLogoImage className="h-[118%] w-[118%] scale-[1.4] object-contain" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-black leading-tight text-slate-950 md:text-lg">
-                  Community Resource Mapping System
-                </p>
-                <p className="mt-1 text-[0.625rem] font-black uppercase tracking-[0.18em] text-emerald-700">
-                  San Policarpo · Eastern Samar
-                </p>
-              </div>
-            </motion.div>
+      <div className="relative mx-auto max-w-7xl px-4 md:px-8">
+        <div className="grid items-center gap-10 py-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14 lg:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55 }}
+            className="max-w-2xl"
+          >
+            <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.28em] text-emerald-700">
+              People · Resources · Safer Communities
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.05 }}
-              className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-950/40 px-3 py-1.5 backdrop-blur-sm"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-emerald-300">
-                Live · Eastern Samar, PH
-              </span>
-            </motion.div>
+            <h1 className="text-balance text-4xl font-black leading-[1.02] tracking-[-0.04em] text-slate-950 sm:text-5xl md:text-6xl lg:text-[4.15rem]">
+              Community Resource
+              <span className="block text-emerald-600">Mapping System</span>
+            </h1>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.05 }}
-              className="text-balance text-4xl font-bold leading-[1.05] tracking-tight text-emerald-50 md:text-6xl lg:text-[4.2rem]"
-            >
-              Mapping care
-              <br />
-              for every
-              <span className="relative ml-3 inline-block">
-                <span className="relative z-10 bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-300 bg-clip-text text-transparent">
-                  vulnerable
-                </span>
-                <motion.span
-                  className="absolute -bottom-1 left-0 h-[3px] w-full rounded-full bg-emerald-400/60"
-                  initial={{ scaleX: 0, originX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ duration: 0.7, delay: 0.6 }}
-                />
-              </span>
-              <br />
-              citizen.
-            </motion.h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 md:text-lg">
+              A web-based system for the Municipality of San Policarpo that
+              connects administrators, field workers, and vulnerable citizens
+              for organized registration, relief distribution, mapping, and
+              community updates.
+            </p>
 
-            <motion.p
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="max-w-xl text-base leading-relaxed text-emerald-100/70 md:text-lg"
-            >
-              A web-based community resource mapping and relief distribution
-              system for the Municipality of San Policarpo — connecting field
-              workers, administrators, and citizens in real time.
-            </motion.p>
-
-            {/* CTAs */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.25 }}
-              className="flex flex-col gap-3 sm:flex-row"
-            >
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={onAccessPortal}
-                className="group flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 px-6 py-3 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(52,211,153,0.4)] transition-all hover:shadow-[0_0_36px_rgba(52,211,153,0.6)] hover:brightness-110"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_14px_35px_rgba(5,150,105,0.24)] transition hover:bg-emerald-700 hover:shadow-[0_16px_42px_rgba(5,150,105,0.30)]"
               >
                 Access Portal
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
+
               <a
-                href="#features"
-                className="flex items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-6 py-3 text-sm font-semibold text-emerald-100 backdrop-blur-sm transition-all hover:border-emerald-400/60 hover:bg-emerald-900/40"
+                href="#roles"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
               >
-                <Activity className="h-4 w-4 text-emerald-400" />
-                Explore Features
+                <Play className="h-4 w-4 fill-emerald-600 text-emerald-600" />
+                See System Roles
               </a>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
 
-          {/* Right — locator visual */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
-            className="relative flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.96, y: 14 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.08 }}
+            className="relative"
           >
-            <LocatorVisual />
+            <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-emerald-100/70 via-sky-50 to-transparent blur-2xl" />
 
-            {/* Floating trust badge */}
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1, duration: 0.5 }}
-              className="absolute -left-2 top-1/4 hidden items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/70 px-3 py-2 backdrop-blur-md lg:flex"
-            >
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[0.625rem] uppercase tracking-wider text-emerald-400/70">DSWD</span>
-                <span className="text-xs font-medium text-emerald-50">Verified</span>
-              </div>
-            </motion.div>
+            <div className="relative mx-auto max-w-[720px]">
+              <div className="rounded-[1.6rem] border border-slate-300 bg-slate-900 p-2 shadow-[0_35px_90px_rgba(15,23,42,0.22)]">
+                <div className="overflow-hidden rounded-[1.1rem] border border-slate-700 bg-white">
+                  <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
+                    <img
+                      src="/logos/san-policarpo.jpg"
+                      alt="Municipality of San Policarpo seal"
+                      className="h-7 w-7 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">San Policarpo</p>
+                      <p className="text-[0.625rem] text-slate-500">Community Resource Mapping System</p>
+                    </div>
+                  </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1.1, duration: 0.5 }}
-              className="absolute -right-2 bottom-1/4 hidden items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/70 px-3 py-2 backdrop-blur-md lg:flex"
-            >
-              <Activity className="h-4 w-4 text-emerald-400" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[0.625rem] uppercase tracking-wider text-emerald-400/70">Real-time</span>
-                <span className="text-xs font-medium text-emerald-50">Synced</span>
+                  <div className="relative aspect-[16/8.9] bg-slate-100">
+                    <iframe
+                      title="San Policarpo map preview"
+                      src="https://www.openstreetmap.org/export/embed.html?bbox=125.375%2C12.125%2C125.625%2C12.285&layer=mapnik&marker=12.1792%2C125.5072"
+                      className="h-full w-full border-0"
+                      loading="lazy"
+                    />
+
+                    <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg">
+                      <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-emerald-600">
+                        Map View
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                        San Policarpo, Eastern Samar
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </motion.div>
+
+              <div className="mx-auto h-3 w-[86%] rounded-b-[999px] bg-gradient-to-b from-slate-300 to-slate-400 shadow-[0_14px_28px_rgba(15,23,42,0.16)]" />
+
+              <div className="absolute -bottom-4 right-2 rounded-2xl border border-emerald-100 bg-white px-4 py-3 shadow-xl md:right-6">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                    <span className="text-lg">⌖</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">San Policarpo</p>
+                    <p className="text-[0.6875rem] text-slate-500">Eastern Samar</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          id="roles"
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
+          viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.55 }}
-          className="mt-8 border-t border-emerald-500/15 pt-6 lg:mt-5"
+          className="pb-16 pt-5 md:pb-20"
         >
-          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-emerald-400/70">
-                Connected municipal workflow
-              </p>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight text-emerald-50 md:text-2xl">
-                One system, three connected roles
-              </h2>
-            </div>
-            <p className="max-w-md text-xs leading-5 text-emerald-100/50 sm:text-right">
-              Each role sees the tools needed for its part of registration, field operations, relief tracking, and communication.
+          <div className="mb-6 text-center">
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.24em] text-emerald-600">
+              Built for San Policarpo
             </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+              Three roles. One connected system.
+            </h2>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             {ROLE_CARDS.map((role, index) => {
               const Icon = role.icon
+              const styles = roleStyles[role.tone]
 
               return (
-                <motion.div
+                <motion.article
                   key={role.title}
                   initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: index * 0.07 }}
-                  className="group rounded-2xl border border-emerald-500/15 bg-emerald-950/35 p-4 backdrop-blur-sm transition hover:border-emerald-400/30 hover:bg-emerald-900/30"
+                  transition={{ duration: 0.35, delay: index * 0.06 }}
+                  className={`rounded-3xl border p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] ${styles.card}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-                      <Icon className="h-4.5 w-4.5" />
+                  <div className="flex items-center gap-4">
+                    <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${styles.icon}`}>
+                      <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-emerald-50">{role.title}</h3>
-                      <p className="mt-1 text-xs leading-5 text-emerald-100/55">{role.description}</p>
+                      <h3 className="font-bold text-slate-950">{role.title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        {role.description}
+                      </p>
                     </div>
                   </div>
-                </motion.div>
+                </motion.article>
               )
             })}
           </div>
