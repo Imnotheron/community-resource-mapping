@@ -391,11 +391,12 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
     setLoading(true)
     try {
       const query = new URLSearchParams({ date })
+      if (barangay !== 'ALL') query.set('barangay', barangay)
+      if (personId !== 'ALL') query.set('personId', personId)
+      if (lastName !== 'ALL') query.set('lastName', lastName)
+
       if (isAdmin) {
-        if (barangay !== 'ALL') query.set('barangay', barangay)
         if (workerId !== 'ALL') query.set('workerId', workerId)
-        if (personId !== 'ALL') query.set('personId', personId)
-        if (lastName !== 'ALL') query.set('lastName', lastName)
       } else {
         query.set('workerId', user.id)
       }
@@ -835,60 +836,60 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             />
           </div>
 
-          {isAdmin && (
-            <>
-              <div className="space-y-2">
-                <Label>Barangay</Label>
-                <Select value={barangay} onValueChange={setBarangay}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All barangays</SelectItem>
-                    {barangays.map((name: string) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <>
+            <div className="space-y-2">
+              <Label>Barangay</Label>
+              <Select value={barangay} onValueChange={setBarangay}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-72 overflow-y-auto">
+                  <SelectItem value="ALL">All barangays</SelectItem>
+                  {barangays.map((name: string) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-2">
-                <Label>Last name</Label>
-                <Select value={lastName} onValueChange={setLastName}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72 overflow-y-auto">
-                    <SelectItem value="ALL">All last names</SelectItem>
-                    {lastNames.map((name: string) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Last name</Label>
+              <Select value={lastName} onValueChange={setLastName}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-72 overflow-y-auto">
+                  <SelectItem value="ALL">All last names</SelectItem>
+                  {lastNames.map((name: string) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-2">
-                <Label>Person</Label>
-                <Select value={personId} onValueChange={setPersonId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72 overflow-y-auto">
-                    <SelectItem value="ALL">All people</SelectItem>
-                    {peopleForSelection.map((person: any) => (
-                      <SelectItem key={person.id} value={person.id}>
-                        {person.lastName}, {person.firstName}
-                        {person.barangay ? ` — ${person.barangay}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Person</Label>
+              <Select value={personId} onValueChange={setPersonId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-72 overflow-y-auto">
+                  <SelectItem value="ALL">All people</SelectItem>
+                  {peopleForSelection.map((person: any) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.lastName}, {person.firstName}
+                      {person.barangay ? ' — ' + person.barangay : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
+            {isAdmin && (
               <div className="space-y-2">
                 <Label>Worker</Label>
                 <Select value={workerId} onValueChange={setWorkerId}>
@@ -905,8 +906,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
                   </SelectContent>
                 </Select>
               </div>
-            </>
-          )}
+            )}
+          </>
 
           <div className="space-y-2">
             <Label>Sort printed lists by</Label>
