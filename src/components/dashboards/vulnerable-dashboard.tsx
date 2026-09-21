@@ -377,6 +377,8 @@ function ReliefHistoryView({ userId }: { userId: string }) {
   const [distributions, setDistributions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [feedbackTarget, setFeedbackTarget] = useState<any | null>(null)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState('DATE_DESC')
   const [feedbackForm, setFeedbackForm] = useState({ feedbackType: 'FEEDBACK', message: '' })
   const [submitting, setSubmitting] = useState(false)
 
@@ -393,6 +395,25 @@ function ReliefHistoryView({ userId }: { userId: string }) {
   }, [userId])
 
   useEffect(() => { load() }, [load])
+
+  const visibleDistributions = [...distributions]
+    .filter((item) => statusFilter === 'ALL' || item.status === statusFilter)
+    .sort((a, b) => {
+      if (sortBy === 'TYPE') {
+        return String(a.distributionType || '').localeCompare(
+          String(b.distributionType || ''),
+        )
+      }
+
+      if (sortBy === 'STATUS') {
+        return String(a.status || '').localeCompare(String(b.status || ''))
+      }
+
+      return (
+        new Date(b.distributionDate || b.createdAt).getTime() -
+        new Date(a.distributionDate || a.createdAt).getTime()
+      )
+    })
 
   const submitFeedback = async () => {
     if (!feedbackTarget || !feedbackForm.message.trim()) return
@@ -420,9 +441,32 @@ function ReliefHistoryView({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Relief History</h1>
-        <p className="text-sm text-muted-foreground">All relief distributions you have received.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Relief History</h1>
+          <p className="text-sm text-muted-foreground">All relief distributions you have received.</p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="min-w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All statuses</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DATE_DESC">Latest date</SelectItem>
+              <SelectItem value="TYPE">Distribution type</SelectItem>
+              <SelectItem value="STATUS">Status</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       {loading ? (
         <WowLoader
@@ -430,11 +474,11 @@ function ReliefHistoryView({ userId }: { userId: string }) {
           label="Loading relief history"
           description="Checking your distribution records..."
         />
-      ) : distributions.length === 0 ? (
+      ) : visibleDistributions.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No relief distributions recorded yet.</CardContent></Card>
       ) : (
-        <div className="space-y-3">
-          {distributions.map((d) => (
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+          {visibleDistributions.map((d) => (
             <Card key={d.id}>
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
