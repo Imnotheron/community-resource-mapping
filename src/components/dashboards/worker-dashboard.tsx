@@ -444,16 +444,6 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
       return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
     })
 
-  const filteredNotes = notes.filter((item) => {
-    const search = query.trim().toLowerCase()
-    return !search || String(item.message || '').toLowerCase().includes(search)
-  })
-
-  const filteredNotes = notes.filter((item) => {
-    const search = query.trim().toLowerCase()
-    return !search || String(item.message || '').toLowerCase().includes(search)
-  })
-
   const submit = async () => {
     if (!form.vulnerableProfileId || !form.distributionType || !form.itemsProvided || !form.quantity) {
       toast.error('Please fill all required fields')
