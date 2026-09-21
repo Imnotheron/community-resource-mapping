@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, User, Package, MessageSquare, Megaphone,
-  Loader2, Send, MapPin, CheckCircle2, Clock, AlertCircle, BookOpen,
+  Loader2, Send, MapPin, CheckCircle2, Clock, AlertCircle, BookOpen, Search,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { NavItem } from '@/components/layout/sidebar'
@@ -379,6 +379,7 @@ function ReliefHistoryView({ userId }: { userId: string }) {
   const [feedbackTarget, setFeedbackTarget] = useState<any | null>(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('DATE_DESC')
+  const [query, setQuery] = useState('')
   const [feedbackForm, setFeedbackForm] = useState({ feedbackType: 'FEEDBACK', message: '' })
   const [submitting, setSubmitting] = useState(false)
 
@@ -398,6 +399,18 @@ function ReliefHistoryView({ userId }: { userId: string }) {
 
   const visibleDistributions = [...distributions]
     .filter((item) => statusFilter === 'ALL' || item.status === statusFilter)
+    .filter((item) => {
+      const search = query.trim().toLowerCase()
+      if (!search) return true
+
+      return [
+        item.distributionType,
+        item.itemsProvided,
+        item.status,
+        item.worker?.name,
+        item.notes,
+      ].join(' ').toLowerCase().includes(search)
+    })
     .sort((a, b) => {
       if (sortBy === 'TYPE') {
         return String(a.distributionType || '').localeCompare(
@@ -447,7 +460,16 @@ function ReliefHistoryView({ userId }: { userId: string }) {
           <p className="text-sm text-muted-foreground">All relief distributions you have received.</p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search relief history..."
+              className="min-w-[220px] pl-9"
+            />
+          </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="min-w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -560,6 +582,7 @@ function ReliefHistoryView({ userId }: { userId: string }) {
 function FeedbackView({ userId }: { userId: string }) {
   const [feedback, setFeedback] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -575,6 +598,19 @@ function FeedbackView({ userId }: { userId: string }) {
 
   useEffect(() => { load() }, [load])
 
+  const filteredFeedback = feedback.filter((item) => {
+    const search = query.trim().toLowerCase()
+    if (!search) return true
+
+    return [
+      item.type,
+      item.status,
+      item.subject,
+      item.message,
+      item.adminResponse,
+    ].join(' ').toLowerCase().includes(search)
+  })
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -587,18 +623,29 @@ function FeedbackView({ userId }: { userId: string }) {
           <CardContent><FeedbackForm onSubmitted={load} /></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-base">Your Previous Feedback</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-base">Your Previous Feedback</CardTitle>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search feedback..."
+                className="pl-9"
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="max-h-[58vh] space-y-2 overflow-y-auto pr-2">
             {loading ? (
               <WowLoader
                 compact
                 label="Loading feedback"
                 description="Fetching your previous messages..."
               />
-            ) : feedback.length === 0 ? (
+            ) : filteredFeedback.length === 0 ? (
               <p className="text-sm text-muted-foreground">No feedback submitted yet.</p>
             ) : (
-              feedback.map((f) => (
+              filteredFeedback.map((f) => (
                 <div key={f.id} className="border-b border-border pb-2 last:border-0 last:pb-0">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[0.625rem]">{f.type.replace(/_/g, ' ')}</Badge>
@@ -626,6 +673,7 @@ function FeedbackView({ userId }: { userId: string }) {
 function AnnouncementsView() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -640,11 +688,33 @@ function AnnouncementsView() {
     })()
   }, [])
 
+  const filteredAnnouncements = announcements.filter((item) => {
+    const search = query.trim().toLowerCase()
+    if (!search) return true
+
+    return [
+      item.title,
+      item.content,
+      item.type,
+      item.priority,
+      item.location,
+    ].join(' ').toLowerCase().includes(search)
+  })
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">Official notices from the MSWDO and administrators.</p>
+      </div>
+      <div className="relative max-w-xl">
+        <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search announcements..."
+          className="pl-9"
+        />
       </div>
       <AnnouncementsCarousel userRole="vulnerable" />
       {loading ? (
@@ -653,11 +723,11 @@ function AnnouncementsView() {
           label="Loading announcements"
           description="Collecting official notices..."
         />
-      ) : announcements.length === 0 ? (
+      ) : filteredAnnouncements.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No announcements at this time.</CardContent></Card>
       ) : (
-        <div className="space-y-3">
-          {announcements.map((a) => (
+        <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-2">
+          {filteredAnnouncements.map((a) => (
             <Card key={a.id}>
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
