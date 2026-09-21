@@ -37,6 +37,7 @@ import {
   CalendarDays,
   History,
   Search,
+  FileSpreadsheet,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
@@ -572,12 +573,74 @@ function OverviewSkeleton() {
 }
 
 // =================== REGISTRATIONS ===================
+
+async function loadRegistrationExcelParser() {
+  const existing = (window as any).XLSX
+  if (existing) return existing
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
+    script.async = true
+    script.onload = () => resolve()
+    script.onerror = () =>
+      reject(
+        new Error(
+          'Unable to load the Excel parser. Check your internet connection and try again.',
+        ),
+      )
+    document.head.appendChild(script)
+  })
+
+  const loaded = (window as any).XLSX
+  if (!loaded) throw new Error('Excel parser did not load correctly.')
+  return loaded
+}
+
+function normalizeRegistrationImportRow(row: Record<string, any>) {
+  const normalized: Record<string, any> = {}
+
+  Object.entries(row || {}).forEach(([key, value]) => {
+    normalized[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = value
+  })
+
+  return normalized
+}
+
+function importBoolean(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return ['1', 'true', 'yes', 'y', 'on'].includes(normalized)
+}
+
+function importedSectors(value: unknown) {
+  return String(value || '')
+    .split(/[,;|]/)
+    .map((entry) =>
+      entry
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, '_'),
+    )
+    .filter(Boolean)
+}
+
+function registrationSectorValues(profile: any) {
+  const sectors = formatVulnerabilityTypes(profile?.vulnerabilityTypes)
+  return sectors.length ? sectors : ['OTHER']
+}
+
+function registrationSectorLabel(value: string) {
+  return vulnerabilityLabel(value || 'OTHER')
+}
+
 function RegistrationsView() {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('PENDING')
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState('LAST_NAME')
+  const [sectorFilter, setSectorFilter] = useState('ALL')
+  const [importing, setImporting] = useState(false)
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRegisterVulnerable, setShowRegisterVulnerable] = useState(false)
@@ -599,8 +662,19 @@ function RegistrationsView() {
     load()
   }, [load])
 
+  const sectors = Array.from(
+    new Set(profiles.flatMap((profile) => registrationSectorValues(profile))),
+  ).sort((a, b) =>
+    registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
+  )
+
   const filtered = profiles
     .filter((p) => filter === 'ALL' || p.registrationStatus === filter)
+    .filter(
+      (p) =>
+        sectorFilter === 'ALL' ||
+        registrationSectorValues(p).includes(sectorFilter),
+    )
     .filter((p) => {
       const search = query.trim().toLowerCase()
       if (!search) return true
@@ -614,12 +688,22 @@ function RegistrationsView() {
         p.barangay,
         p.gender,
         p.registrationStatus,
+        ...registrationSectorValues(p).map(registrationSectorLabel),
       ]
         .join(' ')
         .toLowerCase()
         .includes(search)
     })
     .sort((a, b) => {
+      if (sortBy === 'SECTOR') {
+        const compared = registrationSectorLabel(
+          registrationSectorValues(a)[0],
+        ).localeCompare(
+          registrationSectorLabel(registrationSectorValues(b)[0]),
+        )
+        if (compared !== 0) return compared
+      }
+
       if (sortBy === 'BARANGAY') {
         const compared = String(a.barangay || '').localeCompare(String(b.barangay || ''))
         if (compared !== 0) return compared
@@ -637,6 +721,156 @@ function RegistrationsView() {
       if (compared !== 0) return compared
       return String(a.firstName || '').localeCompare(String(b.firstName || ''))
     })
+
+  const handleRegistrationExcelImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    const adminId = getAdminId()
+    if (!adminId) {
+      toast.error('Admin session missing', {
+        description: 'Please sign in again before importing registrations.',
+      })
+      return
+    }
+
+    setImporting(true)
+
+    try {
+      const XLSX = await loadRegistrationExcelParser()
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(firstSheet, {
+        defval: '',
+      }) as Record<string, any>[]
+
+      if (!rows.length) {
+        toast.error('The Excel file is empty')
+        return
+      }
+
+      if (rows.length > 200) {
+        toast.error('Import is limited to 200 registrations at a time')
+        return
+      }
+
+      let imported = 0
+      const failed: string[] = []
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = normalizeRegistrationImportRow(rows[index])
+
+        const firstName = String(row.firstname || '').trim()
+        const lastName = String(row.lastname || '').trim()
+        const emailAddress = String(
+          row.emailaddress || row.email || '',
+        )
+          .trim()
+          .toLowerCase()
+        const mobileNumber = String(
+          row.mobilenumber || row.mobile || row.phone || '',
+        ).trim()
+        const barangay = String(row.barangay || '').trim()
+
+        if (
+          !firstName ||
+          !lastName ||
+          !emailAddress ||
+          !mobileNumber ||
+          !barangay
+        ) {
+          failed.push(`Row ${index + 2}: missing required fields`)
+          continue
+        }
+
+        const vulnerabilityTypes = importedSectors(
+          row.sector ||
+            row.sectors ||
+            row.vulnerabilitytype ||
+            row.vulnerabilitytypes ||
+            row.category,
+        )
+
+        const payload = {
+          adminId,
+          firstName,
+          lastName,
+          middleName: String(row.middlename || '').trim(),
+          suffix: String(row.suffix || '').trim(),
+          emailAddress,
+          mobileNumber,
+          landlineNumber: String(row.landlinenumber || '').trim(),
+          dateOfBirth: String(row.dateofbirth || row.birthdate || '').trim(),
+          gender: String(row.gender || '').trim(),
+          civilStatus: String(row.civilstatus || '').trim(),
+          houseNumber: String(row.housenumber || '').trim(),
+          street: String(row.street || '').trim(),
+          barangay,
+          municipality:
+            String(row.municipality || '').trim() || 'San Policarpo',
+          province:
+            String(row.province || '').trim() || 'Eastern Samar',
+          latitude: String(row.latitude || '').trim(),
+          longitude: String(row.longitude || '').trim(),
+          educationalAttainment: String(
+            row.educationalattainment || '',
+          ).trim(),
+          employmentStatus: String(row.employmentstatus || '').trim(),
+          employmentDetails: String(row.employmentdetails || '').trim(),
+          emergencyContact: String(row.emergencycontact || '').trim(),
+          emergencyPhone: String(row.emergencyphone || '').trim(),
+          hasMedicalCondition: importBoolean(row.hasmedicalcondition),
+          medicalConditions: String(row.medicalconditions || '').trim(),
+          needsAssistance: importBoolean(row.needsassistance),
+          assistanceType: String(row.assistancetype || '').trim(),
+          vulnerabilityTypes,
+          hasDisability: importBoolean(row.hasdisability),
+          disabilityType: String(row.disabilitytype || '').trim(),
+          disabilityCause: String(row.disabilitycause || '').trim(),
+        }
+
+        try {
+          await apiFetch('/api/admin/register-vulnerable', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          imported += 1
+        } catch (error: any) {
+          failed.push(
+            `Row ${index + 2}: ${error?.message || 'import failed'}`,
+          )
+        }
+      }
+
+      if (imported > 0) {
+        toast.success(
+          `${imported} registration${imported === 1 ? '' : 's'} imported`,
+          {
+            description: failed.length
+              ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
+              : 'All Excel registrations were added successfully.',
+          },
+        )
+        await load()
+      } else {
+        toast.error('No registrations were imported', {
+          description:
+            failed[0] ||
+            'Check the required Excel columns and try again.',
+        })
+      }
+    } catch (error: any) {
+      toast.error('Excel import failed', {
+        description:
+          error?.message || 'Unable to read the selected spreadsheet.',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const approve = async (profileId: string) => {
     try {
@@ -759,6 +993,24 @@ function RegistrationsView() {
             Register Vulnerable Person
           </Button>
 
+          <Button asChild type="button" variant="outline" className="gap-1.5">
+            <label className={importing ? 'pointer-events-none opacity-60' : 'cursor-pointer'}>
+              {importing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
+              {importing ? 'Importing...' : 'Import Excel'}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={importing}
+                onChange={handleRegistrationExcelImport}
+              />
+            </label>
+          </Button>
+
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -771,12 +1023,27 @@ function RegistrationsView() {
             </SelectContent>
           </Select>
 
+          <Select value={sectorFilter} onValueChange={setSectorFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto">
+              <SelectItem value="ALL">All sectors</SelectItem>
+              {sectors.map((sector) => (
+                <SelectItem key={sector} value={sector}>
+                  {registrationSectorLabel(sector)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+              <SelectItem value="SECTOR">Sort: Sector</SelectItem>
               <SelectItem value="BARANGAY">Sort: Barangay</SelectItem>
               <SelectItem value="DATE_DESC">Sort: Newest</SelectItem>
               <SelectItem value="DATE_ASC">Sort: Oldest</SelectItem>
