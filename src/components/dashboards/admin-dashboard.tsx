@@ -30,6 +30,10 @@ import {
   Siren,
   Activity,
   Printer,
+  Eye,
+  Phone,
+  Mail,
+  CalendarDays,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
@@ -1019,6 +1023,10 @@ function UsersView() {
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [profileTarget, setProfileTarget] = useState<any | null>(null);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [selectedVulnerableProfile, setSelectedVulnerableProfile] = useState<any | null>(null);
 
   const changeRoleFilter = (nextFilter: UserRoleFilter) => {
     if (nextFilter === roleFilter) return;
@@ -1100,6 +1108,38 @@ function UsersView() {
       return matchesRole && matchesPresence;
     });
   }, [users, roleFilter, presenceFilter]);
+
+  const openUserProfile = async (user: any) => {
+    setProfileTarget(user);
+    setProfileDialogOpen(true);
+    setSelectedVulnerableProfile(null);
+
+    if (
+      normalizeRole(user?.role) !== "VULNERABLE" ||
+      !user?.vulnerableProfile?.id
+    ) {
+      return;
+    }
+
+    setProfileLoading(true);
+
+    try {
+      const data = await apiFetch("/api/admin/profiles");
+      const profiles = data.profiles || [];
+      const profile =
+        profiles.find((item: any) => item.id === user.vulnerableProfile.id) ||
+        profiles.find((item: any) => item.userId === user.id) ||
+        null;
+
+      setSelectedVulnerableProfile(profile);
+    } catch (err: any) {
+      toast.error("Failed to load user profile", {
+        description: err.message,
+      });
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const requestDeleteUser = (user: any) => {
     setDeleteTarget(user);
@@ -1346,6 +1386,18 @@ function UsersView() {
                       <OnlineStatusBadge user={u} />
                     </TableCell>
                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openUserProfile(u)}
+                          className="text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+                          aria-label={`View ${u.name || u.email || "user"} profile`}
+                          title="View profile"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       {u.id !== getAdminId() ? (
                         <Button
                           type="button"
@@ -1370,6 +1422,7 @@ function UsersView() {
                           Current account
                         </Badge>
                       )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1385,6 +1438,20 @@ function UsersView() {
         onCreated={() => load(false)}
       />
 
+      <UserManagementProfileDialog
+        user={profileTarget}
+        vulnerableProfile={selectedVulnerableProfile}
+        loading={profileLoading}
+        open={profileDialogOpen}
+        onOpenChange={(open) => {
+          setProfileDialogOpen(open);
+          if (!open) {
+            setProfileTarget(null);
+            setSelectedVulnerableProfile(null);
+          }
+        }}
+      />
+
       <DeleteUserConfirmDialog
         user={deleteTarget}
         open={Boolean(deleteTarget)}
@@ -1393,6 +1460,175 @@ function UsersView() {
         onConfirm={confirmDeleteUser}
       />
     </div>
+  );
+}
+
+function UserManagementProfileDialog({
+  user,
+  vulnerableProfile,
+  loading,
+  open,
+  onOpenChange,
+}: {
+  user: any | null;
+  vulnerableProfile: any | null;
+  loading: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const role = normalizeRole(user?.role) || "USER";
+  const profile = vulnerableProfile;
+  const displayName = profile
+    ? `${profile.firstName || ""} ${profile.middleName ? profile.middleName + " " : ""}${profile.lastName || ""}${profile.suffix ? ", " + profile.suffix : ""}`.trim()
+    : user?.name || "User";
+
+  const address = profile
+    ? [
+        profile.houseNumber,
+        profile.street,
+        profile.barangay,
+        profile.municipality,
+        profile.province,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+
+  const vulnerabilities = profile
+    ? formatVulnerabilityTypes(profile.vulnerabilityTypes)
+    : [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>User Profile</DialogTitle>
+          <DialogDescription>
+            Account information
+            {role === "VULNERABLE"
+              ? " and registered vulnerable citizen details."
+              : "."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!user ? null : loading ? (
+          <WowLoader
+            compact
+            label="Loading profile"
+            description="Retrieving the full user record..."
+          />
+        ) : (
+          <div className="space-y-5">
+            <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <UserManagementAvatar user={user} />
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-semibold text-slate-950">
+                  {displayName}
+                </h3>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{role}</Badge>
+                  <OnlineStatusBadge user={user} />
+                  {profile?.registrationStatus ? (
+                    <StatusBadge status={profile.registrationStatus} />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Mail className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Email</p>
+                <p className="break-all text-sm font-semibold text-slate-900">
+                  {user.email || profile?.emailAddress || "Not recorded"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Phone className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Phone</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {user.phone || profile?.mobileNumber || "Not recorded"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <CalendarDays className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Account created</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {formatDate(user.createdAt)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Activity className="h-4 w-4 text-emerald-600" />
+                <p className="mt-2 text-xs text-slate-500">Last seen</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {user.lastSeenAt ? formatDateTime(user.lastSeenAt) : "Not recorded"}
+                </p>
+              </div>
+            </div>
+
+            {role === "VULNERABLE" ? (
+              profile ? (
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-950">Registered address</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {address || "Not recorded"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm font-semibold text-slate-950">Vulnerability sectors</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {vulnerabilities.length ? (
+                        vulnerabilities.map((type) => (
+                          <Badge key={type} variant="outline" className="bg-emerald-50 text-emerald-700">
+                            {vulnerabilityLabel(type)}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-slate-500">Not specified</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">Assistance status</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {profile.needsAssistance ? "Needs assistance" : "No active assistance flag"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">Latest relief</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {profile.lastDistributionType || "No distribution recorded"}
+                      </p>
+                      {profile.lastDistributionDate ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatDate(profile.lastDistributionDate)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  This vulnerable account does not have an available registered profile record.
+                </div>
+              )
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                This is a {role === "ADMIN" ? "system administrator" : "field worker"} account.
+                Vulnerable citizen registration details do not apply to this role.
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
