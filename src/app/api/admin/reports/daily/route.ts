@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
     )
     const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
     const workerId = request.nextUrl.searchParams.get('workerId')?.trim() || null
+    const personId = request.nextUrl.searchParams.get('personId')?.trim() || null
+    const lastName = request.nextUrl.searchParams.get('lastName')?.trim() || null
 
     if (workerId) {
       const worker = await db.user.findUnique({
@@ -53,18 +55,26 @@ export async function GET(request: NextRequest) {
 
     const profileWhere: any = {
       ...(barangay ? { barangay } : {}),
+      ...(personId ? { id: personId } : {}),
+      ...(lastName ? { lastName } : {}),
     }
     const dailyProfileWhere: any = {
       ...profileWhere,
       createdAt: { gte: start, lt: end },
     }
+    const beneficiaryWhere: any = {
+      ...(barangay ? { barangay } : {}),
+      ...(personId ? { id: personId } : {}),
+      ...(lastName ? { lastName } : {}),
+    }
+
     const distributionWhere: any = {
       distributionDate: { gte: start, lt: end },
       ...(workerId ? { workerId } : {}),
-      ...(barangay
+      ...((barangay || personId || lastName)
         ? {
             vulnerableProfile: {
-              is: { barangay },
+              is: beneficiaryWhere,
             },
           }
         : {}),
@@ -82,6 +92,7 @@ export async function GET(request: NextRequest) {
       workers,
       barangayProfiles,
       allBarangayRows,
+      allPeopleRows,
     ] = await Promise.all([
       db.vulnerableProfile.count({ where: profileWhere }),
       db.vulnerableProfile.count({ where: dailyProfileWhere }),
@@ -165,6 +176,20 @@ export async function GET(request: NextRequest) {
         distinct: ['barangay'],
         orderBy: { barangay: 'asc' },
       }),
+      db.vulnerableProfile.findMany({
+        select: {
+          id: true,
+          firstName: true,
+          middleName: true,
+          lastName: true,
+          suffix: true,
+          barangay: true,
+        },
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' },
+        ],
+      }),
     ])
 
     const barangayCounts = new Map<string, number>()
@@ -212,7 +237,7 @@ export async function GET(request: NextRequest) {
         date,
         generatedAt: new Date().toISOString(),
         timeZone: 'Asia/Manila',
-        filters: { barangay, workerId },
+        filters: { barangay, workerId, personId, lastName },
         summary: {
           totalVulnerableCitizens,
           newRegistrations,
@@ -233,6 +258,7 @@ export async function GET(request: NextRequest) {
           .map((item) => item.barangay)
           .filter(Boolean),
         workers,
+        people: allPeopleRows,
       },
     })
   } catch (error) {
