@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { DashboardAmbient } from '@/components/effects/dashboard-ambient'
+import { SilkLightBackground } from '@/components/ui/silk-light-background'
 
 type Role = 'admin' | 'worker' | 'vulnerable'
 type Mode = 'select' | 'login'
@@ -154,12 +154,24 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
   const SelectedIcon = selected.icon
 
   return (
-    <div className="app-shell auth-wow relative overflow-hidden">
-      <DashboardAmbient />
+    <div className="app-shell auth-wow relative overflow-hidden bg-white">
+      <SilkLightBackground intensity="medium" />
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[8%] h-72 w-[62rem] max-w-[92vw] -translate-x-1/2 rounded-full bg-emerald-100/55 blur-[90px]"
+        animate={{ opacity: [0.45, 0.82, 0.45], scale: [1, 1.06, 1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-[-8rem] right-[4%] h-80 w-80 rounded-full bg-sky-100/50 blur-[100px]"
+        animate={{ x: [0, -22, 0], y: [0, -14, 0], opacity: [0.35, 0.72, 0.35] }}
+        transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+      />
       {onBack && (
         <motion.button
           onClick={onBack}
-          className="group fixed left-4 top-4 z-50 flex items-center gap-2 rounded-full border border-primary/20 bg-background/70 py-2 pl-3 pr-4 text-sm font-semibold text-muted-foreground shadow-xl backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-background/90 hover:text-foreground hover:shadow-primary/20 md:left-6 md:top-6"
+          className="group fixed left-4 top-4 z-50 flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/75 py-2 pl-3 pr-4 text-sm font-semibold text-slate-600 shadow-xl backdrop-blur-xl transition-all hover:border-emerald-300 hover:bg-white/95 hover:text-slate-900 hover:shadow-emerald-500/15 md:left-6 md:top-6"
           aria-label="Back to Home"
           initial={{ opacity: 0, x: -14 }}
           animate={{ opacity: 1, x: 0 }}
@@ -259,7 +271,7 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
                         setMode('login')
                       }}
                       className={cn(
-                        'group auth-role-card relative flex min-h-[190px] flex-col items-start gap-4 overflow-hidden rounded-2xl border border-border bg-gradient-to-br p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur transition-all',
+                        'group auth-role-card relative flex min-h-[190px] flex-col items-start gap-4 overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br p-6 text-left shadow-[0_20px_60px_rgba(15,23,42,0.10)] backdrop-blur-xl transition-all',
                         r === 'admin' && 'hidden md:flex',
                         c.gradient,
                         c.border,
@@ -363,7 +375,7 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
         </AnimatePresence>
 
         <motion.div
-          className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-center text-xs text-muted-foreground shadow-sm backdrop-blur"
+          className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-center text-xs text-slate-500 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl"
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
