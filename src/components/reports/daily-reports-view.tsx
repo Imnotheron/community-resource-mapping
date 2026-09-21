@@ -381,6 +381,9 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
   const [date, setDate] = useState(todayInputValue())
   const [barangay, setBarangay] = useState('ALL')
   const [workerId, setWorkerId] = useState('ALL')
+  const [personId, setPersonId] = useState('ALL')
+  const [lastName, setLastName] = useState('ALL')
+  const [sortBy, setSortBy] = useState('LAST_NAME')
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -391,6 +394,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
       if (isAdmin) {
         if (barangay !== 'ALL') query.set('barangay', barangay)
         if (workerId !== 'ALL') query.set('workerId', workerId)
+        if (personId !== 'ALL') query.set('personId', personId)
+        if (lastName !== 'ALL') query.set('lastName', lastName)
       } else {
         query.set('workerId', user.id)
       }
@@ -405,13 +410,94 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
     } finally {
       setLoading(false)
     }
-  }, [barangay, date, isAdmin, user.id, workerId])
+  }, [barangay, date, isAdmin, lastName, personId, user.id, workerId])
 
   useEffect(() => {
     load()
   }, [load])
 
   const barangays = useMemo(() => report?.barangays || [], [report])
+  const people = useMemo(() => report?.people || [], [report])
+
+  const lastNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          people
+            .filter((person: any) => barangay === 'ALL' || person.barangay === barangay)
+            .map((person: any) => String(person.lastName || '').trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => String(a).localeCompare(String(b))),
+    [barangay, people],
+  )
+
+  const peopleForSelection = useMemo(
+    () =>
+      people
+        .filter((person: any) => barangay === 'ALL' || person.barangay === barangay)
+        .filter((person: any) => lastName === 'ALL' || person.lastName === lastName)
+        .sort((a: any, b: any) =>
+          `${a.lastName || ''} ${a.firstName || ''}`.localeCompare(
+            `${b.lastName || ''} ${b.firstName || ''}`,
+          ),
+        ),
+    [barangay, lastName, people],
+  )
+
+  useEffect(() => {
+    if (
+      personId !== 'ALL' &&
+      !peopleForSelection.some((person: any) => person.id === personId)
+    ) {
+      setPersonId('ALL')
+    }
+  }, [peopleForSelection, personId])
+
+  useEffect(() => {
+    if (lastName !== 'ALL' && !lastNames.includes(lastName)) {
+      setLastName('ALL')
+    }
+  }, [lastName, lastNames])
+
+  const displayReport = useMemo(() => {
+    if (!report) return report
+
+    const personName = (item: any) =>
+      item?.vulnerableProfile
+        ? `${item.vulnerableProfile.lastName || ''} ${item.vulnerableProfile.firstName || ''}`
+        : item?.lastName
+          ? `${item.lastName || ''} ${item.firstName || ''}`
+          : item?.household?.headOfHousehold || ''
+
+    const barangayName = (item: any) =>
+      item?.vulnerableProfile?.barangay ||
+      item?.barangay ||
+      item?.household?.barangay ||
+      ''
+
+    const sortRecords = (items: any[]) =>
+      [...(items || [])].sort((a, b) => {
+        if (sortBy === 'BARANGAY') {
+          const compared = barangayName(a).localeCompare(barangayName(b))
+          if (compared !== 0) return compared
+        }
+
+        if (sortBy === 'DATE') {
+          const aDate = new Date(a.distributionDate || a.createdAt || 0).getTime()
+          const bDate = new Date(b.distributionDate || b.createdAt || 0).getTime()
+          return bDate - aDate
+        }
+
+        return personName(a).localeCompare(personName(b))
+      })
+
+    return {
+      ...report,
+      distributions: sortRecords(report.distributions || []),
+      registrations: sortRecords(report.registrations || []),
+    }
+  }, [report, sortBy])
 
   return (
     <div className="daily-reports-screen space-y-5 animate-fade-in">
@@ -738,7 +824,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             Report Filters
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="report-date">Report date</Label>
             <Input
@@ -769,12 +855,47 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               </div>
 
               <div className="space-y-2">
+                <Label>Last name</Label>
+                <Select value={lastName} onValueChange={setLastName}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72 overflow-y-auto">
+                    <SelectItem value="ALL">All last names</SelectItem>
+                    {lastNames.map((name: string) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Person</Label>
+                <Select value={personId} onValueChange={setPersonId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72 overflow-y-auto">
+                    <SelectItem value="ALL">All people</SelectItem>
+                    {peopleForSelection.map((person: any) => (
+                      <SelectItem key={person.id} value={person.id}>
+                        {person.lastName}, {person.firstName}
+                        {person.barangay ? ` — ${person.barangay}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Worker</Label>
                 <Select value={workerId} onValueChange={setWorkerId}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-72 overflow-y-auto">
                     <SelectItem value="ALL">All workers</SelectItem>
                     {(report?.workers || []).map((worker: any) => (
                       <SelectItem key={worker.id} value={worker.id}>
@@ -786,6 +907,20 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               </div>
             </>
           )}
+
+          <div className="space-y-2">
+            <Label>Sort printed lists by</Label>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="LAST_NAME">Last name / Person</SelectItem>
+                <SelectItem value="BARANGAY">Barangay</SelectItem>
+                <SelectItem value="DATE">Latest date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -811,7 +946,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               : 'Daily Worker Accomplishment Report'
           }
         >
-          {isAdmin ? <AdminReport report={report} /> : <WorkerReport report={report} />}
+          {isAdmin ? <AdminReport report={displayReport} /> : <WorkerReport report={displayReport} />}
         </div>
       )}
     </div>
