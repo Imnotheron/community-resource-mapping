@@ -132,15 +132,14 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                   ? undefined
                   : {
                       y: [0, -8, 0],
-                      rotateX: [0, 1.2, 0],
-                      rotateY: [-1.2, 1.2, -1.2],
+                      x: [0, 3, 0],
                     }
               }
               transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
               whileHover={
                 prefersReducedMotion
                   ? undefined
-                  : { y: -10, rotateX: 1.5, rotateY: -1.5, scale: 1.01 }
+                  : { y: -10, x: 2, scale: 1.01 }
               }
             >
               <div className="relative rounded-[2rem] border-[8px] border-slate-950 bg-slate-950 shadow-[0_30px_80px_rgba(15,23,42,0.24)]">
