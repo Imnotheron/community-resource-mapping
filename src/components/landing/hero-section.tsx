@@ -132,6 +132,10 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                       aria-hidden="true"
                     />
                     <div className="absolute inset-0 z-10 cursor-default" aria-hidden="true" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-7 bg-white" aria-hidden="true" />
+                    <div className="pointer-events-none absolute bottom-1 right-2 z-30 text-[0.55rem] text-slate-400">
+                      © OpenStreetMap contributors
+                    </div>
 
                     <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg">
                       <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-emerald-600">
@@ -147,17 +151,6 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
 
               <div className="mx-auto h-3 w-[86%] rounded-b-[999px] bg-gradient-to-b from-slate-300 to-slate-400 shadow-[0_14px_28px_rgba(15,23,42,0.16)]" />
 
-              <div className="absolute -bottom-4 right-2 rounded-2xl border border-emerald-100 bg-white px-4 py-3 shadow-xl md:right-6">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700">
-                    <span className="text-lg">⌖</span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-900">San Policarpo</p>
-                    <p className="text-[0.6875rem] text-slate-500">Eastern Samar</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </motion.div>
         </div>
