@@ -71,8 +71,8 @@ export function SilkLightBackground({
             : {
                 x: ['-3%', '3%', '-2%', '-3%'],
                 y: [0, 24, -10, 0],
-                rotate: [-7, -4.5, -8, -7],
                 scaleY: [1, 1.22, 0.96, 1],
+                scaleX: [1, 1.06, 0.98, 1],
               }
         }
         transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
@@ -86,8 +86,8 @@ export function SilkLightBackground({
             : {
                 x: ['3%', '-4%', '2%', '3%'],
                 y: [0, -20, 14, 0],
-                rotate: [5, 8, 3.5, 5],
                 scaleY: [1, 0.9, 1.18, 1],
+                scaleX: [1, 0.96, 1.08, 1],
               }
         }
         transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
@@ -101,10 +101,25 @@ export function SilkLightBackground({
             : {
                 x: ['-2%', '4%', '-1%', '-2%'],
                 y: [0, 16, -8, 0],
-                rotate: [-3, -1, -5, -3],
+                scaleX: [1, 1.08, 0.97, 1],
               }
         }
         transition={{ duration: 17, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <motion.div
+        className="absolute left-[-35%] top-[34%] h-24 w-[170%] rounded-[999px] bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.08)_16%,rgba(167,243,208,0.66)_34%,rgba(186,230,253,0.72)_52%,rgba(221,214,254,0.50)_68%,rgba(255,255,255,0.06)_84%,transparent_100%)] blur-[24px]"
+        animate={
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: ['-10%', '8%', '-4%', '-10%'],
+                y: [0, 18, -12, 0],
+                opacity: [0.48, 0.88, 0.62, 0.48],
+                scaleY: [1, 1.24, 0.92, 1],
+              }
+        }
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       <svg
