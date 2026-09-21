@@ -873,6 +873,11 @@ function FieldNotesView({ workerId }: { workerId: string }) {
 
   useEffect(() => { load() }, [load])
 
+  const filteredNotes = notes.filter((item) => {
+    const search = query.trim().toLowerCase()
+    return !search || String(item.message || '').toLowerCase().includes(search)
+  })
+
   const submit = async () => {
     if (!note.trim()) return
     setSubmitting(true)
