@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import {
   ArrowRight,
@@ -56,11 +56,22 @@ const roleStyles = {
 } as const
 
 export function HeroSection({ onAccessPortal }: HeroSectionProps) {
+  const prefersReducedMotion = useReducedMotion()
+
   return (
     <section id="overview" className="relative overflow-hidden pt-24 md:pt-28">
       <div className="absolute inset-x-0 top-0 h-[620px] bg-[linear-gradient(135deg,#ffffff_0%,#f8fffc_45%,#eefcf7_100%)]" />
-      <div className="pointer-events-none absolute right-[-8rem] top-12 h-96 w-96 rounded-full bg-emerald-100/70 blur-3xl" />
-      <div className="pointer-events-none absolute left-[-7rem] top-72 h-80 w-80 rounded-full bg-sky-100/60 blur-3xl" />
+
+      <motion.div
+        className="pointer-events-none absolute right-[-8rem] top-12 h-96 w-96 rounded-full bg-emerald-100/70 blur-3xl"
+        animate={prefersReducedMotion ? undefined : { x: [0, -14, 0], y: [0, 10, 0], scale: [1, 1.04, 1] }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="pointer-events-none absolute left-[-7rem] top-72 h-80 w-80 rounded-full bg-sky-100/60 blur-3xl"
+        animate={prefersReducedMotion ? undefined : { x: [0, 12, 0], y: [0, -8, 0], scale: [1, 1.03, 1] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
       <div className="relative mx-auto max-w-7xl px-4 md:px-8">
         <div className="grid items-center gap-10 py-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14 lg:py-16">
@@ -87,21 +98,27 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
+              <motion.button
                 onClick={onAccessPortal}
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_14px_35px_rgba(5,150,105,0.24)] transition hover:bg-emerald-700 hover:shadow-[0_16px_42px_rgba(5,150,105,0.30)]"
+                whileHover={prefersReducedMotion ? undefined : { y: -3, scale: 1.015 }}
+                whileTap={prefersReducedMotion ? undefined : { y: 1, scale: 0.985 }}
+                transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_14px_35px_rgba(5,150,105,0.24)] transition-colors hover:bg-emerald-700 hover:shadow-[0_16px_42px_rgba(5,150,105,0.30)]"
               >
                 Access Portal
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
+              </motion.button>
 
-              <a
+              <motion.a
                 href="#about"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
+                whileHover={prefersReducedMotion ? undefined : { y: -3, scale: 1.01 }}
+                whileTap={prefersReducedMotion ? undefined : { y: 1, scale: 0.99 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50"
               >
                 <Play className="h-4 w-4 fill-emerald-600 text-emerald-600" />
                 About
-              </a>
+              </motion.a>
             </div>
           </motion.div>
 
@@ -109,18 +126,47 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
             initial={{ opacity: 0, scale: 0.96, y: 14 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.08 }}
-            className="relative"
+            className="relative [perspective:1200px]"
           >
-            <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-emerald-100/70 via-sky-50 to-transparent blur-2xl" />
+            <motion.div
+              className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-emerald-100/70 via-sky-50 to-transparent blur-2xl"
+              animate={prefersReducedMotion ? undefined : { opacity: [0.72, 1, 0.72], scale: [1, 1.035, 1] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            />
 
-            <div className="relative mx-auto w-full max-w-[760px]">
+            <motion.div
+              className="relative mx-auto w-full max-w-[760px] [transform-style:preserve-3d]"
+              animate={
+                prefersReducedMotion
+                  ? undefined
+                  : {
+                      y: [0, -8, 0],
+                      rotateX: [0, 1.2, 0],
+                      rotateY: [-1.2, 1.2, -1.2],
+                    }
+              }
+              transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+              whileHover={
+                prefersReducedMotion
+                  ? undefined
+                  : { y: -10, rotateX: 1.5, rotateY: -1.5, scale: 1.01 }
+              }
+            >
               <div className="relative rounded-[2rem] border-[8px] border-slate-950 bg-slate-950 shadow-[0_30px_80px_rgba(15,23,42,0.24)]">
                 <div className="absolute left-1/2 top-2.5 z-20 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-slate-700 ring-2 ring-slate-800" />
 
                 <div className="overflow-hidden rounded-[1.35rem] bg-white">
-                  <div className="relative aspect-[16/10] bg-slate-100">
+                  <motion.div
+                    className="relative aspect-[16/10] bg-slate-100"
+                    animate={
+                      prefersReducedMotion
+                        ? undefined
+                        : { scale: [1.012, 1.02, 1.012], x: [0, 2, 0], y: [0, -1, 0] }
+                    }
+                    transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+                  >
                     <StaticSanPolicarpoMapPreview />
-                  </div>
+                  </motion.div>
                 </div>
               </div>
 
@@ -129,7 +175,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
               <div className="relative mx-auto -mt-1 h-7 w-[94%] rounded-b-[2rem] bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 shadow-[0_18px_30px_rgba(15,23,42,0.18)]">
                 <div className="absolute left-1/2 top-2 h-1.5 w-24 -translate-x-1/2 rounded-full bg-slate-500/25" />
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
 
@@ -165,10 +211,15 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                   ['Registration & Approval', 'Manage vulnerable citizen registration and approval workflows.'],
                   ['Communication', 'Share announcements, field notes, reports, and citizen feedback.'],
                 ].map(([title, description]) => (
-                  <div key={title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                  <motion.div
+                    key={title}
+                    whileHover={prefersReducedMotion ? undefined : { y: -4, scale: 1.01 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+                    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
+                  >
                     <h3 className="text-sm font-bold text-slate-950">{title}</h3>
                     <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -192,7 +243,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
             </h2>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 [perspective:1100px]">
             {ROLE_CARDS.map((role, index) => {
               const Icon = role.icon
               const styles = roleStyles[role.tone]
@@ -204,7 +255,17 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.35, delay: index * 0.06 }}
-                  className={`rounded-3xl border p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] ${styles.card}`}
+                  whileHover={
+                    prefersReducedMotion
+                      ? undefined
+                      : {
+                          y: -6,
+                          rotateX: 1.5,
+                          rotateY: index === 1 ? 0 : index === 0 ? 1.2 : -1.2,
+                          scale: 1.015,
+                        }
+                  }
+                  className={`rounded-3xl border p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] [transform-style:preserve-3d] ${styles.card}`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${styles.icon}`}>
