@@ -36,6 +36,7 @@ import {
   Mail,
   CalendarDays,
   History,
+  Search,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
@@ -575,6 +576,8 @@ function RegistrationsView() {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('PENDING')
+  const [query, setQuery] = useState('')
+  const [sortBy, setSortBy] = useState('LAST_NAME')
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRegisterVulnerable, setShowRegisterVulnerable] = useState(false)
@@ -596,9 +599,44 @@ function RegistrationsView() {
     load()
   }, [load])
 
-  const filtered = profiles.filter(
-    (p) => filter === 'ALL' || p.registrationStatus === filter
-  )
+  const filtered = profiles
+    .filter((p) => filter === 'ALL' || p.registrationStatus === filter)
+    .filter((p) => {
+      const search = query.trim().toLowerCase()
+      if (!search) return true
+
+      return [
+        p.firstName,
+        p.middleName,
+        p.lastName,
+        p.emailAddress,
+        p.mobileNumber,
+        p.barangay,
+        p.gender,
+        p.registrationStatus,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(search)
+    })
+    .sort((a, b) => {
+      if (sortBy === 'BARANGAY') {
+        const compared = String(a.barangay || '').localeCompare(String(b.barangay || ''))
+        if (compared !== 0) return compared
+      }
+
+      if (sortBy === 'DATE_DESC') {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      }
+
+      if (sortBy === 'DATE_ASC') {
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+      }
+
+      const compared = String(a.lastName || '').localeCompare(String(b.lastName || ''))
+      if (compared !== 0) return compared
+      return String(a.firstName || '').localeCompare(String(b.firstName || ''))
+    })
 
   const approve = async (profileId: string) => {
     try {
@@ -703,6 +741,15 @@ function RegistrationsView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search registrations..."
+              className="w-[250px] pl-9"
+            />
+          </div>
           <Button
             type="button"
             onClick={() => setShowRegisterVulnerable(true)}
@@ -721,6 +768,18 @@ function RegistrationsView() {
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
               <SelectItem value="ALL">All</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+              <SelectItem value="BARANGAY">Sort: Barangay</SelectItem>
+              <SelectItem value="DATE_DESC">Sort: Newest</SelectItem>
+              <SelectItem value="DATE_ASC">Sort: Oldest</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -742,7 +801,7 @@ function RegistrationsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
           {filtered.map((p) => {
             const vuln = formatVulnerabilityTypes(p.vulnerabilityTypes)
 
@@ -1025,8 +1084,10 @@ function UsersView() {
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("ALL");
   const [presenceFilter, setPresenceFilter] = useState<PresenceFilter>("ALL");
   const [userSort, setUserSort] = useState("LAST_NAME");
+  const [userQuery, setUserQuery] = useState("");
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [query, setQuery] = useState("");
   const [deletingUser, setDeletingUser] = useState(false);
   const [profileTarget, setProfileTarget] = useState<any | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -1110,7 +1171,15 @@ function UsersView() {
         (presenceFilter === "NOT_ONLINE_TODAY" && presence.notOnlineToday) ||
         (presenceFilter === "OFFLINE" && presence.offline);
 
-      return matchesRole && matchesPresence;
+      const search = userQuery.trim().toLowerCase();
+      const searchable = [
+        user.name,
+        user.email,
+        user.phone,
+        user.role,
+      ].join(" ").toLowerCase();
+
+      return matchesRole && matchesPresence && (!search || searchable.includes(search));
     }).sort((a, b) => {
       if (userSort === "ROLE") {
         const roleCompare = normalizeRole(a.role).localeCompare(normalizeRole(b.role));
@@ -1136,7 +1205,7 @@ function UsersView() {
 
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
-  }, [users, roleFilter, presenceFilter, userSort]);
+  }, [users, roleFilter, presenceFilter, userQuery, userSort]);
 
   const openUserProfile = async (user: any) => {
     setProfileTarget(user);
@@ -1262,6 +1331,15 @@ function UsersView() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={userQuery}
+              onChange={(event) => setUserQuery(event.target.value)}
+              placeholder="Search users..."
+              className="h-10 min-w-[230px] pl-9"
+            />
+          </div>
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
             <Select
               value={presenceFilter}
@@ -2059,6 +2137,8 @@ function DistributionsView() {
   const [distributions, setDistributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("PENDING");
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState("DATE_DESC");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2076,9 +2156,61 @@ function DistributionsView() {
     load();
   }, [load]);
 
-  const filtered = distributions.filter(
-    (d) => filter === "ALL" || d.status === filter,
-  );
+  const filtered = distributions
+    .filter((d) => filter === "ALL" || d.status === filter)
+    .filter((d) => {
+      const search = query.trim().toLowerCase();
+      if (!search) return true;
+
+      return [
+        d.distributionType,
+        d.itemsProvided,
+        d.status,
+        d.worker?.name,
+        d.vulnerableProfile?.firstName,
+        d.vulnerableProfile?.lastName,
+        d.vulnerableProfile?.barangay,
+        d.notes,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(search);
+    })
+    .sort((a, b) => {
+      if (sortBy === "TYPE") {
+        return String(a.distributionType || "").localeCompare(
+          String(b.distributionType || ""),
+        );
+      }
+
+      if (sortBy === "LAST_NAME") {
+        return String(a.vulnerableProfile?.lastName || "").localeCompare(
+          String(b.vulnerableProfile?.lastName || ""),
+        );
+      }
+
+      if (sortBy === "WORKER") {
+        return String(a.worker?.name || "").localeCompare(
+          String(b.worker?.name || ""),
+        );
+      }
+
+      if (sortBy === "STATUS") {
+        return String(a.status || "").localeCompare(String(b.status || ""));
+      }
+
+      if (sortBy === "DATE_ASC") {
+        return (
+          new Date(a.distributionDate || a.createdAt || 0).getTime() -
+          new Date(b.distributionDate || b.createdAt || 0).getTime()
+        );
+      }
+
+      return (
+        new Date(b.distributionDate || b.createdAt || 0).getTime() -
+        new Date(a.distributionDate || a.createdAt || 0).getTime()
+      );
+    });
 
   const act = async (id: string, action: "APPROVE" | "REJECT") => {
     const reason =
@@ -2101,7 +2233,7 @@ function DistributionsView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Relief Distribution Approval
@@ -2110,17 +2242,44 @@ function DistributionsView() {
             Review relief distributions recorded by field workers.
           </p>
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-            <SelectItem value="ALL">All</SelectItem>
-          </SelectContent>
-        </Select>
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="relative sm:col-span-2 xl:col-span-1">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search beneficiary, worker, items..."
+              className="min-w-[260px] pl-9"
+            />
+          </div>
+
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="min-w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="ALL">All statuses</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="min-w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DATE_DESC">Newest first</SelectItem>
+              <SelectItem value="DATE_ASC">Oldest first</SelectItem>
+              <SelectItem value="TYPE">Distribution type</SelectItem>
+              <SelectItem value="LAST_NAME">Last name</SelectItem>
+              <SelectItem value="WORKER">Worker</SelectItem>
+              <SelectItem value="STATUS">Status</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading ? (
@@ -2136,7 +2295,7 @@ function DistributionsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
           {filtered.map((d) => (
             <Card key={d.id}>
               <CardContent className="p-4">
@@ -2259,6 +2418,23 @@ function AnnouncementsView() {
     }
   };
 
+  const filteredAnnouncements = announcements.filter((item) => {
+    const search = query.trim().toLowerCase();
+    if (!search) return true;
+
+    return [
+      item.title,
+      item.content,
+      item.type,
+      item.priority,
+      item.targetRole,
+      item.location,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
+
   const urgentCount = announcements.filter((item) => item.priority === "URGENT" || item.priority === "HIGH").length;
   const workerCount = announcements.filter((item) => item.targetRole === "WORKER" || item.targetRole === "ALL").length;
   const citizenCount = announcements.filter((item) => item.targetRole === "VULNERABLE" || item.targetRole === "ALL").length;
@@ -2317,7 +2493,20 @@ function AnnouncementsView() {
         </div>
       </div>
 
-      {!showForm && <AnnouncementsCarousel userRole="admin" />}
+      {!showForm && (
+        <>
+          <div className="relative max-w-xl">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search announcements, type, audience, location..."
+              className="pl-9"
+            />
+          </div>
+          <AnnouncementsCarousel userRole="admin" />
+        </>
+      )}
 
       {showForm ? (
         <Card className="overflow-hidden rounded-[1.5rem] border-emerald-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]">
@@ -2362,7 +2551,7 @@ function AnnouncementsView() {
             </Button>
           </CardContent>
         </Card>
-      ) : announcements.length === 0 ? (
+      ) : filteredAnnouncements.length === 0 ? (
         <Card className="rounded-[1.5rem] border-dashed border-slate-200 bg-white">
           <CardContent className="flex flex-col items-center justify-center py-14 text-center">
             <Megaphone className="mb-3 h-9 w-9 text-slate-400" />
@@ -2376,8 +2565,8 @@ function AnnouncementsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {announcements.map((a) => (
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+          {filteredAnnouncements.map((a) => (
             <Card key={a.id} className="rounded-2xl border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -2521,6 +2710,7 @@ function FeedbackView() {
   const [loading, setLoading] = useState(true);
   const [respondTarget, setRespondTarget] = useState<any | null>(null);
   const [response, setResponse] = useState("");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2537,6 +2727,24 @@ function FeedbackView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const filteredFeedback = feedback.filter((item) => {
+    const search = query.trim().toLowerCase();
+    if (!search) return true;
+
+    return [
+      item.type,
+      item.status,
+      item.subject,
+      item.message,
+      item.adminResponse,
+      item.user?.name,
+      item.user?.email,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
 
   const respond = async () => {
     if (!respondTarget) return;
@@ -2559,13 +2767,24 @@ function FeedbackView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Feedback Management
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Review and respond to feedback from citizens and workers.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Feedback Management
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Review and respond to feedback from citizens and workers.
+          </p>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search feedback..."
+            className="w-[270px] pl-9"
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -2574,15 +2793,15 @@ function FeedbackView() {
           label="Loading feedback"
           description="Checking messages and responses..."
         />
-      ) : feedback.length === 0 ? (
+      ) : filteredFeedback.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             No feedback yet.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {feedback.map((f) => (
+        <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+          {filteredFeedback.map((f) => (
             <Card key={f.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
