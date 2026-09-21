@@ -126,9 +126,12 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                     <iframe
                       title="San Policarpo map preview"
                       src="https://www.openstreetmap.org/export/embed.html?bbox=125.375%2C12.125%2C125.625%2C12.285&layer=mapnik&marker=12.1792%2C125.5072"
-                      className="h-full w-full border-0"
+                      className="pointer-events-none h-full w-full select-none border-0"
                       loading="lazy"
+                      tabIndex={-1}
+                      aria-hidden="true"
                     />
+                    <div className="absolute inset-0 z-10 cursor-default" aria-hidden="true" />
 
                     <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg">
                       <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-emerald-600">
