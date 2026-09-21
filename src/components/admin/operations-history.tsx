@@ -104,7 +104,13 @@ function prettyType(value: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
-export function OperationsHistory() {
+export function OperationsHistory({
+  mode = 'admin',
+  workerId,
+}: {
+  mode?: 'admin' | 'worker'
+  workerId?: string
+}) {
   const [tab, setTab] = useState('relief')
   const [data, setData] = useState<any>({
     distributions: [],
@@ -129,7 +135,11 @@ export function OperationsHistory() {
     setLoading(true)
 
     try {
-      const result = await apiFetch('/api/admin/history')
+      const endpoint =
+        mode === 'worker'
+          ? `/api/worker/history?workerId=${encodeURIComponent(workerId || '')}`
+          : '/api/admin/history'
+      const result = await apiFetch(endpoint)
       setData({
         distributions: result.distributions || [],
         events: result.events || [],
@@ -141,7 +151,7 @@ export function OperationsHistory() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [mode, workerId])
 
   useEffect(() => {
     void load()
@@ -337,13 +347,15 @@ export function OperationsHistory() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-emerald-700">
-            Municipal Records
+            {mode === 'worker' ? 'Field Records' : 'Municipal Records'}
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            Operations History
+            {mode === 'worker' ? 'My Operations History' : 'Operations History'}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review completed and pending relief distributions, meetings, events, and other recorded municipal activities.
+            {mode === 'worker'
+              ? 'Review your relief distribution records and the meetings, events, and activities visible to field workers.'
+              : 'Review completed and pending relief distributions, meetings, events, and other recorded municipal activities.'}
           </p>
         </div>
 
@@ -358,7 +370,7 @@ export function OperationsHistory() {
           <CardContent className="p-4">
             <Package className="h-4 w-4 text-emerald-600" />
             <p className="mt-2 text-xs uppercase tracking-wide text-muted-foreground">
-              Relief records
+              {mode === 'worker' ? 'My relief records' : 'Relief records'}
             </p>
             <p className="mt-1 text-2xl font-semibold">
               {data.distributions.length}
