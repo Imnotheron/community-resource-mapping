@@ -361,7 +361,7 @@ function OverviewView() {
                 interactiveMarkers={false}
               />
 
-              <div className="pointer-events-none absolute right-4 top-4 z-[30] rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm backdrop-blur-xl">
+              <div className="pointer-events-none absolute left-1/2 top-1/2 z-[30] -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm backdrop-blur-xl">
                 Overview markers locked
               </div>
             </div>
