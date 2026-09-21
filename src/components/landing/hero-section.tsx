@@ -96,11 +96,11 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
               </button>
 
               <a
-                href="#roles"
+                href="#about"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
               >
                 <Play className="h-4 w-4 fill-emerald-600 text-emerald-600" />
-                See System Roles
+                About
               </a>
             </div>
           </motion.div>
@@ -132,6 +132,48 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
             </div>
           </motion.div>
         </div>
+
+        <motion.section
+          id="about"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.55 }}
+          className="scroll-mt-28 pb-12 pt-4 md:pb-14"
+        >
+          <div className="rounded-[2rem] border border-emerald-100 bg-white/90 p-6 shadow-[0_16px_50px_rgba(15,23,42,0.06)] md:p-8">
+            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div>
+                <p className="text-[0.6875rem] font-bold uppercase tracking-[0.24em] text-emerald-600">
+                  About the System
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+                  One platform for community resource mapping and relief coordination.
+                </h2>
+                <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+                  The Community Resource Mapping System helps the Municipality of San Policarpo
+                  organize vulnerable citizen records, map community information, manage relief
+                  distribution, publish announcements, collect feedback, and support field reporting
+                  through one connected web-based platform.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Community Mapping', 'View mapped community and household information for authorized operations.'],
+                  ['Relief Distribution', 'Record and monitor assistance distributed to registered households.'],
+                  ['Registration & Approval', 'Manage vulnerable citizen registration and approval workflows.'],
+                  ['Communication', 'Share announcements, field notes, reports, and citizen feedback.'],
+                ].map(([title, description]) => (
+                  <div key={title} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                    <h3 className="text-sm font-bold text-slate-950">{title}</h3>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.section>
 
         <motion.div
           id="roles"
