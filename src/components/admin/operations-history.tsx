@@ -116,11 +116,15 @@ export function OperationsHistory() {
   const [distributionType, setDistributionType] = useState(ALL)
   const [barangay, setBarangay] = useState(ALL)
   const [distributionStatus, setDistributionStatus] = useState(ALL)
+  const [distributionFromDate, setDistributionFromDate] = useState('')
+  const [distributionToDate, setDistributionToDate] = useState('')
   const [distributionSort, setDistributionSort] = useState('DATE_DESC')
 
   const [eventType, setEventType] = useState(ALL)
   const [eventStatus, setEventStatus] = useState(ALL)
   const [audience, setAudience] = useState(ALL)
+  const [eventFromDate, setEventFromDate] = useState('')
+  const [eventToDate, setEventToDate] = useState('')
   const [eventSort, setEventSort] = useState('DATE_DESC')
 
   const load = useCallback(async () => {
@@ -210,6 +214,20 @@ export function OperationsHistory() {
           .join(' ')
           .toLowerCase()
 
+        const happenedAt = new Date(
+          item.distributionDate || item.createdAt || 0,
+        )
+
+        const fromMatches =
+          !distributionFromDate ||
+          happenedAt.getTime() >=
+            new Date(`${distributionFromDate}T00:00:00`).getTime()
+
+        const toMatches =
+          !distributionToDate ||
+          happenedAt.getTime() <=
+            new Date(`${distributionToDate}T23:59:59.999`).getTime()
+
         return (
           (!search || searchable.includes(search)) &&
           (distributionType === ALL ||
@@ -217,7 +235,9 @@ export function OperationsHistory() {
           (barangay === ALL ||
             barangayOfDistribution(item) === barangay) &&
           (distributionStatus === ALL ||
-            item.status === distributionStatus)
+            item.status === distributionStatus) &&
+          fromMatches &&
+          toMatches
         )
       })
       .sort((a: any, b: any) => {
@@ -249,16 +269,22 @@ export function OperationsHistory() {
           if (compared !== 0) return compared
         }
 
-        return (
-          new Date(b.distributionDate || b.createdAt || 0).getTime() -
-          new Date(a.distributionDate || a.createdAt || 0).getTime()
-        )
+        const aDate = new Date(a.distributionDate || a.createdAt || 0).getTime()
+        const bDate = new Date(b.distributionDate || b.createdAt || 0).getTime()
+
+        if (distributionSort === 'DATE_ASC') {
+          return aDate - bDate
+        }
+
+        return bDate - aDate
       })
   }, [
     barangay,
     data.distributions,
+    distributionFromDate,
     distributionSort,
     distributionStatus,
+    distributionToDate,
     distributionType,
     query,
   ])
@@ -280,11 +306,25 @@ export function OperationsHistory() {
           .join(' ')
           .toLowerCase()
 
+        const happenedAt = new Date(item.eventDate || item.createdAt || 0)
+
+        const fromMatches =
+          !eventFromDate ||
+          happenedAt.getTime() >=
+            new Date(`${eventFromDate}T00:00:00`).getTime()
+
+        const toMatches =
+          !eventToDate ||
+          happenedAt.getTime() <=
+            new Date(`${eventToDate}T23:59:59.999`).getTime()
+
         return (
           (!search || searchable.includes(search)) &&
           (eventType === ALL || item.type === eventType) &&
           (eventStatus === ALL || state === eventStatus) &&
-          (audience === ALL || (item.targetRole || 'ALL') === audience)
+          (audience === ALL || (item.targetRole || 'ALL') === audience) &&
+          fromMatches &&
+          toMatches
         )
       })
       .sort((a: any, b: any) => {
@@ -305,13 +345,20 @@ export function OperationsHistory() {
 
         const aDate = new Date(a.eventDate || a.createdAt || 0).getTime()
         const bDate = new Date(b.eventDate || b.createdAt || 0).getTime()
+
+        if (eventSort === 'DATE_ASC') {
+          return aDate - bDate
+        }
+
         return bDate - aDate
       })
   }, [
     audience,
     data.events,
+    eventFromDate,
     eventSort,
     eventStatus,
+    eventToDate,
     eventType,
     query,
   ])
@@ -449,7 +496,7 @@ export function OperationsHistory() {
             </div>
 
             {tab === 'relief' ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Distribution type</Label>
                   <Select value={distributionType} onValueChange={setDistributionType}>
@@ -490,11 +537,30 @@ export function OperationsHistory() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>From date</Label>
+                  <Input
+                    type="date"
+                    value={distributionFromDate}
+                    onChange={(event) => setDistributionFromDate(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>To date</Label>
+                  <Input
+                    type="date"
+                    value={distributionToDate}
+                    onChange={(event) => setDistributionToDate(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label>Sort by</Label>
                   <Select value={distributionSort} onValueChange={setDistributionSort}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DATE_DESC">Latest date</SelectItem>
+                      <SelectItem value="DATE_DESC">Newest distribution first</SelectItem>
+                      <SelectItem value="DATE_ASC">Oldest distribution first</SelectItem>
                       <SelectItem value="TYPE">Distribution type</SelectItem>
                       <SelectItem value="BARANGAY">Barangay</SelectItem>
                       <SelectItem value="LAST_NAME">Last name</SelectItem>
@@ -504,7 +570,7 @@ export function OperationsHistory() {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Event type</Label>
                   <Select value={eventType} onValueChange={setEventType}>
@@ -546,11 +612,30 @@ export function OperationsHistory() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>From date</Label>
+                  <Input
+                    type="date"
+                    value={eventFromDate}
+                    onChange={(event) => setEventFromDate(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>To date</Label>
+                  <Input
+                    type="date"
+                    value={eventToDate}
+                    onChange={(event) => setEventToDate(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label>Sort by</Label>
                   <Select value={eventSort} onValueChange={setEventSort}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DATE_DESC">Latest event date</SelectItem>
+                      <SelectItem value="DATE_DESC">Newest event first</SelectItem>
+                      <SelectItem value="DATE_ASC">Oldest event first</SelectItem>
                       <SelectItem value="TYPE">Event type</SelectItem>
                       <SelectItem value="TITLE">Title</SelectItem>
                       <SelectItem value="STATUS">Event status</SelectItem>
