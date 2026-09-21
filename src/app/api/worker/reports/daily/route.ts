@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
     const { date, start, end } = getDayRange(
       request.nextUrl.searchParams.get('date'),
     )
+    const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
+    const personId = request.nextUrl.searchParams.get('personId')?.trim() || null
+    const lastName = request.nextUrl.searchParams.get('lastName')?.trim() || null
 
     const worker = await db.user.findUnique({
       where: { id: auth.userId },
@@ -47,12 +50,27 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const [distributions, fieldNoteRows, assignedHouseholds] = await Promise.all([
+    const beneficiaryWhere: any = {
+      ...(barangay ? { barangay } : {}),
+      ...(personId ? { id: personId } : {}),
+      ...(lastName ? { lastName } : {}),
+    }
+
+    const distributionWhere: any = {
+      workerId: auth.userId,
+      distributionDate: { gte: start, lt: end },
+      ...((barangay || personId || lastName)
+        ? {
+            vulnerableProfile: {
+              is: beneficiaryWhere,
+            },
+          }
+        : {}),
+    }
+
+    const [distributions, fieldNoteRows, assignedHouseholds, allBarangayRows, allPeopleRows] = await Promise.all([
       db.reliefDistribution.findMany({
-        where: {
-          workerId: auth.userId,
-          distributionDate: { gte: start, lt: end },
-        },
+        where: distributionWhere,
         select: {
           id: true,
           distributionType: true,
@@ -97,6 +115,25 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       }),
       db.household.count({ where: { assignedWorkerId: auth.userId } }),
+      db.vulnerableProfile.findMany({
+        select: { barangay: true },
+        distinct: ['barangay'],
+        orderBy: { barangay: 'asc' },
+      }),
+      db.vulnerableProfile.findMany({
+        select: {
+          id: true,
+          firstName: true,
+          middleName: true,
+          lastName: true,
+          suffix: true,
+          barangay: true,
+        },
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' },
+        ],
+      }),
     ])
 
     const approved = distributions.filter((item) => item.status === 'APPROVED').length
@@ -119,6 +156,11 @@ export async function GET(request: NextRequest) {
         date,
         generatedAt: new Date().toISOString(),
         worker,
+        filters: { barangay, personId, lastName },
+        barangays: allBarangayRows
+          .map((item) => item.barangay)
+          .filter(Boolean),
+        people: allPeopleRows,
         summary: {
           distributionsRecorded: distributions.length,
           approvedDistributions: approved,
