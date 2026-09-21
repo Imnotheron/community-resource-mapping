@@ -113,17 +113,22 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
           >
             <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-emerald-100/70 via-sky-50 to-transparent blur-2xl" />
 
-            <div className="relative mx-auto max-w-[720px]">
-              <div className="rounded-[1.6rem] border border-slate-300 bg-slate-900 p-2 shadow-[0_35px_90px_rgba(15,23,42,0.22)]">
-                <div className="overflow-hidden rounded-[1.1rem] border border-slate-700 bg-white">
-                  <div className="relative aspect-[16/8.9] bg-slate-100">
+            <div className="relative mx-auto w-full max-w-[760px]">
+              <div className="relative rounded-[2rem] border-[8px] border-slate-950 bg-slate-950 shadow-[0_30px_80px_rgba(15,23,42,0.24)]">
+                <div className="absolute left-1/2 top-2.5 z-20 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-slate-700 ring-2 ring-slate-800" />
+
+                <div className="overflow-hidden rounded-[1.35rem] bg-white">
+                  <div className="relative aspect-[16/10] bg-slate-100">
                     <StaticSanPolicarpoMapPreview />
                   </div>
                 </div>
               </div>
 
-              <div className="mx-auto h-3 w-[86%] rounded-b-[999px] bg-gradient-to-b from-slate-300 to-slate-400 shadow-[0_14px_28px_rgba(15,23,42,0.16)]" />
+              <div className="mx-auto h-3 w-[84%] rounded-b-[999px] bg-slate-300/80 blur-[1px]" />
 
+              <div className="relative mx-auto -mt-1 h-7 w-[94%] rounded-b-[2rem] bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 shadow-[0_18px_30px_rgba(15,23,42,0.18)]">
+                <div className="absolute left-1/2 top-2 h-1.5 w-24 -translate-x-1/2 rounded-full bg-slate-500/25" />
+              </div>
             </div>
           </motion.div>
         </div>
