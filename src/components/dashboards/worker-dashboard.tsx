@@ -734,6 +734,7 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
 // =================== REGISTER VULNERABLE ===================
 function RegisterVulnerableView({ workerId }: { workerId: string }) {
   const [open, setOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const registerVulnerablePerson = async (formData: any) => {
     const vulnerabilityTypes: string[] = []
@@ -791,6 +792,198 @@ function RegisterVulnerableView({ workerId }: { workerId: string }) {
     }
   }
 
+  const handleRegistrationExcelImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setImporting(true)
+
+    try {
+      const XLSX = await loadExcelParser()
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(firstSheet, {
+        defval: '',
+      }) as Record<string, any>[]
+
+      if (!rows.length) {
+        toast.error('The Excel file is empty')
+        return
+      }
+
+      if (rows.length > 200) {
+        toast.error('Import is limited to 200 registrations at a time')
+        return
+      }
+
+      let imported = 0
+      const failed: string[] = []
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = normalizeImportRow(rows[index])
+
+        const firstName = String(row.firstname || '').trim()
+        const lastName = String(row.lastname || '').trim()
+        const emailAddress = String(
+          row.emailaddress || row.email || '',
+        )
+          .trim()
+          .toLowerCase()
+        const dateOfBirth = String(
+          row.dateofbirth || row.birthdate || '',
+        ).trim()
+        const gender = String(row.gender || '').trim()
+        const civilStatus = String(row.civilstatus || '').trim()
+        const barangay = String(row.barangay || '').trim()
+        const municipality =
+          String(row.municipality || '').trim() || 'San Policarpo'
+        const province =
+          String(row.province || '').trim() || 'Eastern Samar'
+        const emergencyContact = String(
+          row.emergencycontact || '',
+        ).trim()
+        const emergencyPhone = String(
+          row.emergencyphone || '',
+        ).trim()
+
+        if (
+          !firstName ||
+          !lastName ||
+          !emailAddress ||
+          !dateOfBirth ||
+          !gender ||
+          !civilStatus ||
+          !barangay ||
+          !municipality ||
+          !province ||
+          !emergencyContact ||
+          !emergencyPhone
+        ) {
+          failed.push(
+            `Row ${index + 2}: missing required identity, address, or emergency-contact fields`,
+          )
+          continue
+        }
+
+        const vulnerabilityTypes = String(
+          row.sector ||
+            row.sectors ||
+            row.vulnerabilitytype ||
+            row.vulnerabilitytypes ||
+            row.category ||
+            'OTHER',
+        )
+          .split(/[,;|]/)
+          .map((value) =>
+            value
+              .trim()
+              .toUpperCase()
+              .replace(/[\s-]+/g, '_'),
+          )
+          .filter(Boolean)
+
+        const yes = (value: unknown) =>
+          ['1', 'true', 'yes', 'y', 'on'].includes(
+            String(value || '').trim().toLowerCase(),
+          )
+
+        const payload = {
+          workerId,
+          firstName,
+          lastName,
+          middleName: String(row.middlename || '').trim(),
+          suffix: String(row.suffix || '').trim(),
+          emailAddress,
+          mobileNumber: String(
+            row.mobilenumber || row.mobile || row.phone || '',
+          ).trim(),
+          landlineNumber: String(row.landlinenumber || '').trim(),
+          dateOfBirth,
+          gender,
+          civilStatus,
+          houseNumber: String(row.housenumber || '').trim(),
+          street: String(row.street || '').trim(),
+          barangay,
+          municipality,
+          province,
+          latitude: String(row.latitude || '').trim(),
+          longitude: String(row.longitude || '').trim(),
+          educationalAttainment: String(
+            row.educationalattainment || '',
+          ).trim(),
+          employmentStatus: String(
+            row.employmentstatus || '',
+          ).trim(),
+          employmentDetails: String(
+            row.employmentdetails || '',
+          ).trim(),
+          emergencyContact,
+          emergencyPhone,
+          hasMedicalCondition: yes(row.hasmedicalcondition),
+          medicalConditions: String(
+            row.medicalconditions || '',
+          ).trim(),
+          needsAssistance: yes(row.needsassistance),
+          assistanceType: String(
+            row.assistancetype || '',
+          ).trim(),
+          vulnerabilityTypes:
+            vulnerabilityTypes.length > 0
+              ? vulnerabilityTypes
+              : ['OTHER'],
+          disabilityType: String(
+            row.disabilitytype || '',
+          ).trim(),
+          disabilityCause: String(
+            row.disabilitycause || '',
+          ).trim(),
+          disabilityIdNumber: String(
+            row.disabilityidnumber || '',
+          ).trim(),
+        }
+
+        try {
+          await apiFetch('/api/worker/register-vulnerable', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          imported += 1
+        } catch (error: any) {
+          failed.push(
+            `Row ${index + 2}: ${error?.message || 'import failed'}`,
+          )
+        }
+      }
+
+      if (imported > 0) {
+        toast.success(
+          `${imported} registration${imported === 1 ? '' : 's'} imported`,
+          {
+            description: failed.length
+              ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
+              : 'All imported worker registrations were submitted for admin approval.',
+          },
+        )
+      } else {
+        toast.error('No registrations were imported', {
+          description:
+            failed[0] ||
+            'Check the required Excel columns and try again.',
+        })
+      }
+    } catch (error: any) {
+      toast.error('Excel import failed', {
+        description:
+          error?.message || 'Unable to read the selected spreadsheet.',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -811,10 +1004,28 @@ function RegisterVulnerableView({ workerId }: { workerId: string }) {
             Open the shared registration wizard. Worker registrations remain pending for admin approval.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap gap-2">
           <Button onClick={() => setOpen(true)} className="gap-2">
             <UserPlus className="h-4 w-4" />
             Register Vulnerable Person
+          </Button>
+
+          <Button asChild type="button" variant="outline" className="gap-2">
+            <label className={importing ? 'pointer-events-none opacity-60' : 'cursor-pointer'}>
+              {importing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
+              {importing ? 'Importing...' : 'Import Excel'}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={importing}
+                onChange={handleRegistrationExcelImport}
+              />
+            </label>
           </Button>
         </CardContent>
       </Card>
