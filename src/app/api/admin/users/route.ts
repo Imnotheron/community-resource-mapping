@@ -166,6 +166,10 @@ export async function GET(
           id: true,
           userId: true,
           registrationStatus: true,
+          vulnerabilityTypes: true,
+          barangay: true,
+          firstName: true,
+          lastName: true,
         },
       })
 
