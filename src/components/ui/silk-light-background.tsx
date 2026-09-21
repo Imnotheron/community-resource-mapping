@@ -2,229 +2,90 @@
 
 import { motion, useReducedMotion } from 'framer-motion'
 
-const PARTICLES = [
-  { left: '7%', top: '18%', size: 7, delay: 0, duration: 11 },
-  { left: '14%', top: '72%', size: 5, delay: 1.4, duration: 13 },
-  { left: '24%', top: '36%', size: 6, delay: 0.8, duration: 12 },
-  { left: '33%', top: '82%', size: 8, delay: 2.1, duration: 15 },
-  { left: '43%', top: '20%', size: 5, delay: 1.1, duration: 10 },
-  { left: '52%', top: '64%', size: 7, delay: 2.8, duration: 14 },
-  { left: '61%', top: '30%', size: 6, delay: 0.4, duration: 12 },
-  { left: '69%', top: '76%', size: 5, delay: 1.8, duration: 11 },
-  { left: '78%', top: '16%', size: 8, delay: 2.5, duration: 16 },
-  { left: '86%', top: '50%', size: 6, delay: 0.7, duration: 13 },
-  { left: '93%', top: '84%', size: 5, delay: 1.6, duration: 12 },
-]
-
 interface SilkLightBackgroundProps {
   className?: string
   intensity?: 'soft' | 'medium'
 }
 
+const DOTS = [
+  ['8%', '20%', 7, 0],
+  ['17%', '72%', 5, 1.2],
+  ['29%', '42%', 6, 0.5],
+  ['41%', '78%', 7, 1.7],
+  ['55%', '26%', 5, 0.9],
+  ['68%', '66%', 6, 1.4],
+  ['82%', '18%', 7, 0.3],
+  ['91%', '74%', 5, 1.9],
+] as const
+
 export function SilkLightBackground({
   className = '',
   intensity = 'medium',
 }: SilkLightBackgroundProps) {
-  const prefersReducedMotion = useReducedMotion()
-  const waveOpacity = intensity === 'soft' ? 'opacity-[0.38]' : 'opacity-[0.52]'
+  const reduceMotion = useReducedMotion()
+  const strong = intensity === 'medium'
 
   return (
     <div
       aria-hidden="true"
       className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
     >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,#ffffff_0%,#fbfffd_38%,#f8fbff_72%,#ffffff_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,#ffffff_0%,#fbfffd_44%,#f7fbff_72%,#ffffff_100%)]" />
 
       <motion.div
-        className="absolute -left-24 -top-28 h-[34rem] w-[34rem] rounded-full bg-emerald-200/35 blur-[110px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : { x: [0, 36, 8, 0], y: [0, 28, -6, 0], scale: [1, 1.08, 1.03, 1] }
-        }
-        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className="absolute -right-28 top-8 h-[32rem] w-[32rem] rounded-full bg-sky-200/30 blur-[115px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : { x: [0, -28, -8, 0], y: [0, 16, 30, 0], scale: [1, 1.05, 1.1, 1] }
-        }
-        transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className="absolute bottom-[-12rem] left-[28%] h-[30rem] w-[30rem] rounded-full bg-violet-200/20 blur-[125px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : { x: [0, 24, -18, 0], y: [0, -22, -8, 0], scale: [1, 1.08, 1.02, 1] }
-        }
-        transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut' }}
+        className={`absolute left-[-18%] top-[10%] h-[28%] w-[136%] rounded-[50%] blur-[38px] ${
+          strong
+            ? 'bg-[linear-gradient(90deg,transparent_0%,rgba(110,231,183,.48)_22%,rgba(125,211,252,.56)_52%,rgba(196,181,253,.40)_78%,transparent_100%)]'
+            : 'bg-[linear-gradient(90deg,transparent_0%,rgba(110,231,183,.30)_22%,rgba(125,211,252,.36)_52%,rgba(196,181,253,.24)_78%,transparent_100%)]'
+        }`}
+        animate={reduceMotion ? undefined : { x: ['-5%', '5%', '-3%', '-5%'], y: [0, 28, -14, 0], scaleY: [0.92, 1.16, 0.98, 0.92] }}
+        transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       <motion.div
-        className="absolute left-[-12%] top-[23%] h-36 w-[124%] -rotate-[7deg] rounded-[50%] bg-[linear-gradient(90deg,transparent_0%,rgba(167,243,208,0.72)_22%,rgba(186,230,253,0.78)_52%,rgba(221,214,254,0.58)_78%,transparent_100%)] blur-[34px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : {
-                x: ['-3%', '3%', '-2%', '-3%'],
-                y: [0, 24, -10, 0],
-                scaleY: [1, 1.22, 0.96, 1],
-                scaleX: [1, 1.06, 0.98, 1],
-              }
-        }
-        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
-      />
-
-      <motion.div
-        className="absolute left-[-16%] top-[43%] h-44 w-[132%] rotate-[5deg] rounded-[50%] bg-[linear-gradient(90deg,transparent_0%,rgba(209,250,229,0.58)_18%,rgba(224,242,254,0.76)_48%,rgba(199,210,254,0.52)_76%,transparent_100%)] blur-[42px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : {
-                x: ['3%', '-4%', '2%', '3%'],
-                y: [0, -20, 14, 0],
-                scaleY: [1, 0.9, 1.18, 1],
-                scaleX: [1, 0.96, 1.08, 1],
-              }
-        }
-        transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
-      />
-
-      <motion.div
-        className="absolute left-[-10%] top-[61%] h-28 w-[120%] -rotate-[3deg] rounded-[50%] bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.1)_8%,rgba(110,231,183,0.42)_30%,rgba(125,211,252,0.48)_58%,rgba(196,181,253,0.36)_82%,transparent_100%)] blur-[30px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : {
-                x: ['-2%', '4%', '-1%', '-2%'],
-                y: [0, 16, -8, 0],
-                scaleX: [1, 1.08, 0.97, 1],
-              }
-        }
+        className={`absolute left-[-15%] top-[34%] h-[31%] w-[130%] rounded-[50%] blur-[44px] ${
+          strong
+            ? 'bg-[linear-gradient(90deg,transparent_0%,rgba(224,242,254,.25)_10%,rgba(167,243,208,.46)_34%,rgba(186,230,253,.62)_58%,rgba(221,214,254,.42)_82%,transparent_100%)]'
+            : 'bg-[linear-gradient(90deg,transparent_0%,rgba(224,242,254,.18)_10%,rgba(167,243,208,.28)_34%,rgba(186,230,253,.40)_58%,rgba(221,214,254,.26)_82%,transparent_100%)]'
+        }`}
+        animate={reduceMotion ? undefined : { x: ['4%', '-6%', '3%', '4%'], y: [0, -22, 18, 0], scaleY: [1.06, 0.90, 1.18, 1.06] }}
         transition={{ duration: 17, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       <motion.div
-        className="absolute left-[-35%] top-[34%] h-24 w-[170%] rounded-[999px] bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.08)_16%,rgba(167,243,208,0.66)_34%,rgba(186,230,253,0.72)_52%,rgba(221,214,254,0.50)_68%,rgba(255,255,255,0.06)_84%,transparent_100%)] blur-[24px]"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : {
-                x: ['-10%', '8%', '-4%', '-10%'],
-                y: [0, 18, -12, 0],
-                opacity: [0.48, 0.88, 0.62, 0.48],
-                scaleY: [1, 1.24, 0.92, 1],
-              }
-        }
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        className={`absolute left-[-20%] top-[61%] h-[24%] w-[140%] rounded-[50%] blur-[36px] ${
+          strong
+            ? 'bg-[linear-gradient(90deg,transparent_0%,rgba(196,181,253,.26)_18%,rgba(125,211,252,.48)_48%,rgba(110,231,183,.38)_75%,transparent_100%)]'
+            : 'bg-[linear-gradient(90deg,transparent_0%,rgba(196,181,253,.18)_18%,rgba(125,211,252,.30)_48%,rgba(110,231,183,.22)_75%,transparent_100%)]'
+        }`}
+        animate={reduceMotion ? undefined : { x: ['-4%', '6%', '-2%', '-4%'], y: [0, 18, -10, 0], scaleY: [0.96, 1.12, 0.92, 0.96] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      <svg
-        className={`absolute inset-0 h-full w-full ${waveOpacity}`}
-        viewBox="0 0 1600 900"
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <linearGradient id="silk-wave-a" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="18%" stopColor="#a7f3d0" stopOpacity="0.85" />
-            <stop offset="54%" stopColor="#bae6fd" stopOpacity="0.9" />
-            <stop offset="82%" stopColor="#ddd6fe" stopOpacity="0.65" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="silk-wave-b" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="26%" stopColor="#d1fae5" stopOpacity="0.7" />
-            <stop offset="60%" stopColor="#bfdbfe" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </linearGradient>
-          <filter id="silk-blur-a">
-            <feGaussianBlur stdDeviation="8" />
-          </filter>
-          <filter id="silk-blur-b">
-            <feGaussianBlur stdDeviation="14" />
-          </filter>
-        </defs>
+      <motion.div
+        className="absolute left-[-25%] top-[30%] h-px w-[150%] bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent shadow-[0_0_18px_rgba(110,231,183,.55)]"
+        animate={reduceMotion ? undefined : { x: ['-8%', '8%', '-8%'], y: [0, 16, 0] }}
+        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute left-[-25%] top-[56%] h-px w-[150%] bg-gradient-to-r from-transparent via-sky-300/75 to-transparent shadow-[0_0_20px_rgba(125,211,252,.55)]"
+        animate={reduceMotion ? undefined : { x: ['7%', '-7%', '7%'], y: [0, -14, 0] }}
+        transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
-        <motion.path
-          fill="none"
-          stroke="url(#silk-wave-a)"
-          strokeWidth="34"
-          strokeLinecap="round"
-          filter="url(#silk-blur-a)"
-          initial={false}
-          animate={
-            prefersReducedMotion
-              ? undefined
-              : {
-                  d: [
-                    'M-90 330 C 210 205, 365 510, 690 385 S 1160 210, 1690 360',
-                    'M-90 365 C 220 245, 420 455, 705 350 S 1175 255, 1690 325',
-                    'M-90 330 C 210 205, 365 510, 690 385 S 1160 210, 1690 360',
-                  ],
-                }
-          }
-          d="M-90 330 C 210 205, 365 510, 690 385 S 1160 210, 1690 360"
-          transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }}
-        />
+      <div className="absolute inset-0 opacity-[0.04] [background-image:linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] [background-size:64px_64px]" />
 
-        <motion.path
-          fill="none"
-          stroke="url(#silk-wave-b)"
-          strokeWidth="56"
-          strokeLinecap="round"
-          filter="url(#silk-blur-b)"
-          initial={false}
-          animate={
-            prefersReducedMotion
-              ? undefined
-              : {
-                  d: [
-                    'M-120 620 C 170 470, 420 720, 760 570 S 1260 450, 1710 615',
-                    'M-120 590 C 160 520, 450 650, 760 545 S 1280 500, 1710 585',
-                    'M-120 620 C 170 470, 420 720, 760 570 S 1260 450, 1710 615',
-                  ],
-                }
-          }
-          d="M-120 620 C 170 470, 420 720, 760 570 S 1260 450, 1710 615"
-          transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      </svg>
-
-      <div className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] [background-size:64px_64px]" />
-
-      {PARTICLES.map((particle, index) => (
+      {DOTS.map(([left, top, size, delay], index) => (
         <motion.span
           key={index}
-          className="absolute rounded-full bg-emerald-400/25 shadow-[0_0_18px_rgba(16,185,129,0.26)]"
-          style={{
-            left: particle.left,
-            top: particle.top,
-            width: particle.size,
-            height: particle.size,
-          }}
-          animate={
-            prefersReducedMotion
-              ? undefined
-              : {
-                  y: [0, -16, 0],
-                  x: [0, 7, -4, 0],
-                  opacity: [0.12, 0.5, 0.18, 0.12],
-                }
-          }
-          transition={{
-            duration: particle.duration,
-            delay: particle.delay,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
+          className="absolute rounded-full bg-white shadow-[0_0_20px_rgba(16,185,129,.34)] ring-1 ring-emerald-200/70"
+          style={{ left, top, width: size, height: size }}
+          animate={reduceMotion ? undefined : { x: [0, 12, -6, 0], y: [0, -18, 8, 0], opacity: [0.32, 0.9, 0.45, 0.32] }}
+          transition={{ duration: 7 + index, delay, repeat: Infinity, ease: 'easeInOut' }}
         />
       ))}
 
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(255,255,255,0.42)_78%,rgba(255,255,255,0.78)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_34%,rgba(255,255,255,.18)_68%,rgba(255,255,255,.58)_100%)]" />
     </div>
   )
 }
