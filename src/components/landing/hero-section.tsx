@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion'
 import dynamic from 'next/dynamic'
+import { SilkLightBackground } from '@/components/ui/silk-light-background'
 import {
   ArrowRight,
   ClipboardCheck,
@@ -60,18 +61,8 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
 
   return (
     <section id="overview" className="relative overflow-hidden pt-24 md:pt-28">
-      <div className="absolute inset-x-0 top-0 h-[620px] bg-[linear-gradient(135deg,#ffffff_0%,#f8fffc_45%,#eefcf7_100%)]" />
-
-      <motion.div
-        className="pointer-events-none absolute right-[-8rem] top-12 h-96 w-96 rounded-full bg-emerald-100/70 blur-3xl"
-        animate={prefersReducedMotion ? undefined : { x: [0, -14, 0], y: [0, 10, 0], scale: [1, 1.04, 1] }}
-        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className="pointer-events-none absolute left-[-7rem] top-72 h-80 w-80 rounded-full bg-sky-100/60 blur-3xl"
-        animate={prefersReducedMotion ? undefined : { x: [0, 12, 0], y: [0, -8, 0], scale: [1, 1.03, 1] }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-      />
+      <SilkLightBackground intensity="soft" />
+      <div className="pointer-events-none absolute left-1/2 top-20 h-56 w-[52rem] max-w-[85vw] -translate-x-1/2 rounded-full bg-white/72 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-4 md:px-8">
         <div className="grid items-center gap-10 py-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14 lg:py-16">
@@ -187,7 +178,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
           transition={{ duration: 0.55 }}
           className="scroll-mt-28 pb-12 pt-4 md:pb-14"
         >
-          <div className="rounded-[2rem] border border-emerald-100 bg-white/90 p-6 shadow-[0_16px_50px_rgba(15,23,42,0.06)] md:p-8">
+          <div className="rounded-[2rem] border border-white/80 bg-white/78 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.07)] backdrop-blur-xl md:p-8">
             <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
               <div>
                 <p className="text-[0.6875rem] font-bold uppercase tracking-[0.24em] text-emerald-600">
@@ -215,7 +206,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                     key={title}
                     whileHover={prefersReducedMotion ? undefined : { y: -4, scale: 1.01 }}
                     transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-                    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
+                    className="rounded-2xl border border-white/80 bg-white/68 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur-lg"
                   >
                     <h3 className="text-sm font-bold text-slate-950">{title}</h3>
                     <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
@@ -265,7 +256,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                           scale: 1.015,
                         }
                   }
-                  className={`rounded-3xl border p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] [transform-style:preserve-3d] ${styles.card}`}
+                  className={`rounded-3xl border border-white/80 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.07)] backdrop-blur-xl [transform-style:preserve-3d] ${styles.card}`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${styles.icon}`}>
