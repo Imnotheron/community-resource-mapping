@@ -106,18 +106,6 @@ function OverviewView({ workerId, onNavigate }: { workerId: string; onNavigate: 
   const pending = distributions.filter((d) => d.status === 'PENDING').length
   const approved = distributions.filter((d) => d.status === 'APPROVED').length
 
-  const filteredAnnouncements = announcements.filter((item) => {
-    const search = query.trim().toLowerCase()
-    if (!search) return true
-    return [
-      item.title,
-      item.content,
-      item.type,
-      item.priority,
-      item.location,
-    ].join(' ').toLowerCase().includes(search)
-  })
-
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
