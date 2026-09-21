@@ -26,7 +26,7 @@ export function SilkLightBackground({
   intensity = 'medium',
 }: SilkLightBackgroundProps) {
   const prefersReducedMotion = useReducedMotion()
-  const waveOpacity = intensity === 'soft' ? 'opacity-[0.20]' : 'opacity-[0.28]'
+  const waveOpacity = intensity === 'soft' ? 'opacity-[0.38]' : 'opacity-[0.52]'
 
   return (
     <div
@@ -61,6 +61,50 @@ export function SilkLightBackground({
             : { x: [0, 24, -18, 0], y: [0, -22, -8, 0], scale: [1, 1.08, 1.02, 1] }
         }
         transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <motion.div
+        className="absolute left-[-12%] top-[23%] h-36 w-[124%] -rotate-[7deg] rounded-[50%] bg-[linear-gradient(90deg,transparent_0%,rgba(167,243,208,0.72)_22%,rgba(186,230,253,0.78)_52%,rgba(221,214,254,0.58)_78%,transparent_100%)] blur-[34px]"
+        animate={
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: ['-3%', '3%', '-2%', '-3%'],
+                y: [0, 24, -10, 0],
+                rotate: [-7, -4.5, -8, -7],
+                scaleY: [1, 1.22, 0.96, 1],
+              }
+        }
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <motion.div
+        className="absolute left-[-16%] top-[43%] h-44 w-[132%] rotate-[5deg] rounded-[50%] bg-[linear-gradient(90deg,transparent_0%,rgba(209,250,229,0.58)_18%,rgba(224,242,254,0.76)_48%,rgba(199,210,254,0.52)_76%,transparent_100%)] blur-[42px]"
+        animate={
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: ['3%', '-4%', '2%', '3%'],
+                y: [0, -20, 14, 0],
+                rotate: [5, 8, 3.5, 5],
+                scaleY: [1, 0.9, 1.18, 1],
+              }
+        }
+        transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <motion.div
+        className="absolute left-[-10%] top-[61%] h-28 w-[120%] -rotate-[3deg] rounded-[50%] bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.1)_8%,rgba(110,231,183,0.42)_30%,rgba(125,211,252,0.48)_58%,rgba(196,181,253,0.36)_82%,transparent_100%)] blur-[30px]"
+        animate={
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: ['-2%', '4%', '-1%', '-2%'],
+                y: [0, 16, -8, 0],
+                rotate: [-3, -1, -5, -3],
+              }
+        }
+        transition={{ duration: 17, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       <svg
