@@ -1350,6 +1350,7 @@ function UsersView() {
   const [showCreate, setShowCreate] = useState(false);
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("ALL");
   const [presenceFilter, setPresenceFilter] = useState<PresenceFilter>("ALL");
+  const [userSectorFilter, setUserSectorFilter] = useState("ALL");
   const [userSort, setUserSort] = useState("LAST_NAME");
   const [userQuery, setUserQuery] = useState("");
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
@@ -1423,6 +1424,22 @@ function UsersView() {
     };
   }, [users]);
 
+  const userSectors = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          users.flatMap((user) =>
+            user?.vulnerableProfile
+              ? registrationSectorValues(user.vulnerableProfile)
+              : [],
+          ),
+        ),
+      ).sort((a, b) =>
+        registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
+      ),
+    [users],
+  );
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const userRole = normalizeRole(user.role);
@@ -1437,16 +1454,35 @@ function UsersView() {
         (presenceFilter === "NOT_ONLINE_TODAY" && presence.notOnlineToday) ||
         (presenceFilter === "OFFLINE" && presence.offline);
 
+      const sectors = user?.vulnerableProfile
+        ? registrationSectorValues(user.vulnerableProfile)
+        : [];
+      const matchesSector =
+        userSectorFilter === "ALL" || sectors.includes(userSectorFilter);
+
       const search = userQuery.trim().toLowerCase();
       const searchable = [
         user.name,
         user.email,
         user.phone,
         user.role,
+        user?.vulnerableProfile?.barangay,
+        ...sectors.map(registrationSectorLabel),
       ].join(" ").toLowerCase();
 
-      return matchesRole && matchesPresence && (!search || searchable.includes(search));
+      return matchesRole && matchesPresence && matchesSector && (!search || searchable.includes(search));
     }).sort((a, b) => {
+      if (userSort === "SECTOR") {
+        const aSector = a?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(a.vulnerableProfile)[0])
+          : "ZZZ";
+        const bSector = b?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(b.vulnerableProfile)[0])
+          : "ZZZ";
+        const sectorCompare = aSector.localeCompare(bSector);
+        if (sectorCompare !== 0) return sectorCompare;
+      }
+
       if (userSort === "ROLE") {
         const roleCompare = normalizeRole(a.role).localeCompare(normalizeRole(b.role));
         if (roleCompare !== 0) return roleCompare;
@@ -1471,7 +1507,7 @@ function UsersView() {
 
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
-  }, [users, roleFilter, presenceFilter, userQuery, userSort]);
+  }, [users, roleFilter, presenceFilter, userQuery, userSectorFilter, userSort]);
 
   const openUserProfile = async (user: any) => {
     setProfileTarget(user);
@@ -1625,12 +1661,29 @@ function UsersView() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
+            <Select value={userSectorFilter} onValueChange={setUserSectorFilter}>
+              <SelectTrigger className="h-10 min-w-[200px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end" className="max-h-72 overflow-y-auto">
+                <SelectItem value="ALL">All sectors</SelectItem>
+                {userSectors.map((sector) => (
+                  <SelectItem key={sector} value={sector}>
+                    {registrationSectorLabel(sector)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
             <Select value={userSort} onValueChange={setUserSort}>
               <SelectTrigger className="h-10 min-w-[190px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">
                 <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+                <SelectItem value="SECTOR">Sort: Sector</SelectItem>
                 <SelectItem value="ROLE">Sort: Role</SelectItem>
                 <SelectItem value="JOINED_DESC">Sort: Newest joined</SelectItem>
                 <SelectItem value="ONLINE">Sort: Online first</SelectItem>
@@ -2403,6 +2456,7 @@ function DistributionsView() {
   const [distributions, setDistributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("PENDING");
+  const [sectorFilter, setSectorFilter] = useState("ALL");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("DATE_DESC");
 
@@ -2422,8 +2476,26 @@ function DistributionsView() {
     load();
   }, [load]);
 
+  const distributionSectors = Array.from(
+    new Set(
+      distributions.flatMap((distribution) =>
+        distribution?.vulnerableProfile
+          ? registrationSectorValues(distribution.vulnerableProfile)
+          : [],
+      ),
+    ),
+  ).sort((a, b) =>
+    registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
+  );
+
   const filtered = distributions
     .filter((d) => filter === "ALL" || d.status === filter)
+    .filter(
+      (d) =>
+        sectorFilter === "ALL" ||
+        (d.vulnerableProfile &&
+          registrationSectorValues(d.vulnerableProfile).includes(sectorFilter)),
+    )
     .filter((d) => {
       const search = query.trim().toLowerCase();
       if (!search) return true;
@@ -2436,6 +2508,9 @@ function DistributionsView() {
         d.vulnerableProfile?.firstName,
         d.vulnerableProfile?.lastName,
         d.vulnerableProfile?.barangay,
+        ...(d.vulnerableProfile
+          ? registrationSectorValues(d.vulnerableProfile).map(registrationSectorLabel)
+          : []),
         d.notes,
       ]
         .join(" ")
@@ -2443,6 +2518,17 @@ function DistributionsView() {
         .includes(search);
     })
     .sort((a, b) => {
+      if (sortBy === "SECTOR") {
+        const aSector = a?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(a.vulnerableProfile)[0])
+          : "ZZZ";
+        const bSector = b?.vulnerableProfile
+          ? registrationSectorLabel(registrationSectorValues(b.vulnerableProfile)[0])
+          : "ZZZ";
+        const compared = aSector.localeCompare(bSector);
+        if (compared !== 0) return compared;
+      }
+
       if (sortBy === "TYPE") {
         return String(a.distributionType || "").localeCompare(
           String(b.distributionType || ""),
@@ -2509,7 +2595,7 @@ function DistributionsView() {
           </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <div className="relative sm:col-span-2 xl:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -2532,6 +2618,20 @@ function DistributionsView() {
             </SelectContent>
           </Select>
 
+          <Select value={sectorFilter} onValueChange={setSectorFilter}>
+            <SelectTrigger className="min-w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto">
+              <SelectItem value="ALL">All sectors</SelectItem>
+              {distributionSectors.map((sector) => (
+                <SelectItem key={sector} value={sector}>
+                  {registrationSectorLabel(sector)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="min-w-44">
               <SelectValue />
@@ -2539,6 +2639,7 @@ function DistributionsView() {
             <SelectContent>
               <SelectItem value="DATE_DESC">Newest first</SelectItem>
               <SelectItem value="DATE_ASC">Oldest first</SelectItem>
+              <SelectItem value="SECTOR">Sector</SelectItem>
               <SelectItem value="TYPE">Distribution type</SelectItem>
               <SelectItem value="LAST_NAME">Last name</SelectItem>
               <SelectItem value="WORKER">Worker</SelectItem>
@@ -2580,6 +2681,14 @@ function DistributionsView() {
                         {d.vulnerableProfile
                           ? `${d.vulnerableProfile.firstName} ${d.vulnerableProfile.lastName}`
                           : "Household"}
+                      </span>
+                      <span>
+                        <b className="text-foreground">Sector:</b>{" "}
+                        {d.vulnerableProfile
+                          ? registrationSectorValues(d.vulnerableProfile)
+                              .map(registrationSectorLabel)
+                              .join(", ")
+                          : "—"}
                       </span>
                       <span>
                         <b className="text-foreground">Worker:</b>{" "}
