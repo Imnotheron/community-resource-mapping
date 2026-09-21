@@ -3,6 +3,7 @@
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal';
 import { CreateStaffAccountDialog } from "@/components/admin/create-staff-account-dialog";
 import { ApprovalCenter } from "@/components/admin/approval-center";
+import { OperationsHistory } from "@/components/admin/operations-history";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
 import dynamic from "next/dynamic";
@@ -34,6 +35,7 @@ import {
   Phone,
   Mail,
   CalendarDays,
+  History,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
@@ -127,6 +129,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "registrations", label: "Registrations", icon: UserCheck },
   { id: "users", label: "Users", icon: Users },
   { id: "distributions", label: "Relief Approval", icon: Package },
+  { id: "history", label: "Operations History", icon: History },
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "feedback", label: "Feedback", icon: MessageSquare },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -191,6 +194,7 @@ export function AdminDashboard({
       {view === "registrations" && <RegistrationsView />}
       {view === "users" && <UsersView />}
       {view === "distributions" && <DistributionsView />}
+      {view === "history" && <OperationsHistory />}
       {view === "announcements" && <AnnouncementsView />}
       {view === "feedback" && <FeedbackView />}
       {view === "analytics" && <AnalyticsView />}
