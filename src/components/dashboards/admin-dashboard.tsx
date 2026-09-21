@@ -2585,7 +2585,7 @@ function DistributionsView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Relief Distribution Approval
@@ -2595,19 +2595,19 @@ function DistributionsView() {
           </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="relative sm:col-span-2 xl:col-span-1">
+        <div className="grid w-full min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(280px,1.6fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(180px,0.9fr)]">
+          <div className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search beneficiary, worker, items..."
-              className="min-w-[260px] pl-9"
+              className="w-full min-w-0 pl-9"
             />
           </div>
 
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="min-w-40">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -2619,7 +2619,7 @@ function DistributionsView() {
           </Select>
 
           <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="min-w-44">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-72 overflow-y-auto">
@@ -2633,7 +2633,7 @@ function DistributionsView() {
           </Select>
 
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="min-w-44">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
