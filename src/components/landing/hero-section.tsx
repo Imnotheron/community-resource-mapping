@@ -110,23 +110,11 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
             <div className="relative mx-auto max-w-[720px]">
               <div className="rounded-[1.6rem] border border-slate-300 bg-slate-900 p-2 shadow-[0_35px_90px_rgba(15,23,42,0.22)]">
                 <div className="overflow-hidden rounded-[1.1rem] border border-slate-700 bg-white">
-                  <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
-                    <img
-                      src="/logos/san-policarpo.jpg"
-                      alt="Municipality of San Policarpo seal"
-                      className="h-7 w-7 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">San Policarpo</p>
-                      <p className="text-[0.625rem] text-slate-500">Community Resource Mapping System</p>
-                    </div>
-                  </div>
-
                   <div className="relative aspect-[16/8.9] bg-slate-100">
                     <iframe
                       title="San Policarpo map preview"
                       src="https://www.openstreetmap.org/export/embed.html?bbox=125.445%2C12.125%2C125.575%2C12.275&layer=mapnik"
-                      className="pointer-events-none absolute -left-14 -top-8 h-[calc(100%+2rem)] w-[calc(100%+3.5rem)] select-none border-0"
+                      className="pointer-events-none absolute -left-24 -top-10 h-[calc(100%+2.5rem)] w-[calc(100%+6rem)] select-none border-0"
                       loading="lazy"
                       tabIndex={-1}
                       aria-hidden="true"
