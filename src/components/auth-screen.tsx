@@ -192,7 +192,11 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
         >
-          <div className="seal-orbit mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-primary/30 bg-white p-1 shadow-[0_18px_55px_rgba(16,185,129,0.22)]">
+          <motion.div
+            className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-200/90 bg-white p-1 shadow-[0_18px_55px_rgba(16,185,129,0.18)]"
+            animate={{ y: [0, -4, 0], boxShadow: ['0 18px 55px rgba(16,185,129,0.16)', '0 22px 62px rgba(14,165,233,0.20)', '0 18px 55px rgba(16,185,129,0.16)'] }}
+            transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
+          >
             <img
               src="/icon.png"
               alt="Community Resource Mapping System"
@@ -221,7 +225,7 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
                 img.dataset.fallback = 'logos'
               }}
             />
-          </div>
+          </motion.div>
           <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary shadow-sm backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" />
             Secure role-based access
