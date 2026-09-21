@@ -154,7 +154,7 @@ export function AuthScreen({ onLogin, onBack, preferredRole }: AuthScreenProps) 
   const SelectedIcon = selected.icon
 
   return (
-    <div className="app-shell auth-wow relative overflow-hidden bg-white">
+    <div className="app-shell relative overflow-hidden bg-white">
       <SilkLightBackground intensity="medium" />
       <motion.div
         aria-hidden="true"
