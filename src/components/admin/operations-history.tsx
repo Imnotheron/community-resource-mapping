@@ -116,16 +116,14 @@ export function OperationsHistory() {
   const [distributionType, setDistributionType] = useState(ALL)
   const [barangay, setBarangay] = useState(ALL)
   const [distributionStatus, setDistributionStatus] = useState(ALL)
-  const [distributionFromDate, setDistributionFromDate] = useState('')
-  const [distributionToDate, setDistributionToDate] = useState('')
-  const [distributionSort, setDistributionSort] = useState('DATE_DESC')
+  const [distributionDateMode, setDistributionDateMode] = useState('NEWEST')
+  const [distributionSpecificDate, setDistributionSpecificDate] = useState('')
 
   const [eventType, setEventType] = useState(ALL)
   const [eventStatus, setEventStatus] = useState(ALL)
   const [audience, setAudience] = useState(ALL)
-  const [eventFromDate, setEventFromDate] = useState('')
-  const [eventToDate, setEventToDate] = useState('')
-  const [eventSort, setEventSort] = useState('DATE_DESC')
+  const [eventDateMode, setEventDateMode] = useState('NEWEST')
+  const [eventSpecificDate, setEventSpecificDate] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -218,15 +216,15 @@ export function OperationsHistory() {
           item.distributionDate || item.createdAt || 0,
         )
 
-        const fromMatches =
-          !distributionFromDate ||
-          happenedAt.getTime() >=
-            new Date(`${distributionFromDate}T00:00:00`).getTime()
-
-        const toMatches =
-          !distributionToDate ||
-          happenedAt.getTime() <=
-            new Date(`${distributionToDate}T23:59:59.999`).getTime()
+        const specificDateMatches =
+          distributionDateMode !== 'SPECIFIC' ||
+          !distributionSpecificDate ||
+          (
+            happenedAt.getTime() >=
+              new Date(`${distributionSpecificDate}T00:00:00`).getTime() &&
+            happenedAt.getTime() <=
+              new Date(`${distributionSpecificDate}T23:59:59.999`).getTime()
+          )
 
         return (
           (!search || searchable.includes(search)) &&
@@ -236,43 +234,14 @@ export function OperationsHistory() {
             barangayOfDistribution(item) === barangay) &&
           (distributionStatus === ALL ||
             item.status === distributionStatus) &&
-          fromMatches &&
-          toMatches
+          specificDateMatches
         )
       })
       .sort((a: any, b: any) => {
-        if (distributionSort === 'TYPE') {
-          const compared = String(a.distributionType || '').localeCompare(
-            String(b.distributionType || ''),
-          )
-          if (compared !== 0) return compared
-        }
-
-        if (distributionSort === 'BARANGAY') {
-          const compared = barangayOfDistribution(a).localeCompare(
-            barangayOfDistribution(b),
-          )
-          if (compared !== 0) return compared
-        }
-
-        if (distributionSort === 'LAST_NAME') {
-          const compared = lastNameOfDistribution(a).localeCompare(
-            lastNameOfDistribution(b),
-          )
-          if (compared !== 0) return compared
-        }
-
-        if (distributionSort === 'STATUS') {
-          const compared = String(a.status || '').localeCompare(
-            String(b.status || ''),
-          )
-          if (compared !== 0) return compared
-        }
-
         const aDate = new Date(a.distributionDate || a.createdAt || 0).getTime()
         const bDate = new Date(b.distributionDate || b.createdAt || 0).getTime()
 
-        if (distributionSort === 'DATE_ASC') {
+        if (distributionDateMode === 'OLDEST') {
           return aDate - bDate
         }
 
@@ -281,10 +250,9 @@ export function OperationsHistory() {
   }, [
     barangay,
     data.distributions,
-    distributionFromDate,
-    distributionSort,
+    distributionDateMode,
+    distributionSpecificDate,
     distributionStatus,
-    distributionToDate,
     distributionType,
     query,
   ])
@@ -308,45 +276,29 @@ export function OperationsHistory() {
 
         const happenedAt = new Date(item.eventDate || item.createdAt || 0)
 
-        const fromMatches =
-          !eventFromDate ||
-          happenedAt.getTime() >=
-            new Date(`${eventFromDate}T00:00:00`).getTime()
-
-        const toMatches =
-          !eventToDate ||
-          happenedAt.getTime() <=
-            new Date(`${eventToDate}T23:59:59.999`).getTime()
+        const specificDateMatches =
+          eventDateMode !== 'SPECIFIC' ||
+          !eventSpecificDate ||
+          (
+            happenedAt.getTime() >=
+              new Date(`${eventSpecificDate}T00:00:00`).getTime() &&
+            happenedAt.getTime() <=
+              new Date(`${eventSpecificDate}T23:59:59.999`).getTime()
+          )
 
         return (
           (!search || searchable.includes(search)) &&
           (eventType === ALL || item.type === eventType) &&
           (eventStatus === ALL || state === eventStatus) &&
           (audience === ALL || (item.targetRole || 'ALL') === audience) &&
-          fromMatches &&
-          toMatches
+          specificDateMatches
         )
       })
       .sort((a: any, b: any) => {
-        if (eventSort === 'TYPE') {
-          const compared = String(a.type || '').localeCompare(
-            String(b.type || ''),
-          )
-          if (compared !== 0) return compared
-        }
-
-        if (eventSort === 'TITLE') {
-          return String(a.title || '').localeCompare(String(b.title || ''))
-        }
-
-        if (eventSort === 'STATUS') {
-          return eventState(a).localeCompare(eventState(b))
-        }
-
         const aDate = new Date(a.eventDate || a.createdAt || 0).getTime()
         const bDate = new Date(b.eventDate || b.createdAt || 0).getTime()
 
-        if (eventSort === 'DATE_ASC') {
+        if (eventDateMode === 'OLDEST') {
           return aDate - bDate
         }
 
@@ -355,10 +307,9 @@ export function OperationsHistory() {
   }, [
     audience,
     data.events,
-    eventFromDate,
-    eventSort,
+    eventDateMode,
+    eventSpecificDate,
     eventStatus,
-    eventToDate,
     eventType,
     query,
   ])
@@ -537,37 +488,33 @@ export function OperationsHistory() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>From date</Label>
-                  <Input
-                    type="date"
-                    value={distributionFromDate}
-                    onChange={(event) => setDistributionFromDate(event.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>To date</Label>
-                  <Input
-                    type="date"
-                    value={distributionToDate}
-                    onChange={(event) => setDistributionToDate(event.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sort by</Label>
-                  <Select value={distributionSort} onValueChange={setDistributionSort}>
+                  <Label>Date</Label>
+                  <Select
+                    value={distributionDateMode}
+                    onValueChange={(value) => {
+                      setDistributionDateMode(value)
+                      if (value !== 'SPECIFIC') setDistributionSpecificDate('')
+                    }}
+                  >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DATE_DESC">Newest distribution first</SelectItem>
-                      <SelectItem value="DATE_ASC">Oldest distribution first</SelectItem>
-                      <SelectItem value="TYPE">Distribution type</SelectItem>
-                      <SelectItem value="BARANGAY">Barangay</SelectItem>
-                      <SelectItem value="LAST_NAME">Last name</SelectItem>
-                      <SelectItem value="STATUS">Status</SelectItem>
+                      <SelectItem value="NEWEST">Newest first</SelectItem>
+                      <SelectItem value="OLDEST">Oldest first</SelectItem>
+                      <SelectItem value="SPECIFIC">Specific date</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {distributionDateMode === 'SPECIFIC' && (
+                  <div className="space-y-2">
+                    <Label>Specific distribution date</Label>
+                    <Input
+                      type="date"
+                      value={distributionSpecificDate}
+                      onChange={(event) => setDistributionSpecificDate(event.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -612,36 +559,33 @@ export function OperationsHistory() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>From date</Label>
-                  <Input
-                    type="date"
-                    value={eventFromDate}
-                    onChange={(event) => setEventFromDate(event.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>To date</Label>
-                  <Input
-                    type="date"
-                    value={eventToDate}
-                    onChange={(event) => setEventToDate(event.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sort by</Label>
-                  <Select value={eventSort} onValueChange={setEventSort}>
+                  <Label>Date</Label>
+                  <Select
+                    value={eventDateMode}
+                    onValueChange={(value) => {
+                      setEventDateMode(value)
+                      if (value !== 'SPECIFIC') setEventSpecificDate('')
+                    }}
+                  >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DATE_DESC">Newest event first</SelectItem>
-                      <SelectItem value="DATE_ASC">Oldest event first</SelectItem>
-                      <SelectItem value="TYPE">Event type</SelectItem>
-                      <SelectItem value="TITLE">Title</SelectItem>
-                      <SelectItem value="STATUS">Event status</SelectItem>
+                      <SelectItem value="NEWEST">Newest first</SelectItem>
+                      <SelectItem value="OLDEST">Oldest first</SelectItem>
+                      <SelectItem value="SPECIFIC">Specific date</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {eventDateMode === 'SPECIFIC' && (
+                  <div className="space-y-2">
+                    <Label>Specific event date</Label>
+                    <Input
+                      type="date"
+                      value={eventSpecificDate}
+                      onChange={(event) => setEventSpecificDate(event.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
