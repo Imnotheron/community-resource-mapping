@@ -1020,6 +1020,7 @@ function UsersView() {
   const [showCreate, setShowCreate] = useState(false);
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("ALL");
   const [presenceFilter, setPresenceFilter] = useState<PresenceFilter>("ALL");
+  const [userSort, setUserSort] = useState("LAST_NAME");
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
@@ -1106,8 +1107,32 @@ function UsersView() {
         (presenceFilter === "OFFLINE" && presence.offline);
 
       return matchesRole && matchesPresence;
+    }).sort((a, b) => {
+      if (userSort === "ROLE") {
+        const roleCompare = normalizeRole(a.role).localeCompare(normalizeRole(b.role));
+        if (roleCompare !== 0) return roleCompare;
+      }
+
+      if (userSort === "JOINED_DESC") {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+
+      if (userSort === "ONLINE") {
+        const onlineCompare = Number(Boolean(b.isOnline)) - Number(Boolean(a.isOnline));
+        if (onlineCompare !== 0) return onlineCompare;
+      }
+
+      const lastName = (value: any) => {
+        const parts = String(value?.name || "").trim().split(/\s+/).filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : "";
+      };
+
+      const nameCompare = lastName(a).localeCompare(lastName(b));
+      if (nameCompare !== 0) return nameCompare;
+
+      return String(a.name || "").localeCompare(String(b.name || ""));
     });
-  }, [users, roleFilter, presenceFilter]);
+  }, [users, roleFilter, presenceFilter, userSort]);
 
   const openUserProfile = async (user: any) => {
     setProfileTarget(user);
@@ -1251,6 +1276,20 @@ function UsersView() {
             </Select>
           </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
+            <Select value={userSort} onValueChange={setUserSort}>
+              <SelectTrigger className="h-10 min-w-[190px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="LAST_NAME">Sort: Last name</SelectItem>
+                <SelectItem value="ROLE">Sort: Role</SelectItem>
+                <SelectItem value="JOINED_DESC">Sort: Newest joined</SelectItem>
+                <SelectItem value="ONLINE">Sort: Online first</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button
             type="button"
             onClick={() => setShowCreate(true)}
@@ -1332,6 +1371,7 @@ function UsersView() {
               </p>
             </div>
           ) : (
+            <div className="max-h-[68vh] overflow-auto">
             <Table key={`users-table-${roleFilter}-${presenceFilter}-${filterAnimationKey}`}>
               <TableHeader>
                 <TableRow>
@@ -1428,6 +1468,7 @@ function UsersView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
