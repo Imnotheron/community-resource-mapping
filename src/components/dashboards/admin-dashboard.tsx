@@ -1087,7 +1087,6 @@ function UsersView() {
   const [userQuery, setUserQuery] = useState("");
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
-  const [query, setQuery] = useState("");
   const [deletingUser, setDeletingUser] = useState(false);
   const [profileTarget, setProfileTarget] = useState<any | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -2376,6 +2375,7 @@ function AnnouncementsView() {
   const [loadError, setLoadError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
