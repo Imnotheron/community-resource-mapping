@@ -170,6 +170,8 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
   const [distributions, setDistributions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('ALL')
+  const [barangayFilter, setBarangayFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState('DATE_DESC')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -185,24 +187,91 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
 
   useEffect(() => { load() }, [load])
 
-  const filtered = distributions.filter((d) => filter === 'ALL' || d.status === filter)
+  const barangays = Array.from(
+    new Set(
+      distributions
+        .map((d) => String(d.vulnerableProfile?.barangay || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => String(a).localeCompare(String(b)))
+
+  const filtered = distributions
+    .filter((d) => filter === 'ALL' || d.status === filter)
+    .filter(
+      (d) =>
+        barangayFilter === 'ALL' ||
+        d.vulnerableProfile?.barangay === barangayFilter,
+    )
+    .sort((a, b) => {
+      if (sortBy === 'LAST_NAME') {
+        return String(a.vulnerableProfile?.lastName || '').localeCompare(
+          String(b.vulnerableProfile?.lastName || ''),
+        )
+      }
+
+      if (sortBy === 'BARANGAY') {
+        const barangayCompare = String(
+          a.vulnerableProfile?.barangay || '',
+        ).localeCompare(String(b.vulnerableProfile?.barangay || ''))
+
+        if (barangayCompare !== 0) return barangayCompare
+
+        return String(a.vulnerableProfile?.lastName || '').localeCompare(
+          String(b.vulnerableProfile?.lastName || ''),
+        )
+      }
+
+      if (sortBy === 'STATUS') {
+        return String(a.status || '').localeCompare(String(b.status || ''))
+      }
+
+      return (
+        new Date(b.distributionDate || b.createdAt).getTime() -
+        new Date(a.distributionDate || a.createdAt).getTime()
+      )
+    })
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Distributions</h1>
           <p className="text-sm text-muted-foreground">Relief distributions you have recorded.</p>
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="min-w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All statuses</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto">
+              <SelectItem value="ALL">All barangays</SelectItem>
+              {barangays.map((barangay) => (
+                <SelectItem key={barangay} value={barangay}>
+                  {barangay}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DATE_DESC">Latest date</SelectItem>
+              <SelectItem value="LAST_NAME">Last name</SelectItem>
+              <SelectItem value="BARANGAY">Barangay</SelectItem>
+              <SelectItem value="STATUS">Status</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       {loading ? (
         <WowLoader
@@ -224,6 +293,7 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
                 <p className="text-sm text-muted-foreground">{d.itemsProvided}</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground md:grid-cols-4">
                   <span><b className="text-foreground">Beneficiary:</b> {d.vulnerableProfile ? `${d.vulnerableProfile.firstName} ${d.vulnerableProfile.lastName}` : '—'}</span>
+                  <span><b className="text-foreground">Barangay:</b> {d.vulnerableProfile?.barangay || '—'}</span>
                   <span><b className="text-foreground">Quantity:</b> {d.quantity}</span>
                   <span><b className="text-foreground">Date:</b> {formatDate(d.distributionDate)}</span>
                   <span><b className="text-foreground">Recorded:</b> {timeAgo(d.createdAt)}</span>
