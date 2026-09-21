@@ -5,10 +5,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, Package, PackagePlus, UserPlus, NotebookPen, Megaphone,
-  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search,
+  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { DailyReportsView } from '@/components/reports/daily-reports-view'
+import { OperationsHistory } from '@/components/admin/operations-history'
 import { NavItem } from '@/components/layout/sidebar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import { formatDate, formatDateTime, timeAgo, StatusBadge, PriorityBadge, format
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'my-distributions', label: 'My Distributions', icon: Package },
+  { id: 'history', label: 'Record History', icon: History },
   { id: 'new-distribution', label: 'Record Distribution', icon: PackagePlus },
   { id: 'register-vulnerable', label: 'Register Citizen', icon: UserPlus },
   { id: 'field-notes', label: 'Field Notes', icon: NotebookPen },
@@ -61,6 +63,7 @@ export function WorkerDashboard({ user, onLogout, onProfile }: WorkerDashboardPr
     >
       {view === 'overview' && <OverviewView workerId={user.id} onNavigate={setView} />}
       {view === 'my-distributions' && <MyDistributionsView workerId={user.id} />}
+      {view === 'history' && <OperationsHistory mode="worker" workerId={user.id} />}
       {view === 'new-distribution' && <NewDistributionView workerId={user.id} onDone={() => setView('my-distributions')} />}
       {view === 'register-vulnerable' && <RegisterVulnerableView workerId={user.id} />}
       {view === 'field-notes' && <FieldNotesView workerId={user.id} />}
