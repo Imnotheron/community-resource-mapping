@@ -449,6 +449,11 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
     return !search || String(item.message || '').toLowerCase().includes(search)
   })
 
+  const filteredNotes = notes.filter((item) => {
+    const search = query.trim().toLowerCase()
+    return !search || String(item.message || '').toLowerCase().includes(search)
+  })
+
   const submit = async () => {
     if (!form.vulnerableProfileId || !form.distributionType || !form.itemsProvided || !form.quantity) {
       toast.error('Please fill all required fields')
@@ -962,6 +967,18 @@ function WorkerAnnouncementsView() {
       }
     })()
   }, [])
+
+  const filteredAnnouncements = announcements.filter((item) => {
+    const search = query.trim().toLowerCase()
+    if (!search) return true
+    return [
+      item.title,
+      item.content,
+      item.type,
+      item.priority,
+      item.location,
+    ].join(' ').toLowerCase().includes(search)
+  })
 
   return (
     <div className="space-y-6 animate-fade-in">
