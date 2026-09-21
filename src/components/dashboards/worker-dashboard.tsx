@@ -33,7 +33,7 @@ import { formatDate, formatDateTime, timeAgo, StatusBadge, PriorityBadge, format
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'my-distributions', label: 'My Distributions', icon: Package },
-  { id: 'history', label: 'Record History', icon: History },
+  { id: 'history', label: 'Operations History', icon: History },
   { id: 'new-distribution', label: 'Record Distribution', icon: PackagePlus },
   { id: 'register-vulnerable', label: 'Register Citizen', icon: UserPlus },
   { id: 'field-notes', label: 'Field Notes', icon: NotebookPen },
