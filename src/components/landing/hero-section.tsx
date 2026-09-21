@@ -125,7 +125,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
                   <div className="relative aspect-[16/8.9] bg-slate-100">
                     <iframe
                       title="San Policarpo map preview"
-                      src="https://www.openstreetmap.org/export/embed.html?bbox=125.375%2C12.125%2C125.625%2C12.285&layer=mapnik&marker=12.1792%2C125.5072"
+                      src="https://www.openstreetmap.org/export/embed.html?bbox=125.320%2C12.020%2C125.620%2C12.310&layer=mapnik&marker=12.1792%2C125.5072"
                       className="pointer-events-none absolute -left-14 -top-8 h-[calc(100%+2rem)] w-[calc(100%+3.5rem)] select-none border-0"
                       loading="lazy"
                       tabIndex={-1}
