@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, Package, PackagePlus, UserPlus, NotebookPen, Megaphone,
-  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload,
+  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { DailyReportsView } from '@/components/reports/daily-reports-view'
@@ -106,6 +106,18 @@ function OverviewView({ workerId, onNavigate }: { workerId: string; onNavigate: 
   const pending = distributions.filter((d) => d.status === 'PENDING').length
   const approved = distributions.filter((d) => d.status === 'APPROVED').length
 
+  const filteredAnnouncements = announcements.filter((item) => {
+    const search = query.trim().toLowerCase()
+    if (!search) return true
+    return [
+      item.title,
+      item.content,
+      item.type,
+      item.priority,
+      item.location,
+    ].join(' ').toLowerCase().includes(search)
+  })
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -172,6 +184,7 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
   const [filter, setFilter] = useState('ALL')
   const [barangayFilter, setBarangayFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('DATE_DESC')
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -202,6 +215,19 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
         barangayFilter === 'ALL' ||
         d.vulnerableProfile?.barangay === barangayFilter,
     )
+    .filter((d) => {
+      const search = query.trim().toLowerCase()
+      if (!search) return true
+      return [
+        d.distributionType,
+        d.itemsProvided,
+        d.status,
+        d.vulnerableProfile?.firstName,
+        d.vulnerableProfile?.lastName,
+        d.vulnerableProfile?.barangay,
+        d.notes,
+      ].join(' ').toLowerCase().includes(search)
+    })
     .sort((a, b) => {
       if (sortBy === 'LAST_NAME') {
         return String(a.vulnerableProfile?.lastName || '').localeCompare(
@@ -239,7 +265,16 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
           <p className="text-sm text-muted-foreground">Relief distributions you have recorded.</p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search distributions..."
+              className="min-w-[220px] pl-9"
+            />
+          </div>
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="min-w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -408,6 +443,11 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
 
       return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
     })
+
+  const filteredNotes = notes.filter((item) => {
+    const search = query.trim().toLowerCase()
+    return !search || String(item.message || '').toLowerCase().includes(search)
+  })
 
   const submit = async () => {
     if (!form.vulnerableProfileId || !form.distributionType || !form.itemsProvided || !form.quantity) {
@@ -812,6 +852,7 @@ function FieldNotesView({ workerId }: { workerId: string }) {
   const [loading, setLoading] = useState(true)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -866,18 +907,29 @@ function FieldNotesView({ workerId }: { workerId: string }) {
         </CardContent>
       </Card>
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Recent Notes</h3>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-sm font-medium text-muted-foreground">Recent Notes</h3>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search field notes..."
+              className="w-[240px] pl-9"
+            />
+          </div>
+        </div>
         {loading ? (
           <WowLoader
             compact
             label="Loading field notes"
             description="Fetching recent observations..."
           />
-        ) : notes.length === 0 ? (
+        ) : filteredNotes.length === 0 ? (
           <p className="text-sm text-muted-foreground">No field notes yet.</p>
         ) : (
           <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-2">
-            {notes.map((n) => (
+            {filteredNotes.map((n) => (
             <Card key={n.id}>
               <CardContent className="p-3">
                 <p className="text-sm">{n.message}</p>
@@ -896,6 +948,7 @@ function FieldNotesView({ workerId }: { workerId: string }) {
 function WorkerAnnouncementsView() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -916,6 +969,15 @@ function WorkerAnnouncementsView() {
         <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">Notices from administrators.</p>
       </div>
+      <div className="relative max-w-xl">
+        <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search announcements..."
+          className="pl-9"
+        />
+      </div>
       <AnnouncementsCarousel userRole="worker" />
       {loading ? (
         <WowLoader
@@ -923,11 +985,11 @@ function WorkerAnnouncementsView() {
           label="Loading announcements"
           description="Collecting official notices..."
         />
-      ) : announcements.length === 0 ? (
+      ) : filteredAnnouncements.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No announcements.</CardContent></Card>
       ) : (
         <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-2">
-          {announcements.map((a) => (
+          {filteredAnnouncements.map((a) => (
             <Card key={a.id}>
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
