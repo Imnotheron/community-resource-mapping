@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import dynamic from 'next/dynamic'
 import {
   ArrowRight,
   ClipboardCheck,
@@ -8,6 +9,11 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
+
+const StaticSanPolicarpoMapPreview = dynamic(
+  () => import('./static-san-policarpo-map-preview').then((m) => m.StaticSanPolicarpoMapPreview),
+  { ssr: false }
+)
 
 interface HeroSectionProps {
   onAccessPortal: () => void
@@ -111,20 +117,7 @@ export function HeroSection({ onAccessPortal }: HeroSectionProps) {
               <div className="rounded-[1.6rem] border border-slate-300 bg-slate-900 p-2 shadow-[0_35px_90px_rgba(15,23,42,0.22)]">
                 <div className="overflow-hidden rounded-[1.1rem] border border-slate-700 bg-white">
                   <div className="relative aspect-[16/8.9] bg-slate-100">
-                    <iframe
-                      title="San Policarpo map preview"
-                      src="https://www.openstreetmap.org/export/embed.html?bbox=125.445%2C12.125%2C125.575%2C12.275&layer=mapnik"
-                      className="pointer-events-none absolute -left-24 -top-10 h-[calc(100%+2.5rem)] w-[calc(100%+6rem)] select-none border-0"
-                      loading="lazy"
-                      tabIndex={-1}
-                      aria-hidden="true"
-                    />
-                    <div className="absolute inset-0 z-10 cursor-default" aria-hidden="true" />
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-7 bg-white" aria-hidden="true" />
-                    <div className="pointer-events-none absolute bottom-1 right-2 z-30 text-[0.55rem] text-slate-400">
-                      © OpenStreetMap contributors
-                    </div>
-
+                    <StaticSanPolicarpoMapPreview />
                   </div>
                 </div>
               </div>
