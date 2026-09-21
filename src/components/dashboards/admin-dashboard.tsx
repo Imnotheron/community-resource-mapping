@@ -1477,6 +1477,18 @@ function UserManagementProfileDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const role = normalizeRole(user?.role) || "USER";
+
+  if (role === "VULNERABLE") {
+    return (
+      <AdminMapProfileDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        loading={loading}
+        profile={vulnerableProfile}
+      />
+    );
+  }
+
   const profile = vulnerableProfile;
   const displayName = profile
     ? `${profile.firstName || ""} ${profile.middleName ? profile.middleName + " " : ""}${profile.lastName || ""}${profile.suffix ? ", " + profile.suffix : ""}`.trim()
@@ -2992,7 +3004,7 @@ function AdminMapProfileDialog({
         <DialogHeader>
           <DialogTitle>Vulnerable Citizen Profile</DialogTitle>
           <DialogDescription>
-            Full registered details for the selected map marker.
+            Full registered details for the selected vulnerable citizen.
           </DialogDescription>
         </DialogHeader>
 
@@ -3008,7 +3020,7 @@ function AdminMapProfileDialog({
               <AlertCircle className="mb-2 h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">No profile loaded.</p>
               <p className="text-xs text-muted-foreground">
-                Select a recorded map marker and choose View full profile.
+                Select a vulnerable citizen and choose View profile.
               </p>
             </CardContent>
           </Card>
