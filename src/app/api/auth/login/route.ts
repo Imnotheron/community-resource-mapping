@@ -69,9 +69,17 @@ const userSelect = {
   },
 } as const
 
+const DEMO_LOGIN_ALIASES = new Map<string, string>([
+  ['admin@crms.gov', 'admin@crms.gov.ph'],
+  ['admin@crms.gov.ph', 'admin@crms.gov.ph'],
+  ['worker@sampolicarpo.gov', 'worker@sampolicarpo.gov'],
+  ['worker@sanpolicarpo.gov', 'worker@sampolicarpo.gov'],
+  ['maria.garcia@email.com', 'maria.garcia@email.com'],
+])
+
 const DEMO_ACCOUNT_EMAILS = new Set([
   'admin@crms.gov.ph',
-  'worker@sanpolicarpo.gov',
+  'worker@sampolicarpo.gov',
   'maria.garcia@email.com',
 ])
 
@@ -153,16 +161,20 @@ export async function POST(request: NextRequest) {
     await ensureOnboardingColumns()
 
     const cleanEmail = String(email).trim()
+    const normalizedEmail = cleanEmail.toLowerCase()
+    const lookupEmail =
+      DEMO_LOGIN_ALIASES.get(normalizedEmail) ||
+      normalizedEmail
     const cleanRole = String(role).trim().toUpperCase()
 
     let user = await db.user.findUnique({
-      where: { email: cleanEmail },
+      where: { email: lookupEmail },
       select: userSelect,
     })
 
-    if (!user && cleanEmail !== cleanEmail.toLowerCase()) {
+    if (!user && cleanEmail !== normalizedEmail) {
       user = await db.user.findUnique({
-        where: { email: cleanEmail.toLowerCase() },
+        where: { email: cleanEmail },
         select: userSelect,
       })
     }
@@ -203,6 +215,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (
+      DEMO_LOGIN_ALIASES.has(normalizedEmail) ||
       DEMO_ACCOUNT_EMAILS.has(
         user.email.toLowerCase(),
       )
