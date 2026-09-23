@@ -84,7 +84,7 @@ export function LocationPicker({
     if (mapRef.current) return
     const map = L.map(containerRef.current, {
       center: [DEFAULT_LAT, DEFAULT_LNG],
-      zoom: 14,
+      zoom: 13,
       minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
@@ -108,7 +108,7 @@ export function LocationPicker({
 
       if (!isWithinSanPolicarpo(ll.lat, ll.lng)) {
         marker.setLatLng([DEFAULT_LAT, DEFAULT_LNG])
-        map.setView([DEFAULT_LAT, DEFAULT_LNG], 14)
+        map.setView([DEFAULT_LAT, DEFAULT_LNG], 13)
         alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
         return
       }
@@ -163,7 +163,7 @@ export function LocationPicker({
       return
     }
 
-    mapRef.current.setView([r.lat, r.lon], 16)
+    mapRef.current.setView([r.lat, r.lon], 15)
     markerRef.current.setLatLng([r.lat, r.lon])
     onChange(r.lat, r.lon, r.display_name)
     setShowResults(false)
