@@ -15,6 +15,11 @@ const SAN_POLICARPO_BOUNDS = L.latLngBounds(
   SAN_POLICARPO_LEAFLET_BOUNDS,
 )
 
+const SAN_POLICARPO_CENTER_TUPLE: [number, number] = [
+  SAN_POLICARPO_CENTER.lat,
+  SAN_POLICARPO_CENTER.lng,
+]
+
 const WORLD_MASK_RING: [number, number][] = [
   [-85, -180],
   [-85, 180],
@@ -70,7 +75,7 @@ export function SingleLocationMap({
     }
     const safePosition: [number, number] = isWithinSanPolicarpoServiceEnvelope(latitude, longitude)
       ? [latitude, longitude]
-      : SAN_POLICARPO_CENTER
+      : SAN_POLICARPO_CENTER_TUPLE
 
     const map = L.map(containerRef.current, {
       center: safePosition,
