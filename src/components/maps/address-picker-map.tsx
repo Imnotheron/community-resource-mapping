@@ -18,7 +18,8 @@ import {
 
 import {
   SAN_POLICARPO_CENTER,
-  SAN_POLICARPO_SERVICE_LIMITS,
+  SAN_POLICARPO_LEAFLET_BOUNDS,
+  SAN_POLICARPO_MAP_POLYGON,
   isWithinSanPolicarpoServiceEnvelope,
 } from '@/lib/san-policarpo-geography'
 
@@ -64,15 +65,39 @@ class AddressLookupError extends Error {
 }
 
 const LEAFLET_BOUNDS = L.latLngBounds(
-  [
-    SAN_POLICARPO_SERVICE_LIMITS.south,
-    SAN_POLICARPO_SERVICE_LIMITS.west,
-  ],
-  [
-    SAN_POLICARPO_SERVICE_LIMITS.north,
-    SAN_POLICARPO_SERVICE_LIMITS.east,
-  ],
+  SAN_POLICARPO_LEAFLET_BOUNDS,
 )
+
+const WORLD_MASK_RING: [number, number][] = [
+  [-85, -180],
+  [-85, 180],
+  [85, 180],
+  [85, -180],
+]
+
+function addSanPolicarpoCoverageLayer(map: L.Map) {
+  L.polygon(
+    [
+      WORLD_MASK_RING,
+      SAN_POLICARPO_MAP_POLYGON,
+    ],
+    {
+      interactive: false,
+      stroke: false,
+      fillColor: '#0f172a',
+      fillOpacity: 0.46,
+      fillRule: 'evenodd',
+    },
+  ).addTo(map)
+
+  L.polygon(SAN_POLICARPO_MAP_POLYGON, {
+    interactive: false,
+    color: '#059669',
+    weight: 2,
+    opacity: 0.9,
+    fill: false,
+  }).addTo(map)
+}
 
 function getSafePosition(
   lat?: number | null,
@@ -268,7 +293,7 @@ export default function AddressPickerMap({
       minZoom: 11,
       maxZoom: 18,
       maxBounds: LEAFLET_BOUNDS,
-      maxBoundsViscosity: 0.9,
+      maxBoundsViscosity: 1,
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
@@ -281,6 +306,9 @@ export default function AddressPickerMap({
         maxZoom: 19,
       },
     ).addTo(map)
+
+    addSanPolicarpoCoverageLayer(map)
+    map.setMaxBounds(LEAFLET_BOUNDS)
 
     mapRef.current = map
 
