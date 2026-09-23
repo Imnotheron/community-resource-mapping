@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import bcrypt from 'bcryptjs'
+import type { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
@@ -74,22 +75,12 @@ const DEMO_ACCOUNT_EMAILS = new Set([
   'maria.garcia@email.com',
 ])
 
+type LoginUser = Prisma.UserGetPayload<{
+  select: typeof userSelect
+}>
+
 function authenticatedResponse(
-  user: Awaited<ReturnType<typeof db.user.findUnique>> & {
-    id: string
-    email: string
-    name: string
-    role: string
-    phone: string | null
-    profilePicture: string | null
-    temporaryPasswordIssued: boolean
-    passwordChangedAt: Date | null
-    onboardingReminderDismissedAt: Date | null
-    createdAt: Date
-    vulnerableProfile: {
-      registrationStatus: string
-    } | null
-  },
+  user: LoginUser,
 ) {
   const token = Buffer.from(
     JSON.stringify({
@@ -216,9 +207,7 @@ export async function POST(request: NextRequest) {
         user.email.toLowerCase(),
       )
     ) {
-      return authenticatedResponse(
-        user as any,
-      )
+      return authenticatedResponse(user)
     }
 
     try {
