@@ -118,16 +118,26 @@ function AppShellContent() {
           }
         >
           <AuthScreen
-            onLogin={(
+            onLogin={async (
               email,
               password,
               role,
-            ) =>
-              login(
+            ) => {
+              const result = await login(
                 email,
                 password,
                 role,
               )
+
+              if (
+                result.otpRequired === false &&
+                result.user
+              ) {
+                setWelcomeUser(result.user)
+                setMode('dashboard')
+              }
+
+              return result
             }
             onVerifyOtp={async (
               challengeId,
