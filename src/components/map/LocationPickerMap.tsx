@@ -7,6 +7,10 @@ import 'leaflet/dist/leaflet.css'
 import { MapPin, Search, Loader2, AlertTriangle, Info, Home, Map as MapIcon, CheckCircle2, Lock, Unlock, Maximize2, Minimize2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from '@/lib/san-policarpo-geography'
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -134,12 +138,14 @@ function MapInteractivity({ isInteractive }: { isInteractive: boolean }) {
 
 function SetBounds() {
   const map = useMap()
+
   useEffect(() => {
-    // Set zoom limits but allow free exploration
-    map.setMinZoom(10)
+    map.setMinZoom(SAN_POLICARPO_MIN_VIEW_ZOOM)
     map.setMaxZoom(18)
-    // Don't set maxBounds to allow free exploration
+    map.setMaxBounds(SAN_POLICARPO_VIEW_BOUNDS)
+    map.options.maxBoundsViscosity = 1
   }, [map])
+
   return null
 }
 
@@ -444,6 +450,10 @@ export default function LocationPickerMap({
         <MapContainer
           center={position || SAN_POLICARPO_CENTER}
           zoom={position ? 15 : 13}
+          minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
+          maxZoom={18}
+          maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
+          maxBoundsViscosity={1}
           style={{ height: '100%', width: '100%', zIndex: 0 }}
           className="rounded-lg"
         >
