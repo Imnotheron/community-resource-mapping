@@ -88,7 +88,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-first-login', user.id),
-      version: 2,
+      version: 3,
       title: 'Administrator guide',
       role: 'ADMIN',
       steps: [
@@ -144,6 +144,11 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
           'distributions',
           'Review Relief Approval',
           'Relief Approval contains distribution records submitted by field workers. Review the beneficiary, items, quantity, date, and notes before approving or rejecting a record.',
+        ),
+        navStep(
+          'history',
+          'Review Operations History',
+          'Operations History brings relief records and municipal events into one review workspace. Use its search, type, barangay, status, audience, and date filters to trace past activity before reports, audits, follow-up, or planning.',
         ),
         navStep(
           'announcements',
