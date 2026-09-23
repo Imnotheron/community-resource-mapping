@@ -16,6 +16,11 @@ const SAN_POLICARPO_BOUNDS = L.latLngBounds(
   SAN_POLICARPO_LEAFLET_BOUNDS,
 );
 
+const SAN_POLICARPO_CENTER_TUPLE: [number, number] = [
+  SAN_POLICARPO_CENTER.lat,
+  SAN_POLICARPO_CENTER.lng,
+];
+
 const WORLD_MASK_RING: [number, number][] = [
   [-85, -180],
   [-85, 180],
@@ -175,9 +180,9 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
-      center: SAN_POLICARPO_CENTER,
+      center: SAN_POLICARPO_CENTER_TUPLE,
       zoom: 12,
-      minZoom: 10,
+      minZoom: 11,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
       maxBoundsViscosity: 1,
@@ -218,7 +223,7 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       const bounds = L.latLngBounds(validPoints.map((point) => [point.latitude, point.longitude] as [number, number]));
       map.fitBounds(bounds.pad(0.2), { maxZoom: 14, animate: false });
     } else {
-      map.setView(SAN_POLICARPO_CENTER, 12, { animate: false });
+      map.setView(SAN_POLICARPO_CENTER_TUPLE, 12, { animate: false });
     }
     window.requestAnimationFrame(() => map.invalidateSize(false));
   }, [interactiveMarkers, selectedPoint?.id, validPoints]);
