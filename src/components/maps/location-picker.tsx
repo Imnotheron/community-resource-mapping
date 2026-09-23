@@ -6,6 +6,10 @@ import 'leaflet/dist/leaflet.css'
 import { Search, MapPin, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from '@/lib/san-policarpo-geography'
 
 const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072]
 
@@ -19,8 +23,7 @@ const SAN_POLICARPO_LIMITS = {
 }
 
 const SAN_POLICARPO_BOUNDS = L.latLngBounds(
-  [SAN_POLICARPO_LIMITS.south, SAN_POLICARPO_LIMITS.west],
-  [SAN_POLICARPO_LIMITS.north, SAN_POLICARPO_LIMITS.east],
+  SAN_POLICARPO_VIEW_BOUNDS,
 )
 
 function isWithinSanPolicarpo(lat: number, lng: number) {
@@ -82,10 +85,10 @@ export function LocationPicker({
     const map = L.map(containerRef.current, {
       center: [DEFAULT_LAT, DEFAULT_LNG],
       zoom: 14,
-      minZoom: 11,
+      minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
-      maxBoundsViscosity: 0.85,
+      maxBoundsViscosity: 1,
     })
     mapRef.current = map
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
