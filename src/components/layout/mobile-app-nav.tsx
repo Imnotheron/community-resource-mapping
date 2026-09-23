@@ -31,10 +31,22 @@ interface MobileAppNavProps {
 
 const COMPACT_LABELS: Record<string, string> = {
   'My Distributions': 'My Relief',
+  'My Relief Records': 'My Relief',
+  'Operations History': 'History',
+  'Activity History': 'History',
   'Record Distribution': 'Record',
+  'Record Relief': 'Record',
   'Register Citizen': 'Add Citizen',
-  'Relief History': 'Relief History',
+  'My Profile': 'My Info',
+  'My Information': 'My Info',
+  'Relief History': 'Relief',
+  'My Relief History': 'Relief',
+  Feedback: 'Feedback',
+  'Send Feedback': 'Feedback',
   Announcements: 'Updates',
+  'Community Updates': 'Updates',
+  'User Guide': 'Help',
+  'Help Guide': 'Help',
 }
 
 function mobileLabel(label: string) {
