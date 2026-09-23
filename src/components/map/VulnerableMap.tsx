@@ -13,6 +13,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { CheckCircle, XCircle, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from '@/lib/san-policarpo-geography'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 
@@ -368,7 +372,7 @@ function CompactPopup({
 export function VulnerableMap({
   points,
   center = [12.1792, 125.5072],
-  zoom = 12,
+  zoom = SAN_POLICARPO_MIN_VIEW_ZOOM,
   showHeatmap = true,
   height = 500,
   onViewProfile,
@@ -479,6 +483,10 @@ export function VulnerableMap({
       <MapContainer
         center={mapCenter}
         zoom={zoom}
+        minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
+        maxZoom={18}
+        maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
+        maxBoundsViscosity={1}
         style={{ height: `${height}px`, width: '100%', zIndex: 0 }}
         className="rounded-2xl"
       >
