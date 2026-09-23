@@ -54,6 +54,11 @@ type LoginChallenge = {
   maskedEmail?: string
   expiresInSeconds?: number
   resendAfterSeconds?: number
+  user?: {
+    role?: string
+  }
+  token?: string
+  demoAccount?: boolean
 }
 
 const loginSchema = z.object({
@@ -328,6 +333,19 @@ export function AuthScreen({
           ),
         ),
       ])
+
+      if (
+        result?.otpRequired === false &&
+        result.user &&
+        result.token
+      ) {
+        toast.success(
+          result.demoAccount
+            ? 'Demo account signed in'
+            : 'Welcome back!',
+        )
+        return
+      }
 
       if (
         !result?.otpRequired ||
