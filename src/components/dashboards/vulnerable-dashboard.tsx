@@ -48,12 +48,12 @@ const SingleLocationMap = dynamic(
 )
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'my-profile', label: 'My Profile', icon: User },
-  { id: 'relief-history', label: 'Relief History', icon: Package },
-  { id: 'feedback', label: 'Feedback', icon: MessageSquare },
-  { id: 'announcements', label: 'Announcements', icon: Megaphone },
-  { id: 'guide', label: 'User Guide', icon: BookOpen },
+  { id: 'overview', label: 'Home', icon: LayoutDashboard },
+  { id: 'my-profile', label: 'My Information', icon: User },
+  { id: 'relief-history', label: 'My Relief History', icon: Package },
+  { id: 'feedback', label: 'Send Feedback', icon: MessageSquare },
+  { id: 'announcements', label: 'Community Updates', icon: Megaphone },
+  { id: 'guide', label: 'Help Guide', icon: BookOpen },
 ]
 
 interface VulnerableDashboardProps {
