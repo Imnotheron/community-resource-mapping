@@ -68,6 +68,83 @@ const userSelect = {
   },
 } as const
 
+const DEMO_ACCOUNT_EMAILS = new Set([
+  'admin@crms.gov.ph',
+  'worker@sanpolicarpo.gov',
+  'maria.garcia@email.com',
+])
+
+function authenticatedResponse(
+  user: Awaited<ReturnType<typeof db.user.findUnique>> & {
+    id: string
+    email: string
+    name: string
+    role: string
+    phone: string | null
+    profilePicture: string | null
+    temporaryPasswordIssued: boolean
+    passwordChangedAt: Date | null
+    onboardingReminderDismissedAt: Date | null
+    createdAt: Date
+    vulnerableProfile: {
+      registrationStatus: string
+    } | null
+  },
+) {
+  const token = Buffer.from(
+    JSON.stringify({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    }),
+  ).toString('base64')
+
+  const response = NextResponse.json({
+    success: true,
+    otpRequired: false,
+    demoAccount: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role.toLowerCase(),
+      phone: user.phone || null,
+      profilePicture:
+        user.profilePicture || null,
+      registrationStatus:
+        user.vulnerableProfile
+          ?.registrationStatus || null,
+      temporaryPasswordIssued: Boolean(
+        user.temporaryPasswordIssued,
+      ),
+      passwordChangedAt:
+        user.passwordChangedAt
+          ? user.passwordChangedAt.toISOString()
+          : null,
+      onboardingReminderDismissedAt:
+        user.onboardingReminderDismissedAt
+          ? user.onboardingReminderDismissedAt.toISOString()
+          : null,
+      createdAt:
+        user.createdAt.toISOString(),
+    },
+    token,
+  })
+
+  const isDevelopment =
+    process.env.NODE_ENV !== 'production'
+
+  response.cookies.set('token', token, {
+    httpOnly: true,
+    secure: !isDevelopment,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7,
+    path: '/',
+  })
+
+  return response
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password, role } = await request.json()
@@ -131,6 +208,16 @@ export async function POST(request: NextRequest) {
           message: 'Invalid credentials',
         },
         { status: 401 },
+      )
+    }
+
+    if (
+      DEMO_ACCOUNT_EMAILS.has(
+        user.email.toLowerCase(),
+      )
+    ) {
+      return authenticatedResponse(
+        user as any,
       )
     }
 
