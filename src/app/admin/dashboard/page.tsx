@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { AdminDashboard } from '@/components/dashboards/admin-dashboard'
+import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
@@ -21,9 +21,7 @@ const LOGIN_PATH = '/login?role=admin'
 
 function DashboardLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
+    <CrmsLoadingScreen label="Opening administrator workspace…" />
   )
 }
 
