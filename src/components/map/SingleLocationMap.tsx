@@ -156,7 +156,7 @@ export default function SingleLocationMap({
 
       <MapContainer
         center={[latitude, longitude]}
-        zoom={16}
+        zoom={15}
         minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
         maxZoom={18}
         maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
@@ -164,7 +164,7 @@ export default function SingleLocationMap({
         style={{ height: '500px', width: '100%', zIndex: 0 }}
         className="rounded-lg"
       >
-        <MapView center={[latitude, longitude]} zoom={16} />
+        <MapView center={[latitude, longitude]} zoom={15} />
         <MapInteractivity isInteractive={isMapInteractive} />
 
         <TileLayer
