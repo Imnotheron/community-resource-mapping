@@ -138,7 +138,7 @@ function AppShellContent() {
               }
 
               return result
-            }
+            }}
             onVerifyOtp={async (
               challengeId,
               otp,
