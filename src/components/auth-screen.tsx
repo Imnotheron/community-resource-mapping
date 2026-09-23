@@ -881,10 +881,11 @@ export function AuthScreen({
                       </Button>
 
                       <div className="rounded-xl bg-muted/70 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-                        After your password is
-                        confirmed, we will email
-                        you a 6-digit verification
-                        code.
+                        Real accounts receive a
+                        6-digit email verification
+                        code after password
+                        confirmation. Demo accounts
+                        sign in directly.
                       </div>
                     </form>
                   ) : (
