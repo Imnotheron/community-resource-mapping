@@ -170,7 +170,7 @@ export default function AddressPickerMap({
     if (map) {
       map.setView(
         [previous.lat, previous.lng],
-        Math.max(map.getZoom(), 14),
+        Math.max(map.getZoom(), 13),
         { animate: true },
       )
     }
@@ -214,7 +214,7 @@ export default function AddressPickerMap({
       if (map) {
         map.setView(
           [nextPosition.lat, nextPosition.lng],
-          Math.max(map.getZoom(), 15),
+          Math.max(map.getZoom(), 14),
           { animate: true },
         )
       }
@@ -258,7 +258,7 @@ export default function AddressPickerMap({
 
     const map = L.map(mapContainerRef.current, {
       center: [initialPosition.lat, initialPosition.lng],
-      zoom: 14,
+      zoom: 13,
       minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: LEAFLET_BOUNDS,
@@ -320,7 +320,7 @@ export default function AddressPickerMap({
       window.setTimeout(() => {
         map.setView(
           [initialPosition.lat, initialPosition.lng],
-          14,
+          13,
           { animate: false },
         )
       }, 100)
@@ -355,7 +355,7 @@ export default function AddressPickerMap({
     if (map) {
       map.setView(
         [safePosition.lat, safePosition.lng],
-        Math.max(map.getZoom(), 14),
+        Math.max(map.getZoom(), 13),
         { animate: true },
       )
     }
