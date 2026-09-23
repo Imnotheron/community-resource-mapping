@@ -1,11 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Button } from '@/components/ui/button'
 import { Crosshair } from 'lucide-react'
+import {
+  SAN_POLICARPO_LEAFLET_BOUNDS,
+  SAN_POLICARPO_MAP_POLYGON,
+  isWithinSanPolicarpoServiceEnvelope,
+} from '@/lib/san-policarpo-geography'
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -21,19 +26,101 @@ interface LocationPickerProps {
   initialPosition?: [number, number]
 }
 
+const STRICT_BOUNDS = L.latLngBounds(
+  SAN_POLICARPO_LEAFLET_BOUNDS,
+)
+
+const WORLD_MASK_RING: [number, number][] = [
+  [-85, -180],
+  [-85, 180],
+  [85, 180],
+  [85, -180],
+]
+
+function MapCoverageLock() {
+  const map = useMap()
+
+  useEffect(() => {
+    map.setMaxBounds(STRICT_BOUNDS)
+    map.options.maxBoundsViscosity = 1
+    map.setMinZoom(11)
+    map.setMaxZoom(18)
+
+    const mask = L.polygon(
+      [WORLD_MASK_RING, SAN_POLICARPO_MAP_POLYGON],
+      {
+        interactive: false,
+        stroke: false,
+        fillColor: '#0f172a',
+        fillOpacity: 0.46,
+        fillRule: 'evenodd',
+      },
+    ).addTo(map)
+
+    const outline = L.polygon(
+      SAN_POLICARPO_MAP_POLYGON,
+      {
+        interactive: false,
+        color: '#059669',
+        weight: 2,
+        opacity: 0.9,
+        fill: false,
+      },
+    ).addTo(map)
+
+    return () => {
+      mask.remove()
+      outline.remove()
+    }
+  }, [map])
+
+  return null
+}
+
 function MapClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
-      onLocationSelect(e.latlng.lat, e.latlng.lng)
+      if (
+        !isWithinSanPolicarpoServiceEnvelope(
+          e.latlng.lat,
+          e.latlng.lng,
+        )
+      ) {
+        alert('Please select a location inside the San Policarpo map area.')
+        return
+      }
+
+      onLocationSelect(
+        e.latlng.lat,
+        e.latlng.lng,
+      )
     },
   })
   return null
 }
 
 export default function LocationPicker({ center, onLocationSelect, initialPosition }: LocationPickerProps) {
-  const [position, setPosition] = useState<[number, number] | null>(initialPosition || null)
+  const [position, setPosition] = useState<[number, number] | null>(
+    initialPosition &&
+      isWithinSanPolicarpoServiceEnvelope(
+        initialPosition[0],
+        initialPosition[1],
+      )
+      ? initialPosition
+      : null,
+  )
 
   const handleLocationSelect = (lat: number, lng: number) => {
+    if (
+      !isWithinSanPolicarpoServiceEnvelope(
+        lat,
+        lng,
+      )
+    ) {
+      alert('Please select a location inside the San Policarpo map area.')
+      return
+    }
+
     setPosition([lat, lng])
     onLocationSelect(lat, lng)
   }
@@ -43,6 +130,17 @@ export default function LocationPicker({ center, onLocationSelect, initialPositi
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords
+
+          if (
+            !isWithinSanPolicarpoServiceEnvelope(
+              latitude,
+              longitude,
+            )
+          ) {
+            alert('Your current location is outside the San Policarpo map area.')
+            return
+          }
+
           setPosition([latitude, longitude])
           onLocationSelect(latitude, longitude)
         },
@@ -83,9 +181,14 @@ export default function LocationPicker({ center, onLocationSelect, initialPositi
         <MapContainer
           center={center}
           zoom={14}
+          minZoom={11}
+          maxZoom={18}
+          maxBounds={SAN_POLICARPO_LEAFLET_BOUNDS}
+          maxBoundsViscosity={1}
           style={{ height: '100%', width: '100%' }}
           className="z-0"
         >
+          <MapCoverageLock />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
