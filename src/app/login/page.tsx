@@ -8,6 +8,7 @@ import {
 
 import { AuthScreen } from '@/components/auth-screen'
 import { LoginWelcome } from '@/components/onboarding/login-welcome'
+import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import {
   setStoredUser,
   type AuthUser,
@@ -173,7 +174,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-dvh bg-slate-50" />
+        <CrmsLoadingScreen label="Opening secure sign-in…" />
       }
     >
       <LoginContent />
