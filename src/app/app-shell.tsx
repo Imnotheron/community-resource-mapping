@@ -89,6 +89,8 @@ function AppShellContent() {
     user,
     loading,
     login,
+    verifyOtp,
+    resendOtp,
     register,
     logout,
     refreshUser,
@@ -116,32 +118,46 @@ function AppShellContent() {
           }
         >
           <AuthScreen
-            onLogin={async (
+            onLogin={(
               email,
               password,
               role,
-            ) => {
-              const result = await login(
+            ) =>
+              login(
                 email,
                 password,
                 role,
               )
+            }
+            onVerifyOtp={async (
+              challengeId,
+              otp,
+            ) => {
+              const result =
+                await verifyOtp(
+                  challengeId,
+                  otp,
+                )
               setWelcomeUser(result.user)
               setMode('dashboard')
               return result
             }}
+            onResendOtp={(challengeId) =>
+              resendOtp(challengeId)
+            }
             onRegister={async (
               name,
               email,
               password,
               role,
             ) => {
-              const result = await register(
-                name,
-                email,
-                password,
-                role,
-              )
+              const result =
+                await register(
+                  name,
+                  email,
+                  password,
+                  role,
+                )
               setMode('dashboard')
               return result
             }}
