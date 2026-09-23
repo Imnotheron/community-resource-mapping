@@ -94,16 +94,33 @@ function LoginContent() {
   return (
     <AuthScreen
       preferredRole={preferredRole}
-      onLogin={(
+      onLogin={async (
         email,
         password,
         role,
-      ) =>
-        postAuth('/api/auth/login', {
-          email: email.trim(),
-          password,
-          role,
-        })
+      ) => {
+        const data = await postAuth(
+          '/api/auth/login',
+          {
+            email: email.trim(),
+            password,
+            role,
+          },
+        )
+
+        if (
+          data.otpRequired === false &&
+          data.user &&
+          data.token
+        ) {
+          setStoredUser(
+            data.user,
+            data.token,
+          )
+          goDashboard(data.user.role)
+        }
+
+        return data
       }
       onVerifyOtp={async (
         challengeId,
