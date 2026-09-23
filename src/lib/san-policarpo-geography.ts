@@ -4,18 +4,66 @@ export const SAN_POLICARPO_CENTER = {
 } as const
 
 /**
- * A broad client-side safety envelope.
+ * Alpha-test map coverage taken from the approved San Policarpo map crop.
  *
- * This is not treated as the municipality boundary. The server also validates
- * the reverse-geocoded municipality/province before a point is accepted.
+ * The map is intentionally locked to this corridor so users cannot pan into
+ * neighboring municipalities. The polygon is a UI/service-area guard, while
+ * reverse geocoding still verifies the municipality and province.
  */
 export const SAN_POLICARPO_SERVICE_LIMITS = {
-  south: 12.125,
-  west: 125.375,
-  north: 12.285,
-  east: 125.625,
+  south: 12.131956,
+  west: 125.404841,
+  north: 12.303583,
+  east: 125.554303,
 } as const
 
+export const SAN_POLICARPO_LEAFLET_BOUNDS: [
+  [number, number],
+  [number, number],
+] = [
+  [
+    SAN_POLICARPO_SERVICE_LIMITS.south,
+    SAN_POLICARPO_SERVICE_LIMITS.west,
+  ],
+  [
+    SAN_POLICARPO_SERVICE_LIMITS.north,
+    SAN_POLICARPO_SERVICE_LIMITS.east,
+  ],
+]
+
+/**
+ * Approximate visible San Policarpo coverage polygon based on the map crop
+ * supplied for alpha testing. Coordinate order is [latitude, longitude].
+ */
+export const SAN_POLICARPO_MAP_POLYGON: Array<
+  [number, number]
+> = [
+  [12.297838, 125.404841],
+  [12.294966, 125.407609],
+  [12.255829, 125.406686],
+  [12.203048, 125.425446],
+  [12.191918, 125.432211],
+  [12.187609, 125.442360],
+  [12.174683, 125.449433],
+  [12.161398, 125.471268],
+  [12.153858, 125.473114],
+  [12.144523, 125.482032],
+  [12.133392, 125.507250],
+  [12.131956, 125.536466],
+  [12.143446, 125.552150],
+  [12.154217, 125.554303],
+  [12.185096, 125.553688],
+  [12.208434, 125.542924],
+  [12.228541, 125.526625],
+  [12.278090, 125.474344],
+  [12.292093, 125.454354],
+  [12.303583, 125.425446],
+]
+
+/**
+ * Legacy [longitude, latitude] bounds kept for code that expects MapLibre-like
+ * coordinate ordering.
+ */
 export const SAN_POLICARPO_BOUNDS: [
   [number, number],
   [number, number],
@@ -202,12 +250,39 @@ export function isWithinSanPolicarpoServiceEnvelope(
   lat: number,
   lng: number,
 ) {
-  return (
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    lat >= SAN_POLICARPO_SERVICE_LIMITS.south &&
-    lat <= SAN_POLICARPO_SERVICE_LIMITS.north &&
-    lng >= SAN_POLICARPO_SERVICE_LIMITS.west &&
-    lng <= SAN_POLICARPO_SERVICE_LIMITS.east
-  )
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < SAN_POLICARPO_SERVICE_LIMITS.south ||
+    lat > SAN_POLICARPO_SERVICE_LIMITS.north ||
+    lng < SAN_POLICARPO_SERVICE_LIMITS.west ||
+    lng > SAN_POLICARPO_SERVICE_LIMITS.east
+  ) {
+    return false
+  }
+
+  // Ray-casting point-in-polygon test.
+  let inside = false
+
+  for (
+    let i = 0, j = SAN_POLICARPO_MAP_POLYGON.length - 1;
+    i < SAN_POLICARPO_MAP_POLYGON.length;
+    j = i++
+  ) {
+    const [yi, xi] = SAN_POLICARPO_MAP_POLYGON[i]
+    const [yj, xj] = SAN_POLICARPO_MAP_POLYGON[j]
+
+    const intersects =
+      yi > lat !== yj > lat &&
+      lng <
+        ((xj - xi) * (lat - yi)) /
+          (yj - yi || Number.EPSILON) +
+          xi
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
 }
