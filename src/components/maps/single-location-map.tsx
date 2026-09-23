@@ -4,51 +4,29 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-import {
-  SAN_POLICARPO_CENTER,
-  SAN_POLICARPO_LEAFLET_BOUNDS,
-  SAN_POLICARPO_MAP_POLYGON,
-  isWithinSanPolicarpoServiceEnvelope,
-} from '@/lib/san-policarpo-geography'
+const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072]
+
+const SAN_POLICARPO_LIMITS = {
+  // Expanded practical boundary for all 17 San Policarpo barangays.
+  // Wider east/south edge lets users reach Natividad and Tabo while staying within the municipal map area.
+  south: 12.125,
+  west: 125.375,
+  north: 12.285,
+  east: 125.625,
+}
 
 const SAN_POLICARPO_BOUNDS = L.latLngBounds(
-  SAN_POLICARPO_LEAFLET_BOUNDS,
+  [SAN_POLICARPO_LIMITS.south, SAN_POLICARPO_LIMITS.west],
+  [SAN_POLICARPO_LIMITS.north, SAN_POLICARPO_LIMITS.east],
 )
 
-const SAN_POLICARPO_CENTER_TUPLE: [number, number] = [
-  SAN_POLICARPO_CENTER.lat,
-  SAN_POLICARPO_CENTER.lng,
-]
-
-const WORLD_MASK_RING: [number, number][] = [
-  [-85, -180],
-  [-85, 180],
-  [85, 180],
-  [85, -180],
-]
-
-function addSanPolicarpoCoverageLayer(map: L.Map) {
-  L.polygon(
-    [
-      WORLD_MASK_RING,
-      SAN_POLICARPO_MAP_POLYGON,
-    ],
-    {
-      interactive: false,
-      stroke: false,
-      fillColor: '#0f172a',
-      fillOpacity: 0.92,
-      fillRule: 'evenodd',
-    },
-  ).addTo(map)
-
-  L.polygon(SAN_POLICARPO_MAP_POLYGON, {
-    interactive: false,
-    color: '#059669',
-    weight: 2,
-    opacity: 0.9,
-    fill: false,
-  }).addTo(map)
+function isWithinSanPolicarpo(lat: number, lng: number) {
+  return (
+    lat >= SAN_POLICARPO_LIMITS.south &&
+    lat <= SAN_POLICARPO_LIMITS.north &&
+    lng >= SAN_POLICARPO_LIMITS.west &&
+    lng <= SAN_POLICARPO_LIMITS.east
+  )
 }
 
 interface SingleLocationMapProps {
@@ -73,9 +51,9 @@ export function SingleLocationMap({
       mapRef.current.remove()
       mapRef.current = null
     }
-    const safePosition: [number, number] = isWithinSanPolicarpoServiceEnvelope(latitude, longitude)
+    const safePosition: [number, number] = isWithinSanPolicarpo(latitude, longitude)
       ? [latitude, longitude]
-      : SAN_POLICARPO_CENTER_TUPLE
+      : SAN_POLICARPO_CENTER
 
     const map = L.map(containerRef.current, {
       center: safePosition,
@@ -83,7 +61,7 @@ export function SingleLocationMap({
       minZoom: 11,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
-      maxBoundsViscosity: 1,
+      maxBoundsViscosity: 0.85,
       scrollWheelZoom: false,
     })
     mapRef.current = map
@@ -91,9 +69,6 @@ export function SingleLocationMap({
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 18,
     }).addTo(map)
-
-    addSanPolicarpoCoverageLayer(map)
-    map.setMaxBounds(SAN_POLICARPO_BOUNDS)
     const icon = L.divIcon({
       html: `<div style="width:18px;height:18px;border-radius:50%;background:var(--primary);border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
       className: '',
@@ -102,7 +77,7 @@ export function SingleLocationMap({
     })
     L.marker(safePosition, { icon })
       .addTo(map)
-      .bindPopup(isWithinSanPolicarpoServiceEnvelope(latitude, longitude) ? label : 'San Policarpo, Eastern Samar')
+      .bindPopup(isWithinSanPolicarpo(latitude, longitude) ? label : 'San Policarpo, Eastern Samar')
     setTimeout(() => map.invalidateSize(), 100)
     return () => {
       map.remove()
