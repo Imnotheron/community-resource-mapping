@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { issueLoginOtp } from '@/lib/login-otp'
 
 type UserColumn = {
   name: string
@@ -133,51 +134,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const token = Buffer.from(
-      JSON.stringify({
+    try {
+      const challenge = await issueLoginOtp({
         userId: user.id,
         email: user.email,
-        role: user.role,
-      }),
-    ).toString('base64')
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
         name: user.name,
-        role: user.role.toLowerCase(),
-        phone: user.phone || null,
-        profilePicture: user.profilePicture,
-        registrationStatus:
-          user.vulnerableProfile?.registrationStatus || null,
-        temporaryPasswordIssued: Boolean(
-          user.temporaryPasswordIssued,
-        ),
-        passwordChangedAt: user.passwordChangedAt
-          ? user.passwordChangedAt.toISOString()
-          : null,
-        onboardingReminderDismissedAt:
-          user.onboardingReminderDismissedAt
-            ? user.onboardingReminderDismissedAt.toISOString()
-            : null,
-        createdAt: user.createdAt.toISOString(),
-      },
-      token,
-    })
+      })
 
-    const isDevelopment = process.env.NODE_ENV !== 'production'
+      return NextResponse.json({
+        success: true,
+        otpRequired: true,
+        message:
+          'A verification code was sent to your email.',
+        ...challenge,
+      })
+    } catch (error) {
+      const retryAfterSeconds =
+        error instanceof Error &&
+        'retryAfterSeconds' in error
+          ? Number(
+              (
+                error as Error & {
+                  retryAfterSeconds?: number
+                }
+              ).retryAfterSeconds,
+            )
+          : undefined
 
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: !isDevelopment,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
-    })
-
-    return response
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to send the verification code.',
+          ...(retryAfterSeconds
+            ? { retryAfterSeconds }
+            : {}),
+        },
+        {
+          status: retryAfterSeconds ? 429 : 503,
+        },
+      )
+    }
   } catch (error) {
     console.error('Login error:', error)
 
