@@ -233,6 +233,7 @@ export async function issueLoginOtp(input: {
         loginOtpExpiresAt: null,
         loginOtpChallengeId: null,
         loginOtpAttempts: 0,
+        loginOtpLastSentAt: null,
       },
     })
 
