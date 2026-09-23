@@ -14,6 +14,7 @@ import type { AuthUser } from '@/lib/api-client'
 import { userScopedTourId } from '@/components/walkthrough/onboarding-policy'
 import type { WalkthroughTour } from '@/components/walkthrough/types'
 import { ContextualFeatureGuide } from '@/components/walkthrough/tours/contextual-feature-guide'
+import { OperationsHistoryWalkthrough } from '@/components/walkthrough/tours/operations-history-tour'
 import {
   ancestorContaining,
   clearTourAnchors,
@@ -1008,6 +1009,7 @@ export function WorkerFeatureWalkthroughs({ user }: { user: AuthUser }) {
   return (
     <>
       <WorkerDistributionsGuide user={user} />
+      <OperationsHistoryWalkthrough user={user} mode="worker" />
       <WorkerRecordDistributionGuide user={user} />
       <WorkerRegisterCitizenGuide user={user} />
       <WorkerFieldNotesGuide user={user} />
