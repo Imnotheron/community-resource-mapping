@@ -18,7 +18,8 @@ import {
 
 import {
   SAN_POLICARPO_CENTER,
-  SAN_POLICARPO_SERVICE_LIMITS,
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
   isWithinSanPolicarpoServiceEnvelope,
 } from '@/lib/san-policarpo-geography'
 
@@ -64,14 +65,7 @@ class AddressLookupError extends Error {
 }
 
 const LEAFLET_BOUNDS = L.latLngBounds(
-  [
-    SAN_POLICARPO_SERVICE_LIMITS.south,
-    SAN_POLICARPO_SERVICE_LIMITS.west,
-  ],
-  [
-    SAN_POLICARPO_SERVICE_LIMITS.north,
-    SAN_POLICARPO_SERVICE_LIMITS.east,
-  ],
+  SAN_POLICARPO_VIEW_BOUNDS,
 )
 
 function getSafePosition(
@@ -265,10 +259,10 @@ export default function AddressPickerMap({
     const map = L.map(mapContainerRef.current, {
       center: [initialPosition.lat, initialPosition.lng],
       zoom: 14,
-      minZoom: 11,
+      minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: LEAFLET_BOUNDS,
-      maxBoundsViscosity: 0.9,
+      maxBoundsViscosity: 1,
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
