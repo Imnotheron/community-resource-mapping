@@ -35,7 +35,7 @@ function addSanPolicarpoCoverageLayer(map: L.Map) {
       interactive: false,
       stroke: false,
       fillColor: "#0f172a",
-      fillOpacity: 0.46,
+      fillOpacity: 0.92,
       fillRule: "evenodd",
     },
   ).addTo(map);
