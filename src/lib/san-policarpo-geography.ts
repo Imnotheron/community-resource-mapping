@@ -44,7 +44,7 @@ export const SAN_POLICARPO_VIEW_BOUNDS: [
   ],
 ]
 
-export const SAN_POLICARPO_MIN_VIEW_ZOOM = 13
+export const SAN_POLICARPO_MIN_VIEW_ZOOM = 12
 
 export const SAN_POLICARPO_BOUNDS: [
   [number, number],
