@@ -314,7 +314,7 @@ function OverviewView() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <CivicMetricCard
-          label="Registered vulnerable families"
+          label="Registered vulnerable"
           value={total}
           hint={`${approved} approved and eligible`}
           tone="emerald"
