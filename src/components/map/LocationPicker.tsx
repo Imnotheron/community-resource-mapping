@@ -6,6 +6,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Button } from '@/components/ui/button'
 import { Crosshair } from 'lucide-react'
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from '@/lib/san-policarpo-geography'
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -83,6 +87,10 @@ export default function LocationPicker({ center, onLocationSelect, initialPositi
         <MapContainer
           center={center}
           zoom={14}
+          minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
+          maxZoom={18}
+          maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
+          maxBoundsViscosity={1}
           style={{ height: '100%', width: '100%' }}
           className="z-0"
         >
