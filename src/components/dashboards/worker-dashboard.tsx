@@ -31,15 +31,15 @@ import { apiFetch, AuthUser, getStoredUser } from '@/lib/api-client'
 import { formatDate, formatDateTime, timeAgo, StatusBadge, PriorityBadge, formatVulnerabilityTypes } from './shared'
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'my-distributions', label: 'My Distributions', icon: Package },
-  { id: 'history', label: 'Operations History', icon: History },
-  { id: 'new-distribution', label: 'Record Distribution', icon: PackagePlus },
+  { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'my-distributions', label: 'My Relief Records', icon: Package },
+  { id: 'history', label: 'Activity History', icon: History },
+  { id: 'new-distribution', label: 'Record Relief', icon: PackagePlus },
   { id: 'register-vulnerable', label: 'Register Citizen', icon: UserPlus },
   { id: 'field-notes', label: 'Field Notes', icon: NotebookPen },
-  { id: 'announcements', label: 'Announcements', icon: Megaphone },
+  { id: 'announcements', label: 'Community Updates', icon: Megaphone },
   { id: 'reports', label: 'Daily Reports', icon: Printer },
-  { id: 'guide', label: 'User Guide', icon: BookOpen },
+  { id: 'guide', label: 'Help Guide', icon: BookOpen },
 ]
 
 interface WorkerDashboardProps {

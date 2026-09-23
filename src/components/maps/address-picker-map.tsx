@@ -18,7 +18,8 @@ import {
 
 import {
   SAN_POLICARPO_CENTER,
-  SAN_POLICARPO_SERVICE_LIMITS,
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
   isWithinSanPolicarpoServiceEnvelope,
 } from '@/lib/san-policarpo-geography'
 
@@ -64,14 +65,7 @@ class AddressLookupError extends Error {
 }
 
 const LEAFLET_BOUNDS = L.latLngBounds(
-  [
-    SAN_POLICARPO_SERVICE_LIMITS.south,
-    SAN_POLICARPO_SERVICE_LIMITS.west,
-  ],
-  [
-    SAN_POLICARPO_SERVICE_LIMITS.north,
-    SAN_POLICARPO_SERVICE_LIMITS.east,
-  ],
+  SAN_POLICARPO_VIEW_BOUNDS,
 )
 
 function getSafePosition(
@@ -176,7 +170,7 @@ export default function AddressPickerMap({
     if (map) {
       map.setView(
         [previous.lat, previous.lng],
-        Math.max(map.getZoom(), 14),
+        Math.max(map.getZoom(), 13),
         { animate: true },
       )
     }
@@ -220,7 +214,7 @@ export default function AddressPickerMap({
       if (map) {
         map.setView(
           [nextPosition.lat, nextPosition.lng],
-          Math.max(map.getZoom(), 15),
+          Math.max(map.getZoom(), 14),
           { animate: true },
         )
       }
@@ -264,11 +258,11 @@ export default function AddressPickerMap({
 
     const map = L.map(mapContainerRef.current, {
       center: [initialPosition.lat, initialPosition.lng],
-      zoom: 14,
-      minZoom: 11,
+      zoom: 13,
+      minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: LEAFLET_BOUNDS,
-      maxBoundsViscosity: 0.9,
+      maxBoundsViscosity: 1,
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
@@ -326,7 +320,7 @@ export default function AddressPickerMap({
       window.setTimeout(() => {
         map.setView(
           [initialPosition.lat, initialPosition.lng],
-          14,
+          13,
           { animate: false },
         )
       }, 100)
@@ -361,7 +355,7 @@ export default function AddressPickerMap({
     if (map) {
       map.setView(
         [safePosition.lat, safePosition.lng],
-        Math.max(map.getZoom(), 14),
+        Math.max(map.getZoom(), 13),
         { animate: true },
       )
     }

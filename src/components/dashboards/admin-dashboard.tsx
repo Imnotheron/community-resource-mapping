@@ -314,7 +314,7 @@ function OverviewView() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <CivicMetricCard
-          label="Registered vulnerable families"
+          label="Registered vulnerable"
           value={total}
           hint={`${approved} approved and eligible`}
           tone="emerald"
@@ -2885,7 +2885,7 @@ function AnnouncementsView() {
       )}
 
       {showForm ? (
-        <Card className="overflow-hidden rounded-[1.5rem] border-emerald-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]">
+        <Card className="announcement-form-card overflow-hidden rounded-[1.5rem] border-emerald-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]">
           <CardHeader className="border-b border-slate-100 bg-slate-50/70">
             <div className="flex items-start gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-50 text-cyan-700">

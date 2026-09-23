@@ -5,12 +5,14 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { ExternalLink, MapPin, Phone, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from "@/lib/san-policarpo-geography";
 
 const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072];
-const SAN_POLICARPO_BOUNDS: L.LatLngBoundsExpression = [
-  [12.125, 125.375],
-  [12.285, 125.625],
-];
+const SAN_POLICARPO_BOUNDS: L.LatLngBoundsExpression =
+  SAN_POLICARPO_VIEW_BOUNDS;
 
 export interface VulnerablePoint {
   id: string;
@@ -148,11 +150,11 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
       center: SAN_POLICARPO_CENTER,
-      zoom: 12,
-      minZoom: 10,
+      zoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
+      minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
-      maxBoundsViscosity: 0.85,
+      maxBoundsViscosity: 1,
       zoomControl: true,
       attributionControl: true,
     });
@@ -183,12 +185,10 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       markersRef.current.set(point.id, marker);
     });
 
-    if (validPoints.length) {
-      const bounds = L.latLngBounds(validPoints.map((point) => [point.latitude, point.longitude] as [number, number]));
-      map.fitBounds(bounds.pad(0.2), { maxZoom: 14, animate: false });
-    } else {
-      map.setView(SAN_POLICARPO_CENTER, 12, { animate: false });
-    }
+    map.fitBounds(SAN_POLICARPO_BOUNDS, {
+      padding: [18, 18],
+      animate: false,
+    });
     window.requestAnimationFrame(() => map.invalidateSize(false));
   }, [interactiveMarkers, selectedPoint?.id, validPoints]);
 

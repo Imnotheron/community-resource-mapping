@@ -52,6 +52,27 @@ const viewVariants = {
   },
 }
 
+const mobileViewVariants = {
+  hidden: {
+    opacity: 0,
+    y: 4,
+    scale: 1,
+    filter: 'blur(0px)',
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+  },
+  exit: {
+    opacity: 0,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+  },
+}
+
 function formatWorkspace(role: string) {
   return String(role || 'Dashboard')
     .replace(/_/g, ' ')
@@ -124,9 +145,7 @@ export function AppShell({
   ) {
     return (
       <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-50 px-5 py-10 text-slate-950">
-        <DashboardAmbient />
-
-        <div className="relative z-10 w-full max-w-sm rounded-[28px] border border-white/80 bg-white/90 p-6 text-center shadow-[0_30px_90px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+        <div className="relative z-10 w-full max-w-sm rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-xl">
           <div className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2 shadow-sm">
             <img
               src="/logos/crms-system-icon.png"
@@ -175,9 +194,9 @@ export function AppShell({
           />
 
           <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-            <DashboardAmbient />
+            {!isMobile ? <DashboardAmbient /> : null}
 
-            <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 py-2.5 shadow-sm backdrop-blur-xl md:hidden">
+            <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-border bg-background px-3 py-2.5 shadow-sm md:hidden">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-200 bg-white p-1 shadow-sm">
                   <img
@@ -255,16 +274,27 @@ export function AppShell({
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeView}
-                  variants={viewVariants}
+                  variants={
+                    isMobile
+                      ? mobileViewVariants
+                      : viewVariants
+                  }
                   initial="hidden"
                   animate="show"
                   exit="exit"
-                  transition={{
-                    type: 'spring',
-                    stiffness: 230,
-                    damping: 28,
-                    mass: 0.7,
-                  }}
+                  transition={
+                    isMobile
+                      ? {
+                          duration: 0.14,
+                          ease: 'easeOut',
+                        }
+                      : {
+                          type: 'spring',
+                          stiffness: 230,
+                          damping: 28,
+                          mass: 0.7,
+                        }
+                  }
                   className="mx-auto max-w-7xl"
                 >
                   {children}

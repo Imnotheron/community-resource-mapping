@@ -52,23 +52,102 @@ export function useUserSync() {
     }
   }, [user?.id])
 
-  const login = useCallback(async (email: string, password: string, role: string) => {
-    const data = await apiFetch<{ success: boolean; user: AuthUser; token: string }>(
+  const login = useCallback(async (
+    email: string,
+    password: string,
+    role: string,
+  ) => {
+    const data = await apiFetch<{
+      success: boolean
+      otpRequired: boolean
+      challengeId?: string
+      maskedEmail?: string
+      expiresInSeconds?: number
+      resendAfterSeconds?: number
+      user?: AuthUser
+      token?: string
+    }>(
       '/api/auth/login',
       {
         method: 'POST',
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+        }),
+      },
+    )
+
+    if (
+      data.otpRequired === false &&
+      data.user &&
+      data.token
+    ) {
+      setStoredUser(data.user, data.token)
+      setUser(data.user)
+
+      if (data.user.id) {
+        sendHeartbeat(
+          data.user.id,
+          'online',
+        ).catch(() => {})
       }
+    }
+
+    return data
+  }, [])
+
+  const verifyOtp = useCallback(async (
+    challengeId: string,
+    otp: string,
+  ) => {
+    const data = await apiFetch<{
+      success: boolean
+      user: AuthUser
+      token: string
+    }>(
+      '/api/auth/verify-otp',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          challengeId,
+          otp,
+        }),
+      },
     )
 
     setStoredUser(data.user, data.token)
     setUser(data.user)
 
     if (data.user?.id) {
-      sendHeartbeat(data.user.id, 'online').catch(() => {})
+      sendHeartbeat(
+        data.user.id,
+        'online',
+      ).catch(() => {})
     }
 
     return data
+  }, [])
+
+  const resendOtp = useCallback(async (
+    challengeId: string,
+  ) => {
+    return apiFetch<{
+      success: boolean
+      otpRequired: true
+      challengeId: string
+      maskedEmail: string
+      expiresInSeconds: number
+      resendAfterSeconds: number
+    }>(
+      '/api/auth/resend-otp',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          challengeId,
+        }),
+      },
+    )
   }, [])
 
   const register = useCallback(async (name: string, email: string, password: string, role: string) => {
@@ -113,5 +192,14 @@ export function useUserSync() {
     setUser(u)
   }, [])
 
-  return { user, loading, login, register, logout, refreshUser }
+  return {
+    user,
+    loading,
+    login,
+    verifyOtp,
+    resendOtp,
+    register,
+    logout,
+    refreshUser,
+  }
 }

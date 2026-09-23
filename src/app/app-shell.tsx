@@ -1,10 +1,9 @@
 'use client'
 
 import { lazy, Suspense, useCallback, useState } from 'react'
-import { Loader2 } from 'lucide-react'
-
 import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
 import { LoginWelcome } from '@/components/onboarding/login-welcome'
+import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
 import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
@@ -68,20 +67,11 @@ const VulnerableDashboard = lazy(() =>
 )
 
 function ViewLoader({
-  label = 'Loading…',
+  label = 'Preparing your workspace…',
 }: {
   label?: string
 }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">
-          {label}
-        </p>
-      </div>
-    </div>
-  )
+  return <CrmsLoadingScreen label={label} />
 }
 
 function AppShellContent() {
@@ -89,6 +79,8 @@ function AppShellContent() {
     user,
     loading,
     login,
+    verifyOtp,
+    resendOtp,
     register,
     logout,
     refreshUser,
@@ -126,22 +118,46 @@ function AppShellContent() {
                 password,
                 role,
               )
+
+              if (
+                result.otpRequired === false &&
+                result.user
+              ) {
+                setWelcomeUser(result.user)
+                setMode('dashboard')
+              }
+
+              return result
+            }}
+            onVerifyOtp={async (
+              challengeId,
+              otp,
+            ) => {
+              const result =
+                await verifyOtp(
+                  challengeId,
+                  otp,
+                )
               setWelcomeUser(result.user)
               setMode('dashboard')
               return result
             }}
+            onResendOtp={(challengeId) =>
+              resendOtp(challengeId)
+            }
             onRegister={async (
               name,
               email,
               password,
               role,
             ) => {
-              const result = await register(
-                name,
-                email,
-                password,
-                role,
-              )
+              const result =
+                await register(
+                  name,
+                  email,
+                  password,
+                  role,
+                )
               setMode('dashboard')
               return result
             }}

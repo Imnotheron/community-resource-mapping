@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic'
 
 import bcrypt from 'bcryptjs'
+import type { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { issueLoginOtp } from '@/lib/login-otp'
 
 type UserColumn = {
   name: string
@@ -67,6 +69,81 @@ const userSelect = {
   },
 } as const
 
+const DEMO_LOGIN_ALIASES = new Map<string, string>([
+  ['admin@crms.gov', 'admin@crms.gov.ph'],
+  ['admin@crms.gov.ph', 'admin@crms.gov.ph'],
+  ['worker@sampolicarpo.gov', 'worker@sampolicarpo.gov'],
+  ['worker@sanpolicarpo.gov', 'worker@sampolicarpo.gov'],
+  ['maria.garcia@email.com', 'maria.garcia@email.com'],
+])
+
+const DEMO_ACCOUNT_EMAILS = new Set([
+  'admin@crms.gov.ph',
+  'worker@sampolicarpo.gov',
+  'maria.garcia@email.com',
+])
+
+type LoginUser = Prisma.UserGetPayload<{
+  select: typeof userSelect
+}>
+
+function authenticatedResponse(
+  user: LoginUser,
+) {
+  const token = Buffer.from(
+    JSON.stringify({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    }),
+  ).toString('base64')
+
+  const response = NextResponse.json({
+    success: true,
+    otpRequired: false,
+    demoAccount: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role.toLowerCase(),
+      phone: user.phone || null,
+      profilePicture:
+        user.profilePicture || null,
+      registrationStatus:
+        user.vulnerableProfile
+          ?.registrationStatus || null,
+      temporaryPasswordIssued: Boolean(
+        user.temporaryPasswordIssued,
+      ),
+      passwordChangedAt:
+        user.passwordChangedAt
+          ? user.passwordChangedAt.toISOString()
+          : null,
+      onboardingReminderDismissedAt:
+        user.onboardingReminderDismissedAt
+          ? user.onboardingReminderDismissedAt.toISOString()
+          : null,
+      createdAt:
+        user.createdAt.toISOString(),
+    },
+    token,
+  })
+
+  const isDevelopment =
+    process.env.NODE_ENV !== 'production'
+
+  response.cookies.set('token', token, {
+    httpOnly: true,
+    secure: !isDevelopment,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7,
+    path: '/',
+  })
+
+  return response
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password, role } = await request.json()
@@ -84,16 +161,20 @@ export async function POST(request: NextRequest) {
     await ensureOnboardingColumns()
 
     const cleanEmail = String(email).trim()
+    const normalizedEmail = cleanEmail.toLowerCase()
+    const lookupEmail =
+      DEMO_LOGIN_ALIASES.get(normalizedEmail) ||
+      normalizedEmail
     const cleanRole = String(role).trim().toUpperCase()
 
     let user = await db.user.findUnique({
-      where: { email: cleanEmail },
+      where: { email: lookupEmail },
       select: userSelect,
     })
 
-    if (!user && cleanEmail !== cleanEmail.toLowerCase()) {
+    if (!user && cleanEmail !== normalizedEmail) {
       user = await db.user.findUnique({
-        where: { email: cleanEmail.toLowerCase() },
+        where: { email: cleanEmail },
         select: userSelect,
       })
     }
@@ -133,51 +214,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const token = Buffer.from(
-      JSON.stringify({
+    if (
+      DEMO_LOGIN_ALIASES.has(normalizedEmail) ||
+      DEMO_ACCOUNT_EMAILS.has(
+        user.email.toLowerCase(),
+      )
+    ) {
+      return authenticatedResponse(user)
+    }
+
+    try {
+      const challenge = await issueLoginOtp({
         userId: user.id,
         email: user.email,
-        role: user.role,
-      }),
-    ).toString('base64')
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
         name: user.name,
-        role: user.role.toLowerCase(),
-        phone: user.phone || null,
-        profilePicture: user.profilePicture,
-        registrationStatus:
-          user.vulnerableProfile?.registrationStatus || null,
-        temporaryPasswordIssued: Boolean(
-          user.temporaryPasswordIssued,
-        ),
-        passwordChangedAt: user.passwordChangedAt
-          ? user.passwordChangedAt.toISOString()
-          : null,
-        onboardingReminderDismissedAt:
-          user.onboardingReminderDismissedAt
-            ? user.onboardingReminderDismissedAt.toISOString()
-            : null,
-        createdAt: user.createdAt.toISOString(),
-      },
-      token,
-    })
+      })
 
-    const isDevelopment = process.env.NODE_ENV !== 'production'
+      return NextResponse.json({
+        success: true,
+        otpRequired: true,
+        message:
+          'A verification code was sent to your email.',
+        ...challenge,
+      })
+    } catch (error) {
+      const retryAfterSeconds =
+        error instanceof Error &&
+        'retryAfterSeconds' in error
+          ? Number(
+              (
+                error as Error & {
+                  retryAfterSeconds?: number
+                }
+              ).retryAfterSeconds,
+            )
+          : undefined
 
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: !isDevelopment,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
-    })
-
-    return response
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to send the verification code.',
+          ...(retryAfterSeconds
+            ? { retryAfterSeconds }
+            : {}),
+        },
+        {
+          status: retryAfterSeconds ? 429 : 503,
+        },
+      )
+    }
   } catch (error) {
     console.error('Login error:', error)
 

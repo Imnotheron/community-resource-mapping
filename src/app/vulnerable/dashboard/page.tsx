@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { VulnerableDashboard } from '@/components/dashboards/vulnerable-dashboard'
+import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import { VulnerableWalkthrough } from '@/components/walkthrough/tours/vulnerable-tour'
 import { VulnerableFeatureWalkthroughs } from '@/components/walkthrough/tours/vulnerable-feature-tours'
 
@@ -23,9 +23,7 @@ export default function DashboardRoute() {
 
   if (loading || !user || user.role !== ROLE) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <CrmsLoadingScreen label="Opening your assistance portal…" />
     )
   }
 

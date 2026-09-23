@@ -48,12 +48,12 @@ const SingleLocationMap = dynamic(
 )
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'my-profile', label: 'My Profile', icon: User },
-  { id: 'relief-history', label: 'Relief History', icon: Package },
-  { id: 'feedback', label: 'Feedback', icon: MessageSquare },
-  { id: 'announcements', label: 'Announcements', icon: Megaphone },
-  { id: 'guide', label: 'User Guide', icon: BookOpen },
+  { id: 'overview', label: 'Home', icon: LayoutDashboard },
+  { id: 'my-profile', label: 'My Information', icon: User },
+  { id: 'relief-history', label: 'My Relief History', icon: Package },
+  { id: 'feedback', label: 'Send Feedback', icon: MessageSquare },
+  { id: 'announcements', label: 'Community Updates', icon: Megaphone },
+  { id: 'guide', label: 'Help Guide', icon: BookOpen },
 ]
 
 interface VulnerableDashboardProps {
@@ -674,6 +674,10 @@ function AnnouncementsView() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState('ALL')
+  const [dateFilter, setDateFilter] = useState('ALL')
+  const [specificDate, setSpecificDate] = useState('')
+  const [sortOrder, setSortOrder] = useState('NEWEST')
 
   useEffect(() => {
     (async () => {
@@ -688,18 +692,117 @@ function AnnouncementsView() {
     })()
   }, [])
 
-  const filteredAnnouncements = announcements.filter((item) => {
-    const search = query.trim().toLowerCase()
-    if (!search) return true
+  const announcementTypes = Array.from(
+    new Set(
+      announcements
+        .map((item) => String(item.type || 'GENERAL').toUpperCase())
+        .filter(Boolean),
+    ),
+  ).sort()
 
-    return [
-      item.title,
-      item.content,
-      item.type,
-      item.priority,
-      item.location,
-    ].join(' ').toLowerCase().includes(search)
-  })
+  const formatTypeLabel = (value: string) =>
+    value
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (character) => character.toUpperCase())
+
+  const localDateKey = (value: unknown) => {
+    const date = new Date(String(value || ''))
+    if (Number.isNaN(date.getTime())) return ''
+
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const now = new Date()
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  )
+  const tomorrowStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+  )
+  const weekStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 6,
+  )
+  const monthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+  )
+  const nextMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1,
+  )
+
+  const filteredAnnouncements = announcements
+    .filter((item) => {
+      const search = query.trim().toLowerCase()
+
+      if (
+        search &&
+        ![
+          item.title,
+          item.content,
+          item.type,
+          item.priority,
+          item.location,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(search)
+      ) {
+        return false
+      }
+
+      const itemType = String(item.type || 'GENERAL').toUpperCase()
+      if (typeFilter !== 'ALL' && itemType !== typeFilter) {
+        return false
+      }
+
+      if (dateFilter === 'ALL') return true
+
+      const createdAt = new Date(item.createdAt)
+      if (Number.isNaN(createdAt.getTime())) return false
+
+      if (dateFilter === 'TODAY') {
+        return createdAt >= todayStart && createdAt < tomorrowStart
+      }
+
+      if (dateFilter === 'LAST_7_DAYS') {
+        return createdAt >= weekStart && createdAt < tomorrowStart
+      }
+
+      if (dateFilter === 'THIS_MONTH') {
+        return createdAt >= monthStart && createdAt < nextMonthStart
+      }
+
+      if (dateFilter === 'SPECIFIC_DATE') {
+        return Boolean(specificDate) && localDateKey(createdAt) === specificDate
+      }
+
+      return true
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime()
+      const bTime = new Date(b.createdAt).getTime()
+
+      if (!Number.isFinite(aTime) || !Number.isFinite(bTime)) {
+        return 0
+      }
+
+      return sortOrder === 'OLDEST'
+        ? aTime - bTime
+        : bTime - aTime
+    })
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -707,15 +810,114 @@ function AnnouncementsView() {
         <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">Official notices from the MSWDO and administrators.</p>
       </div>
-      <div className="relative max-w-xl">
-        <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search announcements..."
-          className="pl-9"
-        />
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.4fr)_minmax(180px,0.8fr)_minmax(180px,0.8fr)_minmax(170px,0.7fr)]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search announcements..."
+              className="pl-9"
+            />
+          </div>
+
+          <Select
+            value={typeFilter}
+            onValueChange={setTypeFilter}
+          >
+            <SelectTrigger aria-label="Filter by announcement type">
+              <SelectValue placeholder="All announcement types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All announcement types</SelectItem>
+              {announcementTypes.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {formatTypeLabel(type)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={dateFilter}
+            onValueChange={(value) => {
+              setDateFilter(value)
+              if (value !== 'SPECIFIC_DATE') {
+                setSpecificDate('')
+              }
+            }}
+          >
+            <SelectTrigger aria-label="Filter announcements by date">
+              <SelectValue placeholder="All dates" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All dates</SelectItem>
+              <SelectItem value="TODAY">Today</SelectItem>
+              <SelectItem value="LAST_7_DAYS">Last 7 days</SelectItem>
+              <SelectItem value="THIS_MONTH">This month</SelectItem>
+              <SelectItem value="SPECIFIC_DATE">Specific date</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={sortOrder}
+            onValueChange={setSortOrder}
+          >
+            <SelectTrigger aria-label="Sort announcements by posted date">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="NEWEST">Newest first</SelectItem>
+              <SelectItem value="OLDEST">Oldest first</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {dateFilter === 'SPECIFIC_DATE' && (
+          <div className="mt-3 max-w-xs space-y-1.5">
+            <Label htmlFor="announcement-specific-date">
+              Posted on
+            </Label>
+            <Input
+              id="announcement-specific-date"
+              type="date"
+              value={specificDate}
+              onChange={(event) =>
+                setSpecificDate(event.target.value)
+              }
+              max={localDateKey(new Date())}
+            />
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>
+            Showing {filteredAnnouncements.length} of {announcements.length} announcement{announcements.length === 1 ? '' : 's'}
+          </span>
+          {(query ||
+            typeFilter !== 'ALL' ||
+            dateFilter !== 'ALL' ||
+            sortOrder !== 'NEWEST') && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => {
+                setQuery('')
+                setTypeFilter('ALL')
+                setDateFilter('ALL')
+                setSpecificDate('')
+                setSortOrder('NEWEST')
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
       </div>
+
       <AnnouncementsCarousel userRole="vulnerable" />
       {loading ? (
         <WowLoader

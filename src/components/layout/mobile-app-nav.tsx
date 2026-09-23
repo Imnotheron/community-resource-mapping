@@ -30,11 +30,23 @@ interface MobileAppNavProps {
 }
 
 const COMPACT_LABELS: Record<string, string> = {
-  'My Distributions': 'History',
-  'Record Distribution': 'Distribute',
-  'Register Citizen': 'Register',
+  'My Distributions': 'My Relief',
+  'My Relief Records': 'My Relief',
+  'Operations History': 'History',
+  'Activity History': 'History',
+  'Record Distribution': 'Record',
+  'Record Relief': 'Record',
+  'Register Citizen': 'Add Citizen',
+  'My Profile': 'My Info',
+  'My Information': 'My Info',
   'Relief History': 'Relief',
+  'My Relief History': 'Relief',
+  Feedback: 'Feedback',
+  'Send Feedback': 'Feedback',
   Announcements: 'Updates',
+  'Community Updates': 'Updates',
+  'User Guide': 'Help',
+  'Help Guide': 'Help',
 }
 
 function mobileLabel(label: string) {
@@ -119,7 +131,7 @@ export function MobileAppNav({
       <nav
         data-tour="mobile-navigation"
         aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-2 pt-1.5 shadow-[0_-12px_36px_rgba(15,23,42,0.12)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background px-2 pt-1.5 shadow-[0_-8px_24px_rgba(15,23,42,0.10)] md:hidden"
         style={{
           paddingBottom:
             'max(0.35rem, env(safe-area-inset-bottom))',
@@ -140,7 +152,7 @@ export function MobileAppNav({
                   navigate(item.id)
                 }
                 className={cn(
-                  'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition active:scale-[0.97]',
+                  'flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition-colors',
                   active
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -159,7 +171,7 @@ export function MobileAppNav({
                 >
                   <Icon className="h-4 w-4" />
                 </span>
-                <span className="w-full truncate text-[0.625rem] font-semibold leading-tight">
+                <span className="w-full truncate text-[0.6875rem] font-semibold leading-tight">
                   {mobileLabel(item.label)}
                 </span>
               </button>
@@ -171,7 +183,7 @@ export function MobileAppNav({
             type="button"
             onClick={() => setMoreOpen(true)}
             className={cn(
-              'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition active:scale-[0.97]',
+              'flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-center transition-colors',
               secondaryIsActive
                 ? 'bg-primary/10 text-primary'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -188,7 +200,7 @@ export function MobileAppNav({
             >
               <Menu className="h-4 w-4" />
             </span>
-            <span className="text-[0.625rem] font-semibold leading-tight">
+            <span className="text-[0.6875rem] font-semibold leading-tight">
               More
             </span>
           </button>
@@ -211,10 +223,10 @@ export function MobileAppNav({
 
           <SheetHeader className="shrink-0 border-b border-border px-5 pb-4 pt-3 text-left">
             <SheetTitle className="text-lg font-bold text-foreground">
-              More options
+              More pages
             </SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
-              Open another page or manage your account.
+              Choose a page below, open your profile, or sign out.
             </SheetDescription>
           </SheetHeader>
 

@@ -488,6 +488,25 @@
 .gov-stat .stat-value {
   text-shadow: 0 10px 30px rgb(var(--wow-emerald-rgb) / 0.14);
 }
+
+/* Keep the New Announcement editor visually calm and readable.
+   It should not inherit the dashboard card sweep/hover animation. */
+.announcement-form-card,
+.announcement-form-card:hover {
+  transform: none !important;
+  animation: none !important;
+  transition: border-color 180ms ease, box-shadow 180ms ease !important;
+  background: #ffffff !important;
+  border-color: rgb(167 243 208) !important;
+  box-shadow: 0 18px 55px rgb(15 23 42 / 0.07) !important;
+}
+
+.announcement-form-card::before,
+.announcement-form-card:hover::before {
+  content: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
 .gov-stat:nth-child(1) { animation-delay: 0.02s; }
 .gov-stat:nth-child(2) { animation-delay: 0.08s; }
 .gov-stat:nth-child(3) { animation-delay: 0.14s; }
@@ -868,4 +887,89 @@ a:active,
 .crms-dashboard-theme .bg-emerald-600,
 .crms-dashboard-theme .bg-emerald-700 {
   color: var(--primary-foreground) !important;
+}
+
+
+/* ===== Alpha mobile stabilization ===== */
+@media (max-width: 767px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  .dashboard-ambient {
+    display: none !important;
+  }
+
+  .crms-dashboard-theme {
+    background: var(--background) !important;
+  }
+
+  .crms-dashboard-theme .backdrop-blur-xl,
+  .crms-dashboard-theme .backdrop-blur-2xl,
+  .crms-dashboard-theme .backdrop-blur-lg {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .gov-stat,
+  .bento-card,
+  [data-slot="card"],
+  .dashboard-view > .space-y-6,
+  .dashboard-view > .space-y-8,
+  .dashboard-view > div:not(.dashboard-ambient) {
+    animation: none !important;
+    transition:
+      border-color 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease !important;
+  }
+
+  .gov-stat:hover,
+  .bento-card:hover,
+  [data-slot="card"]:hover,
+  .app-main table tbody tr:hover {
+    transform: none !important;
+  }
+
+  .auth-role-card::after,
+  .auth-form-card::after,
+  .map-wow-shell__scan,
+  .wow-map-marker__pulse,
+  .sidebar-status-card::after {
+    display: none !important;
+  }
+
+  .leaflet-popup-content-wrapper {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  main {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  button:hover,
+  a:hover,
+  [data-slot="button"]:hover {
+    transform: none !important;
+  }
 }

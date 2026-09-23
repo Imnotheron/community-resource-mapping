@@ -26,6 +26,13 @@ model User {
   passwordChangedAt              DateTime?
   onboardingReminderDismissedAt  DateTime?
 
+  // Login OTP state (required after every valid password login)
+  loginOtpHash                   String?
+  loginOtpExpiresAt              DateTime?
+  loginOtpChallengeId            String?                        @unique
+  loginOtpAttempts               Int                            @default(0)
+  loginOtpLastSentAt             DateTime?
+
   createdAt                      DateTime                      @default(now())
   updatedAt                      DateTime                      @updatedAt
   generalFeedback                Feedback[]

@@ -6,6 +6,10 @@ import 'leaflet/dist/leaflet.css'
 import { Search, MapPin, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from '@/lib/san-policarpo-geography'
 
 const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072]
 
@@ -19,8 +23,7 @@ const SAN_POLICARPO_LIMITS = {
 }
 
 const SAN_POLICARPO_BOUNDS = L.latLngBounds(
-  [SAN_POLICARPO_LIMITS.south, SAN_POLICARPO_LIMITS.west],
-  [SAN_POLICARPO_LIMITS.north, SAN_POLICARPO_LIMITS.east],
+  SAN_POLICARPO_VIEW_BOUNDS,
 )
 
 function isWithinSanPolicarpo(lat: number, lng: number) {
@@ -81,11 +84,11 @@ export function LocationPicker({
     if (mapRef.current) return
     const map = L.map(containerRef.current, {
       center: [DEFAULT_LAT, DEFAULT_LNG],
-      zoom: 14,
-      minZoom: 11,
+      zoom: 13,
+      minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
-      maxBoundsViscosity: 0.85,
+      maxBoundsViscosity: 1,
     })
     mapRef.current = map
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -105,7 +108,7 @@ export function LocationPicker({
 
       if (!isWithinSanPolicarpo(ll.lat, ll.lng)) {
         marker.setLatLng([DEFAULT_LAT, DEFAULT_LNG])
-        map.setView([DEFAULT_LAT, DEFAULT_LNG], 14)
+        map.setView([DEFAULT_LAT, DEFAULT_LNG], 13)
         alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
         return
       }
@@ -160,7 +163,7 @@ export function LocationPicker({
       return
     }
 
-    mapRef.current.setView([r.lat, r.lon], 16)
+    mapRef.current.setView([r.lat, r.lon], 15)
     markerRef.current.setLatLng([r.lat, r.lon])
     onChange(r.lat, r.lon, r.display_name)
     setShowResults(false)

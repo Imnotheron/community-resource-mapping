@@ -1,9 +1,9 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { ProfileView } from '@/components/profile-view'
+import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import { ProfileSettingsWalkthrough } from '@/components/walkthrough/tours/profile-settings-tour'
 import { useUserSync } from '@/hooks/use-user-sync'
 
@@ -13,9 +13,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <CrmsLoadingScreen label="Loading your profile…" />
     )
   }
 

@@ -2,11 +2,9 @@
 
 import { MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { SAN_POLICARPO_VIEW_BOUNDS } from '@/lib/san-policarpo-geography'
 
-const SAN_POLICARPO_BOUNDS: [[number, number], [number, number]] = [
-  [12.125, 125.445],
-  [12.275, 125.575],
-]
+const SAN_POLICARPO_BOUNDS = SAN_POLICARPO_VIEW_BOUNDS
 
 export function StaticSanPolicarpoMapPreview() {
   return (
