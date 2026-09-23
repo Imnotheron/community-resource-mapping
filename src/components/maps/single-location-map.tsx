@@ -60,7 +60,7 @@ export function SingleLocationMap({
 
     const map = L.map(containerRef.current, {
       center: safePosition,
-      zoom: 14,
+      zoom: 13,
       minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
