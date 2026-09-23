@@ -6,6 +6,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, Navigation, Maximize2, Phone, Mail, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  SAN_POLICARPO_MIN_VIEW_ZOOM,
+  SAN_POLICARPO_VIEW_BOUNDS,
+} from '@/lib/san-policarpo-geography'
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -153,6 +157,10 @@ export default function SingleLocationMap({
       <MapContainer
         center={[latitude, longitude]}
         zoom={16}
+        minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
+        maxZoom={18}
+        maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
+        maxBoundsViscosity={1}
         style={{ height: '500px', width: '100%', zIndex: 0 }}
         className="rounded-lg"
       >
