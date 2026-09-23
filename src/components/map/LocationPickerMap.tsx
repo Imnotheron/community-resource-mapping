@@ -7,6 +7,12 @@ import 'leaflet/dist/leaflet.css'
 import { MapPin, Search, Loader2, AlertTriangle, Info, Home, Map as MapIcon, CheckCircle2, Lock, Unlock, Maximize2, Minimize2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  SAN_POLICARPO_CENTER,
+  SAN_POLICARPO_LEAFLET_BOUNDS,
+  SAN_POLICARPO_MAP_POLYGON,
+  isWithinSanPolicarpoServiceEnvelope,
+} from '@/lib/san-policarpo-geography'
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -51,28 +57,20 @@ const BARANGAYS = [
   { name: 'Tan-awan', lat: 12.24, lng: 125.48, type: 'rural', estimated: true },
 ]
 
-// San Policarpo, Eastern Samar bounds (based on actual barangay coordinates)
-const SAN_POLICARPO_BOUNDS = {
-  north: 12.25,   // Pangpang (12.2316) + buffer
-  south: 12.16,   // Southern barangays + buffer
-  east: 125.52,   // Poblacion (125.5083) + buffer
-  west: 125.43    // Santa Cruz (125.4413) - buffer
-}
+const STRICT_BOUNDS = L.latLngBounds(
+  SAN_POLICARPO_LEAFLET_BOUNDS,
+)
 
-// Municipal Center: 12°10′45″N, 125°30′26″E
-const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072]
-
-// Check if coordinates are within San Policarpo bounds
-function isWithinSanPolicarpo(lat: number, lng: number): boolean {
-  return lat >= SAN_POLICARPO_BOUNDS.south &&
-         lat <= SAN_POLICARPO_BOUNDS.north &&
-         lng >= SAN_POLICARPO_BOUNDS.west &&
-         lng <= SAN_POLICARPO_BOUNDS.east
-}
+const WORLD_MASK_RING: [number, number][] = [
+  [-85, -180],
+  [-85, 180],
+  [85, 180],
+  [85, -180],
+]
 
 // Find the nearest barangay to given coordinates
 function findNearestBarangay(lat: number, lng: number): typeof BARANGAYS[0] | null {
-  if (!isWithinSanPolicarpo(lat, lng)) return null
+  if (!isWithinSanPolicarpoServiceEnvelope(lat, lng)) return null
   
   let nearest: typeof BARANGAYS[0] | null = null
   let minDistance = Infinity
@@ -134,12 +132,41 @@ function MapInteractivity({ isInteractive }: { isInteractive: boolean }) {
 
 function SetBounds() {
   const map = useMap()
+
   useEffect(() => {
-    // Set zoom limits but allow free exploration
-    map.setMinZoom(10)
+    map.setMinZoom(11)
     map.setMaxZoom(18)
-    // Don't set maxBounds to allow free exploration
+    map.setMaxBounds(STRICT_BOUNDS)
+    map.options.maxBoundsViscosity = 1
+
+    const mask = L.polygon(
+      [WORLD_MASK_RING, SAN_POLICARPO_MAP_POLYGON],
+      {
+        interactive: false,
+        stroke: false,
+        fillColor: '#0f172a',
+        fillOpacity: 0.46,
+        fillRule: 'evenodd',
+      },
+    ).addTo(map)
+
+    const outline = L.polygon(
+      SAN_POLICARPO_MAP_POLYGON,
+      {
+        interactive: false,
+        color: '#059669',
+        weight: 2,
+        opacity: 0.9,
+        fill: false,
+      },
+    ).addTo(map)
+
+    return () => {
+      mask.remove()
+      outline.remove()
+    }
   }, [map])
+
   return null
 }
 
@@ -278,7 +305,14 @@ export default function LocationPickerMap({
   className = ''
 }: LocationPickerMapProps) {
   const [position, setPosition] = useState<[number, number] | null>(
-    (initialLat && initialLng) ? [initialLat, initialLng] : null
+    initialLat &&
+      initialLng &&
+      isWithinSanPolicarpoServiceEnvelope(
+        initialLat,
+        initialLng,
+      )
+      ? [initialLat, initialLng]
+      : null,
   )
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Array<{lat: number, lon: number, display_name: string}>>([])
@@ -288,10 +322,29 @@ export default function LocationPickerMap({
   const [isGeocoding, setIsGeocoding] = useState(false)
 
   useEffect(() => {
-    setPosition((initialLat && initialLng) ? [initialLat, initialLng] : null)
+    setPosition(
+      initialLat &&
+        initialLng &&
+        isWithinSanPolicarpoServiceEnvelope(
+          initialLat,
+          initialLng,
+        )
+        ? [initialLat, initialLng]
+        : null,
+    )
   }, [initialLat, initialLng])
 
   const handleLocationSelect = async (lat: number, lng: number) => {
+    if (
+      !isWithinSanPolicarpoServiceEnvelope(
+        lat,
+        lng,
+      )
+    ) {
+      alert('Please select a location inside the San Policarpo map area.')
+      return
+    }
+
     setPosition([lat, lng])
     onLocationSelect(lat, lng)
     // Perform reverse geocoding to get address details
@@ -331,8 +384,14 @@ export default function LocationPickerMap({
     setIsSearching(true)
     try {
       const results = await searchAddress(query)
-      // Show all search results (no bounds filtering)
-      setSearchResults(results)
+      setSearchResults(
+        results.filter((result) =>
+          isWithinSanPolicarpoServiceEnvelope(
+            result.lat,
+            result.lon,
+          ),
+        ),
+      )
       setShowResults(true)
     } catch (error) {
       console.error('Search error:', error)
@@ -346,7 +405,17 @@ export default function LocationPickerMap({
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords
-          // Accept any location (no bounds checking)
+
+          if (
+            !isWithinSanPolicarpoServiceEnvelope(
+              latitude,
+              longitude,
+            )
+          ) {
+            alert('Your current location is outside the San Policarpo map area.')
+            return
+          }
+
           setPosition([latitude, longitude])
           onLocationSelect(latitude, longitude)
           // Perform reverse geocoding to get address details
@@ -442,12 +511,24 @@ export default function LocationPickerMap({
         )}
 
         <MapContainer
-          center={position || SAN_POLICARPO_CENTER}
-          zoom={position ? 15 : 13}
+          center={position || [SAN_POLICARPO_CENTER.lat, SAN_POLICARPO_CENTER.lng]}
+          zoom={position ? 15 : 12}
+          minZoom={11}
+          maxZoom={18}
+          maxBounds={SAN_POLICARPO_LEAFLET_BOUNDS}
+          maxBoundsViscosity={1}
           style={{ height: '100%', width: '100%', zIndex: 0 }}
           className="rounded-lg"
         >
-          <MapView center={position || SAN_POLICARPO_CENTER} zoom={position ? 15 : 13} />
+          <MapView
+            center={
+              position || [
+                SAN_POLICARPO_CENTER.lat,
+                SAN_POLICARPO_CENTER.lng,
+              ]
+            }
+            zoom={position ? 15 : 12}
+          />
           <SetBounds />
           <MapInteractivity isInteractive={isMapInteractive} />
           <TileLayer
