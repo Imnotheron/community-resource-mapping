@@ -86,7 +86,7 @@ export default function LocationPicker({ center, onLocationSelect, initialPositi
       <div className="h-[300px] rounded-lg overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-inner relative z-0">
         <MapContainer
           center={center}
-          zoom={14}
+          zoom={13}
           minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
           maxZoom={18}
           maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
