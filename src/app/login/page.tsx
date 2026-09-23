@@ -1,13 +1,17 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import {
   useRouter,
   useSearchParams,
 } from 'next/navigation'
 
 import { AuthScreen } from '@/components/auth-screen'
-import { setStoredUser } from '@/lib/api-client'
+import { LoginWelcome } from '@/components/onboarding/login-welcome'
+import {
+  setStoredUser,
+  type AuthUser,
+} from '@/lib/api-client'
 
 async function postAuth(
   path: string,
@@ -60,6 +64,8 @@ function LoginContent() {
   const searchParams = useSearchParams()
   const preferredRole =
     searchParams.get('role') || undefined
+  const [welcomeUser, setWelcomeUser] =
+    useState<AuthUser | null>(null)
 
   const goDashboard = (role?: string) => {
     const normalizedRole =
@@ -91,6 +97,17 @@ function LoginContent() {
     window.location.assign('/intro')
   }
 
+  if (welcomeUser) {
+    return (
+      <LoginWelcome
+        user={welcomeUser}
+        onComplete={() =>
+          goDashboard(welcomeUser.role)
+        }
+      />
+    )
+  }
+
   return (
     <AuthScreen
       preferredRole={preferredRole}
@@ -117,7 +134,7 @@ function LoginContent() {
             data.user,
             data.token,
           )
-          goDashboard(data.user.role)
+          setWelcomeUser(data.user)
         }
 
         return data
@@ -138,7 +155,7 @@ function LoginContent() {
           data.user,
           data.token,
         )
-        goDashboard(data.user.role)
+        setWelcomeUser(data.user)
 
         return data
       }}
