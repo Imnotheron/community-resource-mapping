@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useUserSync } from '@/hooks/use-user-sync'
 import { WorkerDashboard } from '@/components/dashboards/worker-dashboard'
+import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
 import { WorkerFeatureWalkthroughs } from '@/components/walkthrough/tours/worker-feature-tours'
 import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
@@ -24,9 +24,7 @@ export default function DashboardRoute() {
 
   if (loading || !user || user.role !== ROLE) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <CrmsLoadingScreen label="Opening field worker workspace…" />
     )
   }
 
