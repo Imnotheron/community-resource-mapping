@@ -22,7 +22,6 @@ import {
   RotateCcw,
   Shield,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -1009,18 +1008,6 @@ export function AuthScreen({
           )}
         </AnimatePresence>
 
-        <div className="max-w-xl rounded-2xl border border-emerald-100 bg-white/90 px-4 py-3 text-center text-xs leading-relaxed text-slate-600 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
-            <Sparkles className="h-3.5 w-3.5" />
-            Alpha testing
-          </span>
-          <span className="mx-2 text-slate-300">
-            ·
-          </span>
-          Use your assigned account and a real
-          email address so you can receive the
-          login code.
-        </div>
       </div>
     </div>
   )
