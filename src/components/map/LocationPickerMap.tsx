@@ -170,7 +170,7 @@ function LocationMarker({
 
   useEffect(() => {
     if (position) {
-      map.flyTo(position, 15, { duration: 1 })
+      map.flyTo(position, 14, { duration: 1 })
     }
   }, [position, map])
 
@@ -449,7 +449,7 @@ export default function LocationPickerMap({
 
         <MapContainer
           center={position || SAN_POLICARPO_CENTER}
-          zoom={position ? 15 : 13}
+          zoom={position ? 14 : 13}
           minZoom={SAN_POLICARPO_MIN_VIEW_ZOOM}
           maxZoom={18}
           maxBounds={SAN_POLICARPO_VIEW_BOUNDS}
@@ -457,7 +457,7 @@ export default function LocationPickerMap({
           style={{ height: '100%', width: '100%', zIndex: 0 }}
           className="rounded-lg"
         >
-          <MapView center={position || SAN_POLICARPO_CENTER} zoom={position ? 15 : 13} />
+          <MapView center={position || SAN_POLICARPO_CENTER} zoom={position ? 14 : 13} />
           <SetBounds />
           <MapInteractivity isInteractive={isMapInteractive} />
           <TileLayer
