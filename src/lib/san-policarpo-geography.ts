@@ -16,6 +16,36 @@ export const SAN_POLICARPO_SERVICE_LIMITS = {
   east: 125.625,
 } as const
 
+/**
+ * Viewport guard for alpha testing.
+ *
+ * Buenavista (Arteche) and Binogawan are used as the north/south reference
+ * points for the furthest useful zoom-out. This only limits what the map can
+ * show while panning/zooming; it does not change registration validation.
+ */
+export const SAN_POLICARPO_VIEW_LIMITS = {
+  south: 12.165,
+  west: 125.405,
+  north: 12.278,
+  east: 125.555,
+} as const
+
+export const SAN_POLICARPO_VIEW_BOUNDS: [
+  [number, number],
+  [number, number],
+] = [
+  [
+    SAN_POLICARPO_VIEW_LIMITS.south,
+    SAN_POLICARPO_VIEW_LIMITS.west,
+  ],
+  [
+    SAN_POLICARPO_VIEW_LIMITS.north,
+    SAN_POLICARPO_VIEW_LIMITS.east,
+  ],
+]
+
+export const SAN_POLICARPO_MIN_VIEW_ZOOM = 12
+
 export const SAN_POLICARPO_BOUNDS: [
   [number, number],
   [number, number],
