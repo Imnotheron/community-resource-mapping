@@ -15,6 +15,7 @@ import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announc
 import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
 import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
 import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
+import { OperationsHistoryWalkthrough } from '@/components/walkthrough/tours/operations-history-tour'
 
 const ROLE = 'admin'
 const LOGIN_PATH = '/login?role=admin'
@@ -67,6 +68,7 @@ export default function DashboardRoute() {
       <RegistrationWalkthrough user={user} />
       <RegistrationFormWalkthrough user={user} />
       <ReliefApprovalWalkthrough user={user} />
+      <OperationsHistoryWalkthrough user={user} mode="admin" />
       <AnnouncementsWalkthrough user={user} />
       <FeedbackWalkthrough user={user} />
       <VulnerableMapWalkthrough user={user} />

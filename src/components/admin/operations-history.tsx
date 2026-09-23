@@ -343,8 +343,15 @@ export function OperationsHistory({
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div
+      data-tour="operations-history-root"
+      data-history-mode={mode}
+      className="space-y-6 animate-fade-in"
+    >
+      <div
+        data-tour="operations-history-header"
+        className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
+      >
         <div>
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-emerald-700">
             {mode === 'worker' ? 'Field Records' : 'Municipal Records'}
@@ -359,13 +366,21 @@ export function OperationsHistory({
           </p>
         </div>
 
-        <Button variant="outline" onClick={load} className="gap-2">
+        <Button
+          data-tour="operations-history-refresh"
+          variant="outline"
+          onClick={load}
+          className="gap-2"
+        >
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        data-tour="operations-history-summary"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
         <Card>
           <CardContent className="p-4">
             <Package className="h-4 w-4 text-emerald-600" />
@@ -422,16 +437,28 @@ export function OperationsHistory({
           setQuery('')
         }}
       >
-        <TabsList className="grid w-full max-w-lg grid-cols-2">
-          <TabsTrigger value="relief">
+        <TabsList
+          data-tour="operations-history-tabs"
+          className="grid w-full max-w-lg grid-cols-2"
+        >
+          <TabsTrigger
+            data-tour="operations-history-tab-relief"
+            value="relief"
+          >
             Relief Distribution History
           </TabsTrigger>
-          <TabsTrigger value="events">
+          <TabsTrigger
+            data-tour="operations-history-tab-events"
+            value="events"
+          >
             Events & Activities
           </TabsTrigger>
         </TabsList>
 
-        <Card className="mt-4">
+        <Card
+          data-tour="operations-history-filters"
+          className="mt-4"
+        >
           <CardHeader>
             <CardTitle className="text-base">
               {tab === 'relief'
@@ -603,7 +630,11 @@ export function OperationsHistory({
           </CardContent>
         </Card>
 
-        <TabsContent value="relief" className="mt-4">
+        <TabsContent
+          data-tour="operations-history-relief"
+          value="relief"
+          className="mt-4"
+        >
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -675,7 +706,11 @@ export function OperationsHistory({
           </Card>
         </TabsContent>
 
-        <TabsContent value="events" className="mt-4">
+        <TabsContent
+          data-tour="operations-history-events"
+          value="events"
+          className="mt-4"
+        >
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
