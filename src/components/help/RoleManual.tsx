@@ -145,7 +145,7 @@ const adminGuide: GuideBlock[] = [
       'Open Registrations and review new or pending vulnerable citizen records.',
       'Open Relief Approval and validate submitted distribution records before approving.',
       'Open Vulnerable Map to check barangay locations with needs assistance or no relief yet.',
-      'Open Announcements if municipal instructions need to be published for workers or citizens.',
+      'Open Announcements if municipal instructions need to be published for workers or citizens. Reuse a frequent title or message preset when appropriate, then review and edit the wording before publishing.',
     ],
   },
   {
@@ -242,7 +242,7 @@ const vulnerableGuide: GuideBlock[] = [
     steps: [
       'Sign in using the account credentials provided by the municipality.',
       'Review your profile information and check if your contact details are correct.',
-      'Read official announcements for schedules, notices, and assistance updates.',
+      'Read official announcements for schedules, notices, and assistance updates. Use type and date filters, Specific date, and newest/oldest sorting when you need to find a notice.',
       'Contact support if your profile, barangay, or assistance details need correction.',
     ],
   },

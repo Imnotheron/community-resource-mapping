@@ -810,7 +810,10 @@ function AnnouncementsView() {
         <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">Official notices from the MSWDO and administrators.</p>
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div
+        data-tour="citizen-announcements-filters"
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.4fr)_minmax(180px,0.8fr)_minmax(180px,0.8fr)_minmax(170px,0.7fr)]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -918,7 +921,7 @@ function AnnouncementsView() {
         </div>
       </div>
 
-      <AnnouncementsCarousel userRole="vulnerable" />
+      <AnnouncementsCarousel userRole="vulnerable" announcements={announcements} loading={loading} />
       {loading ? (
         <WowLoader
           compact

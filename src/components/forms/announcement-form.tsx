@@ -297,7 +297,10 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
           )}
         </div>
 
-        <div className="space-y-2">
+        <div
+          data-tour="announcement-reuse-presets"
+          className="space-y-2"
+        >
           <Label>Message preset</Label>
           <Select
             onValueChange={(value) => {

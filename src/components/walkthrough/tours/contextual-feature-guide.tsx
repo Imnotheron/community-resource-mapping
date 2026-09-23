@@ -84,7 +84,10 @@ export function ContextualFeatureGuide({
   }, [activeTourId, onTourClosed, tour.id])
 
   useEffect(() => {
+    let observer: MutationObserver | null = null
+
     const setOpen = (open: boolean) => {
+      if (featureOpenRef.current === open) return
       featureOpenRef.current = open
       setFeatureOpen(open)
     }
@@ -100,32 +103,14 @@ export function ContextualFeatureGuide({
       }
     }
 
-    const attemptDiscovery = () => {
-      const found = isFeatureVisible() && discover()
-      setOpen(found)
-      if (found) stopDiscovery()
-      return found
-    }
-
-    const beginDiscovery = () => {
-      stopDiscovery()
-      clear()
-      setOpen(false)
-
-      if (attemptDiscovery()) return
-
-      discoveryIntervalRef.current = window.setInterval(
-        attemptDiscovery,
-        150,
-      )
-      discoveryTimeoutRef.current = window.setTimeout(
-        stopDiscovery,
-        discoveryTimeoutMs,
-      )
+    const stopObserver = () => {
+      observer?.disconnect()
+      observer = null
     }
 
     const leaveFeature = () => {
       stopDiscovery()
+      stopObserver()
       clear()
       setOpen(false)
       void onLeave?.()
@@ -135,30 +120,89 @@ export function ContextualFeatureGuide({
       }
     }
 
-    const handleNavigationClick = (event: MouseEvent) => {
+    const watchVisibleFeature = () => {
+      if (observer || !featureOpenRef.current) return
+
+      observer = new MutationObserver(() => {
+        if (
+          featureOpenRef.current &&
+          !isFeatureVisible()
+        ) {
+          leaveFeature()
+        }
+      })
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      })
+    }
+
+    const attemptDiscovery = () => {
+      const found =
+        isFeatureVisible() && discover()
+
+      setOpen(found)
+
+      if (found) {
+        stopDiscovery()
+        watchVisibleFeature()
+      }
+
+      return found
+    }
+
+    const beginDiscovery = () => {
+      stopDiscovery()
+      stopObserver()
+      clear()
+      setOpen(false)
+
+      if (attemptDiscovery()) return
+
+      discoveryIntervalRef.current =
+        window.setInterval(
+          attemptDiscovery,
+          150,
+        )
+      discoveryTimeoutRef.current =
+        window.setTimeout(
+          stopDiscovery,
+          discoveryTimeoutMs,
+        )
+    }
+
+    const handleNavigationClick = (
+      event: MouseEvent,
+    ) => {
       const target = navTargetFromEvent(event)
       if (!target) return
 
       if (isFeatureNav(target, navId)) {
         window.setTimeout(beginDiscovery, 0)
-      } else if (featureOpenRef.current || activeTourIdRef.current === tour.id) {
+      } else if (
+        featureOpenRef.current ||
+        activeTourIdRef.current === tour.id
+      ) {
         leaveFeature()
       }
     }
 
-    const observer = new MutationObserver(() => {
-      if (featureOpenRef.current && !isFeatureVisible()) {
-        leaveFeature()
-      }
-    })
+    document.addEventListener(
+      'click',
+      handleNavigationClick,
+      true,
+    )
 
-    document.addEventListener('click', handleNavigationClick, true)
-    observer.observe(document.body, { childList: true, subtree: true })
     attemptDiscovery()
 
     return () => {
-      document.removeEventListener('click', handleNavigationClick, true)
-      observer.disconnect()
+      document.removeEventListener(
+        'click',
+        handleNavigationClick,
+        true,
+      )
+      stopObserver()
       stopDiscovery()
       clear()
     }
