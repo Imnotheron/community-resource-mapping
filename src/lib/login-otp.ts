@@ -148,6 +148,8 @@ export async function issueLoginOtp(input: {
     where: { id: input.userId },
     select: {
       loginOtpLastSentAt: true,
+      loginOtpChallengeId: true,
+      loginOtpExpiresAt: true,
     },
   })
 
@@ -161,11 +163,39 @@ export async function issueLoginOtp(input: {
         (OTP_RESEND_COOLDOWN_MS - elapsed) / 1000,
       )
 
+      if (
+        current.loginOtpChallengeId &&
+        current.loginOtpExpiresAt &&
+        current.loginOtpExpiresAt.getTime() >
+          now.getTime()
+      ) {
+        return {
+          challengeId:
+            current.loginOtpChallengeId,
+          maskedEmail: maskEmail(
+            input.email,
+          ),
+          expiresInSeconds: Math.max(
+            1,
+            Math.ceil(
+              (current.loginOtpExpiresAt.getTime() -
+                now.getTime()) /
+                1000,
+            ),
+          ),
+          resendAfterSeconds:
+            retryAfterSeconds,
+        }
+      }
+
       const error = new Error(
         `Please wait ${retryAfterSeconds} seconds before requesting another code.`,
-      ) as Error & { retryAfterSeconds?: number }
+      ) as Error & {
+        retryAfterSeconds?: number
+      }
 
-      error.retryAfterSeconds = retryAfterSeconds
+      error.retryAfterSeconds =
+        retryAfterSeconds
       throw error
     }
   }
@@ -229,6 +259,7 @@ export async function clearLoginOtp(userId: string) {
       loginOtpExpiresAt: null,
       loginOtpChallengeId: null,
       loginOtpAttempts: 0,
+      loginOtpLastSentAt: null,
     },
   })
 }
