@@ -150,7 +150,7 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
       center: SAN_POLICARPO_CENTER,
-      zoom: 12,
+      zoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       minZoom: SAN_POLICARPO_MIN_VIEW_ZOOM,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
@@ -189,7 +189,7 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       const bounds = L.latLngBounds(validPoints.map((point) => [point.latitude, point.longitude] as [number, number]));
       map.fitBounds(bounds.pad(0.2), { maxZoom: 14, animate: false });
     } else {
-      map.setView(SAN_POLICARPO_CENTER, 12, { animate: false });
+      map.setView(SAN_POLICARPO_CENTER, SAN_POLICARPO_MIN_VIEW_ZOOM, { animate: false });
     }
     window.requestAnimationFrame(() => map.invalidateSize(false));
   }, [interactiveMarkers, selectedPoint?.id, validPoints]);
