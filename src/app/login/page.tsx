@@ -139,7 +139,7 @@ function LoginContent() {
         }
 
         return data
-      }
+      }}
       onVerifyOtp={async (
         challengeId,
         otp,
