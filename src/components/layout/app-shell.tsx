@@ -56,13 +56,20 @@ const mobileViewVariants = {
   hidden: {
     opacity: 0,
     y: 4,
+    scale: 1,
+    filter: 'blur(0px)',
   },
   show: {
     opacity: 1,
     y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
   },
   exit: {
     opacity: 0,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
   },
 }
 
