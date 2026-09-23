@@ -2880,7 +2880,7 @@ function AnnouncementsView() {
               className="pl-9"
             />
           </div>
-          <AnnouncementsCarousel userRole="admin" />
+          <AnnouncementsCarousel userRole="admin" announcements={announcements} loading={loading} />
         </>
       )}
 

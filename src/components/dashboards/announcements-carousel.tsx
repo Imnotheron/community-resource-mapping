@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle, Megaphone, Calendar, MapPin, Clock, Bell,
@@ -46,7 +46,11 @@ interface AnnouncementsCarouselProps {
   /** The role of the current user, used to filter announcements. */
   userRole: 'admin' | 'worker' | 'vulnerable'
   /** Max number of slides to show (defaults to 5). */
-  maxSlides?: 5
+  maxSlides?: number
+  /** Reuse announcements already loaded by the parent view to avoid a duplicate request. */
+  announcements?: Announcement[]
+  /** Optional parent loading state when announcements are supplied. */
+  loading?: boolean
 }
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
@@ -84,35 +88,79 @@ function timeAgo(d: string): string {
   return formatDate(d)
 }
 
-export function AnnouncementsCarousel({ userRole, maxSlides = 5 }: AnnouncementsCarouselProps) {
-  const [slides, setSlides] = useState<AnnouncementSlide[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await apiFetch<{ success: boolean; announcements: Announcement[] }>(
-        `/api/announcements?userRole=${userRole.toUpperCase()}`
-      )
-      const anns = (data.announcements || []).slice(0, maxSlides)
-      const total = anns.length
-      const built: AnnouncementSlide[] = anns.map((a, i) => ({
-        id: a.id,
-        index: i + 1,
-        total,
-        announcement: a,
-      }))
-      setSlides(built)
-    } catch (err: any) {
-      toast.error('Failed to load announcements', { description: err.message })
-    } finally {
-      setLoading(false)
-    }
-  }, [userRole, maxSlides])
+export function AnnouncementsCarousel({
+  userRole,
+  maxSlides = 5,
+  announcements: providedAnnouncements,
+  loading: providedLoading,
+}: AnnouncementsCarouselProps) {
+  const [fetchedAnnouncements, setFetchedAnnouncements] =
+    useState<Announcement[]>([])
+  const [fetching, setFetching] = useState(
+    providedAnnouncements === undefined,
+  )
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (providedAnnouncements !== undefined) {
+      setFetching(false)
+      return
+    }
+
+    let active = true
+    setFetching(true)
+
+    apiFetch<{
+      success: boolean
+      announcements: Announcement[]
+    }>(
+      `/api/announcements?userRole=${userRole.toUpperCase()}`,
+    )
+      .then((data) => {
+        if (!active) return
+        setFetchedAnnouncements(
+          data.announcements || [],
+        )
+      })
+      .catch((err: any) => {
+        if (!active) return
+        toast.error(
+          'Failed to load announcements',
+          { description: err.message },
+        )
+      })
+      .finally(() => {
+        if (active) setFetching(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [providedAnnouncements, userRole])
+
+  const sourceAnnouncements =
+    providedAnnouncements ?? fetchedAnnouncements
+
+  const slides = useMemo<AnnouncementSlide[]>(
+    () => {
+      const anns = sourceAnnouncements.slice(
+        0,
+        maxSlides,
+      )
+      const total = anns.length
+
+      return anns.map(
+        (announcement, index) => ({
+          id: announcement.id,
+          index: index + 1,
+          total,
+          announcement,
+        }),
+      )
+    },
+    [maxSlides, sourceAnnouncements],
+  )
+
+  const loading = providedLoading ?? fetching
 
   if (loading) {
     return (

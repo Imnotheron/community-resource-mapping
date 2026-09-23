@@ -172,16 +172,28 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    markersRef.current.forEach((marker) => marker.remove());
+
+    markersRef.current.forEach(
+      (marker) => marker.remove(),
+    );
     markersRef.current.clear();
 
     validPoints.forEach((point) => {
-      const marker = L.marker([point.latitude, point.longitude], {
-        icon: createIcon(point, selectedPoint?.id === point.id),
-        interactive: interactiveMarkers,
-        keyboard: interactiveMarkers,
-      }).addTo(map);
-      if (interactiveMarkers) marker.on("click", () => setSelectedPoint(point));
+      const marker = L.marker(
+        [point.latitude, point.longitude],
+        {
+          icon: createIcon(point, false),
+          interactive: interactiveMarkers,
+          keyboard: interactiveMarkers,
+        },
+      ).addTo(map);
+
+      if (interactiveMarkers) {
+        marker.on("click", () =>
+          setSelectedPoint(point),
+        );
+      }
+
       markersRef.current.set(point.id, marker);
     });
 
@@ -189,8 +201,24 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       padding: [18, 18],
       animate: false,
     });
-    window.requestAnimationFrame(() => map.invalidateSize(false));
-  }, [interactiveMarkers, selectedPoint?.id, validPoints]);
+
+    window.requestAnimationFrame(() =>
+      map.invalidateSize(false),
+    );
+  }, [interactiveMarkers, validPoints]);
+
+  useEffect(() => {
+    validPoints.forEach((point) => {
+      markersRef.current
+        .get(point.id)
+        ?.setIcon(
+          createIcon(
+            point,
+            selectedPoint?.id === point.id,
+          ),
+        );
+    });
+  }, [selectedPoint?.id, validPoints]);
 
   useEffect(() => {
     const map = mapRef.current;

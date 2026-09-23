@@ -1192,7 +1192,7 @@ function WorkerAnnouncementsView() {
           className="pl-9"
         />
       </div>
-      <AnnouncementsCarousel userRole="worker" />
+      <AnnouncementsCarousel userRole="worker" announcements={announcements} loading={loading} />
       {loading ? (
         <WowLoader
           compact

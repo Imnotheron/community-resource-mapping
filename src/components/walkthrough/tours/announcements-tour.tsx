@@ -27,6 +27,7 @@ const TARGETS = {
   list: '[data-tour="announcement-published-list"]',
   form: '[data-tour="announcement-create-form"]',
   message: '[data-tour="announcement-message-fields"]',
+  presets: '[data-tour="announcement-reuse-presets"]',
   classification: '[data-tour="announcement-classification-fields"]',
   event: '[data-tour="announcement-event-fields"]',
   publish: '[data-tour="announcement-publish-button"]',
@@ -354,7 +355,7 @@ export function AnnouncementsWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-announcements-first-use', user.id),
-      version: 1,
+      version: 2,
       title: 'Announcements guide',
       role: 'ADMIN',
       steps: [
@@ -419,6 +420,16 @@ export function AnnouncementsWalkthrough({ user }: { user: AuthUser }) {
           description:
             'Use a title that tells people what the notice is about. In the content, explain what happened, who is affected, what action is required, and where users can get verified help. The form requires at least 5 characters for the title and 10 for the message.',
           target: TARGETS.message,
+          placement: 'auto',
+          padding: 3,
+          beforeEnter: showAnnouncementForm,
+        },
+        {
+          id: 'presets',
+          title: 'Reuse common wording without losing control',
+          description:
+            'Message preset can fill the content box with a reusable template, and frequently repeated content can appear as a learned option. Frequently used titles become available after the same published title has been used at least three times. Presets only fill the fields—you can still edit or replace the wording before publishing.',
+          target: TARGETS.presets,
           placement: 'auto',
           padding: 3,
           beforeEnter: showAnnouncementForm,

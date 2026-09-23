@@ -738,6 +738,7 @@ function CitizenFeedbackGuide({ user }: { user: AuthUser }) {
 const ANNOUNCEMENTS_ANCHOR = 'data-citizen-announcements-tour-anchor'
 const ANNOUNCEMENTS_TARGETS = {
   header: '[data-tour="citizen-announcements-header"]',
+  filters: '[data-tour="citizen-announcements-filters"]',
   featured: '[data-tour="citizen-announcements-featured"]',
   list: '[data-tour="citizen-announcements-list"]',
   record: '[data-tour="citizen-announcements-record"]',
@@ -785,6 +786,9 @@ function markAnnouncementAnchors() {
     'Announcements',
     'Official notices from the MSWDO and administrators.',
   ], 3)
+  const filters = root.querySelector<HTMLElement>(
+    ANNOUNCEMENTS_TARGETS.filters,
+  )
   const featuredHeading = findExact<HTMLElement>(root, 'h3', 'Featured Announcements')
   const featured = featuredHeading
     ? ancestorContaining(featuredHeading, ['Featured Announcements'], 3)
@@ -810,7 +814,7 @@ function markAnnouncementAnchors() {
       }) ?? record
     : list
 
-  if (!header || !featured || !list) return false
+  if (!header || !filters || !featured || !list) return false
 
   setTourAnchor(header, 'citizen-announcements-header', ANNOUNCEMENTS_ANCHOR)
   setTourAnchor(featured, 'citizen-announcements-featured', ANNOUNCEMENTS_ANCHOR)
@@ -823,7 +827,7 @@ function markAnnouncementAnchors() {
 function CitizenAnnouncementsGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('citizen-announcements-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'Citizen Announcements guide',
     role: 'VULNERABLE',
     steps: [
@@ -842,6 +846,15 @@ function CitizenAnnouncementsGuide({ user }: { user: AuthUser }) {
           'The title, message, type, priority, event date, time, location, and posting age work together. Color helps draw attention but does not replace the written instruction.',
         target: ANNOUNCEMENTS_TARGETS.header,
         placement: 'bottom',
+        padding: 4,
+      },
+      {
+        id: 'filters',
+        title: 'Find notices by type and posting date',
+        description:
+          'Use search together with the announcement-type filter and date filter. You can show Today, the Last 7 days, This month, or choose a Specific date. Newest first and Oldest first change the order without changing the notice itself. Clear filters returns to the default view.',
+        target: ANNOUNCEMENTS_TARGETS.filters,
+        placement: 'auto',
         padding: 4,
       },
       {
