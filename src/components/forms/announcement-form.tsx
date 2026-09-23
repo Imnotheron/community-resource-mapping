@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -39,6 +39,98 @@ const TARGETS = [
   { value: 'VULNERABLE', label: 'Vulnerable users only' },
 ]
 
+const CONTENT_PRESETS = [
+  {
+    id: 'relief-distribution',
+    label: 'Relief distribution notice',
+    content:
+      'Please be informed that a relief distribution has been scheduled. Kindly review the event date, time, and location below and follow the instructions of authorized personnel.',
+  },
+  {
+    id: 'community-meeting',
+    label: 'Community meeting reminder',
+    content:
+      'This is a reminder about the upcoming community meeting. Please review the event details below and arrive on time. Your attendance and cooperation are appreciated.',
+  },
+  {
+    id: 'emergency-advisory',
+    label: 'Emergency advisory',
+    content:
+      'Please take note of this important emergency advisory. Follow official LGU instructions, remain alert for updates, and contact the proper local authorities if assistance is needed.',
+  },
+  {
+    id: 'registration-reminder',
+    label: 'Registration reminder',
+    content:
+      'Residents who need to complete or update their vulnerable citizen registration are encouraged to prepare the required information and documents and coordinate with authorized personnel.',
+  },
+  {
+    id: 'general-update',
+    label: 'General community update',
+    content:
+      'Please be informed of this community update from the San Policarpo Community Resource Mapping System. Kindly read the details carefully and follow any applicable instructions.',
+  },
+]
+
+type HistoricalAnnouncement = {
+  title?: string | null
+  content?: string | null
+}
+
+type FrequentSuggestion = {
+  text: string
+  count: number
+}
+
+function normalizeSuggestionText(value: unknown) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+function buildFrequentSuggestions(
+  announcements: HistoricalAnnouncement[],
+  field: 'title' | 'content',
+) {
+  const counts = new Map<
+    string,
+    { text: string; count: number }
+  >()
+
+  for (const announcement of announcements) {
+    const raw = String(announcement[field] || '').trim()
+    const normalized = normalizeSuggestionText(raw)
+    if (!normalized) continue
+
+    const existing = counts.get(normalized)
+    if (existing) {
+      existing.count += 1
+    } else {
+      counts.set(normalized, {
+        text: raw,
+        count: 1,
+      })
+    }
+  }
+
+  return Array.from(counts.values())
+    .filter((item) => item.count >= 3)
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        a.text.localeCompare(b.text),
+    )
+    .slice(0, 5)
+}
+
+function shortPreview(value: string, maxLength = 72) {
+  const compact = value.replace(/\s+/g, ' ').trim()
+  return compact.length <= maxLength
+    ? compact
+    : `${compact.slice(0, maxLength - 1)}…`
+}
+
 const schema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
   content: z.string().min(10, 'Content must be at least 10 characters'),
@@ -57,6 +149,8 @@ interface AnnouncementFormProps {
 
 export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
   const [submitting, setSubmitting] = useState(false)
+  const [frequentTitles, setFrequentTitles] = useState<FrequentSuggestion[]>([])
+  const [frequentContents, setFrequentContents] = useState<FrequentSuggestion[]>([])
   const {
     register,
     handleSubmit,
@@ -74,6 +168,44 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
   const typeValue = watch('type')
   const priorityValue = watch('priority')
   const targetValue = watch('targetRole')
+
+  useEffect(() => {
+    let active = true
+
+    apiFetch<{
+      announcements?: HistoricalAnnouncement[]
+    }>('/api/announcements?includeInactive=true')
+      .then((data) => {
+        if (!active) return
+        const announcements = Array.isArray(
+          data.announcements,
+        )
+          ? data.announcements
+          : []
+
+        setFrequentTitles(
+          buildFrequentSuggestions(
+            announcements,
+            'title',
+          ),
+        )
+        setFrequentContents(
+          buildFrequentSuggestions(
+            announcements,
+            'content',
+          ),
+        )
+      })
+      .catch(() => {
+        if (!active) return
+        setFrequentTitles([])
+        setFrequentContents([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true)
@@ -111,21 +243,138 @@ export function AnnouncementForm({ onSubmitted }: AnnouncementFormProps) {
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-4"
     >
-      <div data-tour="announcement-message-fields" className="space-y-4">
+      <div data-tour="announcement-message-fields" className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="an-title">Title</Label>
-          <Input id="an-title" {...register('title')} placeholder="Announcement title" />
-          {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label htmlFor="an-title">Title</Label>
+            {frequentTitles.length > 0 && (
+              <span className="text-[0.6875rem] font-medium text-muted-foreground">
+                Frequently used titles are available
+              </span>
+            )}
+          </div>
+
+          {frequentTitles.length > 0 && (
+            <Select
+              onValueChange={(value) =>
+                setValue('title', value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a frequently used title" />
+              </SelectTrigger>
+              <SelectContent>
+                {frequentTitles.map((item) => (
+                  <SelectItem
+                    key={normalizeSuggestionText(item.text)}
+                    value={item.text}
+                  >
+                    {shortPreview(item.text, 58)} · used {item.count}×
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <Input
+            id="an-title"
+            {...register('title')}
+            placeholder="Type an announcement title"
+          />
+
+          <p className="text-xs leading-5 text-muted-foreground">
+            A title automatically appears in the dropdown after it has been
+            published at least 3 times. The 5 most-used titles are kept here.
+          </p>
+
+          {errors.title && (
+            <p className="text-xs text-destructive">
+              {errors.title.message}
+            </p>
+          )}
         </div>
+
         <div className="space-y-2">
+          <Label>Message preset</Label>
+          <Select
+            onValueChange={(value) => {
+              const builtIn = CONTENT_PRESETS.find(
+                (preset) => preset.id === value,
+              )
+
+              if (builtIn) {
+                setValue('content', builtIn.content, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+                return
+              }
+
+              const learnedIndex = Number(
+                value.replace('learned:', ''),
+              )
+
+              if (
+                value.startsWith('learned:') &&
+                Number.isInteger(learnedIndex) &&
+                frequentContents[learnedIndex]
+              ) {
+                setValue(
+                  'content',
+                  frequentContents[learnedIndex].text,
+                  {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  },
+                )
+              }
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose a preset message or type your own below" />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTENT_PRESETS.map((preset) => (
+                <SelectItem
+                  key={preset.id}
+                  value={preset.id}
+                >
+                  {preset.label}
+                </SelectItem>
+              ))}
+
+              {frequentContents.map((item, index) => (
+                <SelectItem
+                  key={`learned-${normalizeSuggestionText(item.text)}`}
+                  value={`learned:${index}`}
+                >
+                  Previously used ({item.count}×) · {shortPreview(item.text, 48)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <p className="text-xs leading-5 text-muted-foreground">
+            Choosing a preset fills the message box. You can still edit,
+            replace, or type the entire announcement manually.
+          </p>
+
           <Label htmlFor="an-content">Content</Label>
           <Textarea
             id="an-content"
             {...register('content')}
-            placeholder="Announcement details..."
-            rows={5}
+            placeholder="Type the announcement message, or choose a preset above..."
+            rows={6}
           />
-          {errors.content && <p className="text-xs text-destructive">{errors.content.message}</p>}
+
+          {errors.content && (
+            <p className="text-xs text-destructive">
+              {errors.content.message}
+            </p>
+          )}
         </div>
       </div>
       <div
