@@ -5,49 +5,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { ExternalLink, MapPin, Phone, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  SAN_POLICARPO_CENTER,
-  SAN_POLICARPO_LEAFLET_BOUNDS,
-  SAN_POLICARPO_MAP_POLYGON,
-  isWithinSanPolicarpoServiceEnvelope,
-} from "@/lib/san-policarpo-geography";
 
-const SAN_POLICARPO_BOUNDS = L.latLngBounds(
-  SAN_POLICARPO_LEAFLET_BOUNDS,
-);
-
-const SAN_POLICARPO_CENTER_TUPLE: [number, number] = [
-  SAN_POLICARPO_CENTER.lat,
-  SAN_POLICARPO_CENTER.lng,
+const SAN_POLICARPO_CENTER: [number, number] = [12.1792, 125.5072];
+const SAN_POLICARPO_BOUNDS: L.LatLngBoundsExpression = [
+  [12.125, 125.375],
+  [12.285, 125.625],
 ];
-
-const WORLD_MASK_RING: [number, number][] = [
-  [-85, -180],
-  [-85, 180],
-  [85, 180],
-  [85, -180],
-];
-
-function addSanPolicarpoCoverageLayer(map: L.Map) {
-  L.polygon(
-    [WORLD_MASK_RING, SAN_POLICARPO_MAP_POLYGON],
-    {
-      interactive: false,
-      stroke: false,
-      fillColor: "#0f172a",
-      fillOpacity: 0.92,
-      fillRule: "evenodd",
-    },
-  ).addTo(map);
-
-  L.polygon(SAN_POLICARPO_MAP_POLYGON, {
-    interactive: false,
-    color: "#059669",
-    weight: 2,
-    opacity: 0.9,
-    fill: false,
-  }).addTo(map);
-}
 
 export interface VulnerablePoint {
   id: string;
@@ -83,6 +46,10 @@ interface VulnerableMapProps {
   height?: number;
   onViewProfile?: (profileId: string, point: VulnerablePoint) => void;
   interactiveMarkers?: boolean;
+}
+
+function isWithinSanPolicarpo(latitude: number, longitude: number) {
+  return latitude >= 12.125 && latitude <= 12.285 && longitude >= 125.375 && longitude <= 125.625;
 }
 
 function getStatus(point: VulnerablePoint) {
@@ -169,7 +136,7 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const [selectedPoint, setSelectedPoint] = useState<VulnerablePoint | null>(null);
 
-  const validPoints = useMemo(() => points.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude) && isWithinSanPolicarpoServiceEnvelope(point.latitude, point.longitude)), [points]);
+  const validPoints = useMemo(() => points.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude) && isWithinSanPolicarpo(point.latitude, point.longitude)), [points]);
   const stats = useMemo(() => ({
     total: validPoints.length,
     needs: validPoints.filter((point) => point.needsAssistance).length,
@@ -180,12 +147,12 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
-      center: SAN_POLICARPO_CENTER_TUPLE,
+      center: SAN_POLICARPO_CENTER,
       zoom: 12,
-      minZoom: 11,
+      minZoom: 10,
       maxZoom: 18,
       maxBounds: SAN_POLICARPO_BOUNDS,
-      maxBoundsViscosity: 1,
+      maxBoundsViscosity: 0.85,
       zoomControl: true,
       attributionControl: true,
     });
@@ -193,9 +160,6 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       attribution: "&copy; OpenStreetMap contributors",
       maxZoom: 19,
     }).addTo(map);
-
-    addSanPolicarpoCoverageLayer(map);
-    map.setMaxBounds(SAN_POLICARPO_BOUNDS);
     mapRef.current = map;
     const ro = new ResizeObserver(() => map.invalidateSize(false));
     ro.observe(containerRef.current);
@@ -223,7 +187,7 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       const bounds = L.latLngBounds(validPoints.map((point) => [point.latitude, point.longitude] as [number, number]));
       map.fitBounds(bounds.pad(0.2), { maxZoom: 14, animate: false });
     } else {
-      map.setView(SAN_POLICARPO_CENTER_TUPLE, 12, { animate: false });
+      map.setView(SAN_POLICARPO_CENTER, 12, { animate: false });
     }
     window.requestAnimationFrame(() => map.invalidateSize(false));
   }, [interactiveMarkers, selectedPoint?.id, validPoints]);
