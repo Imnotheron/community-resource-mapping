@@ -57,13 +57,15 @@ export function useUserSync() {
     password: string,
     role: string,
   ) => {
-    return apiFetch<{
+    const data = await apiFetch<{
       success: boolean
-      otpRequired: true
-      challengeId: string
-      maskedEmail: string
-      expiresInSeconds: number
-      resendAfterSeconds: number
+      otpRequired: boolean
+      challengeId?: string
+      maskedEmail?: string
+      expiresInSeconds?: number
+      resendAfterSeconds?: number
+      user?: AuthUser
+      token?: string
     }>(
       '/api/auth/login',
       {
@@ -75,6 +77,24 @@ export function useUserSync() {
         }),
       },
     )
+
+    if (
+      data.otpRequired === false &&
+      data.user &&
+      data.token
+    ) {
+      setStoredUser(data.user, data.token)
+      setUser(data.user)
+
+      if (data.user.id) {
+        sendHeartbeat(
+          data.user.id,
+          'online',
+        ).catch(() => {})
+      }
+    }
+
+    return data
   }, [])
 
   const verifyOtp = useCallback(async (
