@@ -1011,6 +1011,105 @@ export function OperationsHistory({
           </Card>
         </TabsContent>
 
+        {mode === 'admin' ? (
+          <TabsContent
+            data-tour="operations-history-registrations"
+            value="registrations"
+            className="mt-4"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Registration History ({filteredRegistrations.length})
+                </CardTitle>
+                <CardDescription>
+                  Vulnerable citizen registrations with their current approval status and submitted profile details.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredRegistrations.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    No registration history matches the selected filters.
+                  </p>
+                ) : (
+                  <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+                    {filteredRegistrations.map((item: any) => {
+                      const vulnerabilityTypes =
+                        formatVulnerabilityTypes(
+                          item.vulnerabilityTypes,
+                        )
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-2xl border border-slate-200 bg-white p-4"
+                        >
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-slate-950">
+                                  {fullName(item) || 'Unnamed citizen'}
+                                </h3>
+                                <StatusBadge
+                                  status={item.registrationStatus}
+                                />
+                              </div>
+
+                              <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2 xl:grid-cols-4">
+                                <span>
+                                  <b className="text-slate-700">Barangay:</b>{' '}
+                                  {item.barangay || '—'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Vulnerability:</b>{' '}
+                                  {vulnerabilityTypes.length > 0
+                                    ? vulnerabilityTypes.join(', ')
+                                    : 'Unspecified'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Submitted:</b>{' '}
+                                  {formatDate(item.createdAt)}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Last updated:</b>{' '}
+                                  {formatDateTime(item.updatedAt)}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Email:</b>{' '}
+                                  {item.user?.email || '—'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Phone:</b>{' '}
+                                  {item.user?.phone || '—'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Needs assistance:</b>{' '}
+                                  {item.needsAssistance ? 'Yes' : 'No'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Assistance type:</b>{' '}
+                                  {item.assistanceType || '—'}
+                                </span>
+                              </div>
+
+                              {item.rejectionReason ? (
+                                <p className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                                  <b>Rejection reason:</b>{' '}
+                                  {item.rejectionReason}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ) : null}
+
         <TabsContent
           data-tour="operations-history-events"
           value="events"
