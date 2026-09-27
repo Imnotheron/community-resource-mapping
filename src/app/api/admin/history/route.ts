@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     })
     if ('error' in auth) return auth.error
 
-    const [distributions, announcements] = await Promise.all([
+    const [distributions, announcements, registrations] = await Promise.all([
       db.reliefDistribution.findMany({
         select: {
           id: true,
@@ -78,6 +78,35 @@ export async function GET(request: NextRequest) {
           { createdAt: 'desc' },
         ],
       }),
+      db.vulnerableProfile.findMany({
+        select: {
+          id: true,
+          firstName: true,
+          middleName: true,
+          lastName: true,
+          suffix: true,
+          barangay: true,
+          municipality: true,
+          province: true,
+          vulnerabilityTypes: true,
+          registrationStatus: true,
+          rejectionReason: true,
+          needsAssistance: true,
+          assistanceType: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
     ])
 
     return NextResponse.json({
@@ -85,6 +114,7 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       distributions,
       events: announcements,
+      registrations,
     })
   } catch (error) {
     console.error('Failed to load admin operations history:', error)
