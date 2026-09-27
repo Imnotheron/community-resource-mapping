@@ -13,44 +13,6 @@ function cleanText(value: unknown, max = 2000) {
   return String(value || '').trim().slice(0, max)
 }
 
-function localAnswer(message: string, role: string) {
-  const text = message.toLowerCase()
-
-  if (text.includes('operations history') || text.includes('activity history')) {
-    return role === 'WORKER'
-      ? 'Open Activity History from the Worker navigation. Use Relief Distribution History for your recorded relief transactions and Events & Activities for worker-visible municipal events. Search and filters can narrow the list by date and other available fields.'
-      : 'Open Operations History from the Administrator navigation. It combines relief records and municipal events. Use the search, type, barangay, status, audience, and date controls to narrow historical records.'
-  }
-
-  if (text.includes('register') || text.includes('registration')) {
-    return role === 'VULNERABLE'
-      ? 'Your account lets you review your registered information. If a record needs correction, use the official feedback or municipal support process instead of creating a duplicate profile.'
-      : 'Use the registration section and complete each required step carefully. Confirm identity, contact information, barangay, map location, vulnerability details, and required documents before submitting.'
-  }
-
-  if (text.includes('report')) {
-    return 'Open Daily Reports, choose the date and available filters, then review the generated values before printing. Report templates and signatories are managed from the report controls when your role is allowed to edit them.'
-  }
-
-  if (text.includes('map') || text.includes('marker')) {
-    return 'The vulnerable map uses red for households needing assistance or whose recent-relief window has expired, yellow for approved citizens with no approved relief yet, and green for recently given approved relief. Green automatically expires after the configured marker cycle.'
-  }
-
-  if (text.includes('announcement')) {
-    return role === 'ADMIN'
-      ? 'Administrators can create announcements, choose the audience and priority, reuse presets, and review the message before publishing.'
-      : 'Community Updates shows active official notices for your role. Use the available search and filters to find the notice you need.'
-  }
-
-  if (text.includes('feedback')) {
-    return role === 'ADMIN'
-      ? 'Open Feedback to review submitted concerns, respond when appropriate, and track the current feedback status.'
-      : 'Open Feedback to send a factual concern or assistance-related message. Do not include passwords or unrelated sensitive information.'
-  }
-
-  return 'I can explain CRMS navigation and workflows such as registration, relief recording, Operations or Activity History, reports, announcements, feedback, analytics, and the vulnerable map. Ask me what you want to do and I will give the steps.'
-}
-
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireRequestUser(request)
@@ -94,14 +56,18 @@ export async function POST(request: NextRequest) {
       cleanText(
         process.env.GEMINI_MODEL,
         100,
-      ) || 'gemini-2.5-flash-lite'
+      ) || 'gemini-3.5-flash-lite'
 
     if (!apiKey) {
-      return NextResponse.json({
-        success: true,
-        provider: 'local-help',
-        reply: localAnswer(message, auth.role),
-      })
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'AI_NOT_CONFIGURED',
+          error:
+            'Real AI chat is not configured. Add GEMINI_API_KEY to the server environment and restart the app.',
+        },
+        { status: 503 },
+      )
     }
 
     const systemInstruction = [
@@ -152,11 +118,15 @@ export async function POST(request: NextRequest) {
         errorText.slice(0, 1000),
       )
 
-      return NextResponse.json({
-        success: true,
-        provider: 'local-help',
-        reply: localAnswer(message, auth.role),
-      })
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'AI_PROVIDER_ERROR',
+          error:
+            'The AI provider did not accept the request. Check GEMINI_API_KEY, GEMINI_MODEL, and the server console.',
+        },
+        { status: 502 },
+      )
     }
 
     const data = await response.json()
@@ -172,9 +142,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       provider: 'gemini',
+      model,
       reply:
         reply ||
-        localAnswer(message, auth.role),
+        'The model returned an empty response. Please try again.',
     })
   } catch (error) {
     console.error('CRMS assistant error:', error)

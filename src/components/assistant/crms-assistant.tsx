@@ -81,6 +81,9 @@ export function CrmsAssistant({
   const [sending, setSending] = useState(false)
   const [listening, setListening] = useState(false)
   const [speechEnabled, setSpeechEnabled] = useState(true)
+  const [providerLabel, setProviderLabel] = useState(
+    'AI connection not verified',
+  )
   const recognitionRef = useRef<InstanceType<SpeechRecognitionConstructor> | null>(null)
 
   const voiceInputSupported = useMemo(() => {
@@ -177,6 +180,7 @@ export function CrmsAssistant({
       const data = await apiFetch<{
         reply: string
         provider?: string
+        model?: string
       }>('/api/assistant/chat', {
         method: 'POST',
         body: JSON.stringify({
@@ -189,6 +193,12 @@ export function CrmsAssistant({
         String(data.reply || '').trim() ||
         'I could not generate a response.'
 
+      setProviderLabel(
+        data.provider === 'gemini'
+          ? `Gemini · ${data.model || 'connected model'}`
+          : 'AI connected',
+      )
+
       setMessages((current) => [
         ...current,
         { role: 'assistant', content: reply },
@@ -196,9 +206,22 @@ export function CrmsAssistant({
 
       speak(reply)
     } catch (error: any) {
-      toast.error('Assistant unavailable', {
-        description:
-          error?.message || 'Please try again.',
+      const errorMessage =
+        error?.message ||
+        'The real AI assistant is unavailable.'
+
+      setProviderLabel('AI offline / not configured')
+      setMessages((current) => [
+        ...current,
+        {
+          role: 'assistant',
+          content:
+            'I am not connected to the real AI model yet. Configure GEMINI_API_KEY in the server environment, restart CRMS, and try again.',
+        },
+      ])
+
+      toast.error('Real AI assistant unavailable', {
+        description: errorMessage,
       })
     } finally {
       setSending(false)
@@ -247,6 +270,15 @@ export function CrmsAssistant({
                 <p className="mt-1">
                   {greeting(userRole)}
                 </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                <span className="font-medium text-slate-700">
+                  {providerLabel}
+                </span>
+                <span className="text-slate-500">
+                  Dynamic AI chat
+                </span>
               </div>
 
               <p className="text-xs leading-5 text-muted-foreground">
