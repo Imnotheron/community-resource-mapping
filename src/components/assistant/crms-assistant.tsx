@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import {
   AudioLines,
   Bot,
@@ -67,7 +68,7 @@ declare global {
 
 const POSITION_KEY = 'crms-assistant-launcher-position'
 const LAUNCHER_SIZE = 52
-const LAUNCHER_MARGIN = 12
+const LAUNCHER_MARGIN = 8
 
 function greeting(role: string) {
   const normalized = String(role || '').toUpperCase()
@@ -91,12 +92,10 @@ function clampPosition(position: {
 
   return {
     x: Math.min(
-      Math.max(LAUNCHER_MARGIN, position.x),
+      Math.max(0, position.x),
       Math.max(
-        LAUNCHER_MARGIN,
-        window.innerWidth -
-          LAUNCHER_SIZE -
-          LAUNCHER_MARGIN,
+        0,
+        window.innerWidth - LAUNCHER_SIZE,
       ),
     ),
     y: Math.min(
@@ -136,6 +135,8 @@ export function CrmsAssistant({
   )
   const [launcherPosition, setLauncherPosition] =
     useState<{ x: number; y: number } | null>(null)
+  const [portalReady, setPortalReady] =
+    useState(false)
 
   const recognitionRef =
     useRef<InstanceType<SpeechRecognitionConstructor> | null>(
@@ -164,6 +165,8 @@ export function CrmsAssistant({
   }, [voiceMode])
 
   useEffect(() => {
+    setPortalReady(true)
+
     try {
       const saved =
         window.localStorage.getItem(POSITION_KEY)
@@ -464,6 +467,9 @@ export function CrmsAssistant({
     recognition.maxAlternatives = 1
 
     recognition.onstart = () => {
+      if (voiceModeRef.current) {
+        setOpen(true)
+      }
       setListening(true)
       setVoiceStatus('Listening…')
     }
@@ -474,6 +480,10 @@ export function CrmsAssistant({
         ''
 
       if (!transcript) return
+
+      if (voiceModeRef.current) {
+        setOpen(true)
+      }
 
       setInput(transcript)
 
@@ -633,7 +643,7 @@ export function CrmsAssistant({
       drag &&
       drag.pointerId === event.pointerId
     ) {
-      const finalPosition =
+      const rawPosition =
         clampPosition({
           x:
             drag.originX +
@@ -642,6 +652,20 @@ export function CrmsAssistant({
             drag.originY +
             (event.clientY - drag.startY),
         })
+
+      const finalPosition = {
+        x:
+          rawPosition.x +
+              LAUNCHER_SIZE / 2 <
+            window.innerWidth / 2
+            ? 0
+            : Math.max(
+                0,
+                window.innerWidth -
+                  LAUNCHER_SIZE,
+              ),
+        y: rawPosition.y,
+      }
 
       if (draggedRef.current) {
         saveLauncherPosition(finalPosition)
@@ -663,40 +687,47 @@ export function CrmsAssistant({
 
   return (
     <>
-      <button
-        type="button"
-        onPointerDown={handleLauncherPointerDown}
-        onPointerMove={handleLauncherPointerMove}
-        onPointerUp={handleLauncherPointerUp}
-        onKeyDown={(event) => {
-          if (
-            event.key === 'Enter' ||
-            event.key === ' '
-          ) {
-            setOpen(true)
-          }
-        }}
-        aria-label="Open or move CRMS Assistant"
-        title="CRMS Assistant — drag to move, click to open"
-        className="fixed z-40 grid h-[52px] w-[52px] touch-none select-none place-items-center rounded-full bg-emerald-700 text-white shadow-xl ring-1 ring-emerald-800/20 transition hover:scale-105 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
-        style={
-          launcherPosition
-            ? {
-                left: launcherPosition.x,
-                top: launcherPosition.y,
-              }
-            : {
-                right: 16,
-                bottom: 96,
-              }
-        }
-      >
-        <Bot className="h-6 w-6" />
-        <GripVertical className="absolute -left-1 -top-1 h-4 w-4 rounded-full bg-white p-0.5 text-emerald-700 shadow" />
-        <span className="sr-only">
-          Drag this floating icon to reposition it.
-        </span>
-      </button>
+      {portalReady
+        ? createPortal(
+            (
+              <button
+                type="button"
+                onPointerDown={handleLauncherPointerDown}
+                onPointerMove={handleLauncherPointerMove}
+                onPointerUp={handleLauncherPointerUp}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === 'Enter' ||
+                    event.key === ' '
+                  ) {
+                    setOpen(true)
+                  }
+                }}
+                aria-label="Open or move CRMS Assistant"
+                title="CRMS Assistant — drag to move, click to open"
+                className="fixed z-[90] grid h-[52px] w-[52px] touch-none select-none place-items-center rounded-full bg-emerald-700 text-white shadow-xl ring-1 ring-emerald-800/20 transition hover:scale-105 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+                style={
+                  launcherPosition
+                    ? {
+                        left: launcherPosition.x,
+                        top: launcherPosition.y,
+                      }
+                    : {
+                        right: 16,
+                        bottom: 96,
+                      }
+                }
+              >
+                <Bot className="h-6 w-6" />
+                <GripVertical className="absolute -left-1 -top-1 h-4 w-4 rounded-full bg-white p-0.5 text-emerald-700 shadow" />
+                <span className="sr-only">
+                  Drag this floating icon to reposition it.
+                </span>
+              </button>
+            ),
+            document.body,
+          )
+        : null}
 
       <Sheet
         open={open}

@@ -83,6 +83,53 @@ export const SAN_POLICARPO_BARANGAYS = [
 export type SanPolicarpoBarangay =
   (typeof SAN_POLICARPO_BARANGAYS)[number]
 
+/**
+ * Approximate barangay reference points for San Policarpo.
+ *
+ * These are barangay-level public geographic reference coordinates, not
+ * household addresses. Demo/test records may use them so sample markers stay
+ * on land and inside the correct barangay instead of being placed at invented
+ * coordinates. Production registrations must continue to use the citizen's
+ * verified location.
+ */
+export const SAN_POLICARPO_BARANGAY_REFERENCE_POINTS: Record<
+  SanPolicarpoBarangay,
+  { lat: number; lng: number }
+> = {
+  Alugan: { lat: 12.2174, lng: 125.4816 },
+  Bahay: { lat: 12.2017, lng: 125.4867 },
+  Bangon: { lat: 12.2223, lng: 125.4258 },
+  'Baras (Lipata)': { lat: 12.1847, lng: 125.4970 },
+  Binogawan: { lat: 12.1771, lng: 125.4832 },
+  Cajagwayan: { lat: 12.2285, lng: 125.4611 },
+  Japunan: { lat: 12.2528, lng: 125.4513 },
+  Natividad: { lat: 12.2608, lng: 125.4355 },
+  Pangpang: { lat: 12.2316, lng: 125.4542 },
+  'Barangay No. 1 (Poblacion)': {
+    lat: 12.1786,
+    lng: 125.5083,
+  },
+  'Barangay No. 2 (Poblacion)': {
+    lat: 12.1795,
+    lng: 125.5081,
+  },
+  'Barangay No. 3 (Poblacion)': {
+    lat: 12.1803,
+    lng: 125.5076,
+  },
+  'Barangay No. 4 (Poblacion)': {
+    lat: 12.1815,
+    lng: 125.5059,
+  },
+  'Barangay No. 5 (Poblacion)': {
+    lat: 12.1824,
+    lng: 125.5074,
+  },
+  'Santa Cruz': { lat: 12.2106, lng: 125.4413 },
+  Tabo: { lat: 12.2636, lng: 125.4202 },
+  'Tan-awan': { lat: 12.2438, lng: 125.4262 },
+}
+
 const BARANGAY_ALIASES: Record<
   SanPolicarpoBarangay,
   string[]
