@@ -82,6 +82,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WowLoader } from "@/components/ui/wow-loader";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AnnouncementForm } from "@/components/forms/announcement-form";
 import { AnnouncementsCarousel } from "@/components/dashboards/announcements-carousel";
 import { apiFetch, AuthUser } from "@/lib/api-client";
@@ -1023,19 +1024,27 @@ function RegistrationsView() {
             </SelectContent>
           </Select>
 
-          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-72 overflow-y-auto">
-              <SelectItem value="ALL">All sectors</SelectItem>
-              {sectors.map((sector) => (
-                <SelectItem key={sector} value={sector}>
-                  {registrationSectorLabel(sector)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={sectorFilter}
+            onValueChange={setSectorFilter}
+            placeholder="All sectors"
+            searchPlaceholder="Type a sector..."
+            className="w-48"
+            options={[
+              {
+                value: "ALL",
+                label: "All sectors",
+              },
+              ...sectors.map((sector) => ({
+                value: sector,
+                label:
+                  registrationSectorLabel(
+                    sector,
+                  ),
+                keywords: sector,
+              })),
+            ]}
+          />
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-44">
@@ -1661,19 +1670,30 @@ function UsersView() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
-            <Select value={userSectorFilter} onValueChange={setUserSectorFilter}>
-              <SelectTrigger className="h-10 min-w-[200px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end" className="max-h-72 overflow-y-auto">
-                <SelectItem value="ALL">All sectors</SelectItem>
-                {userSectors.map((sector) => (
-                  <SelectItem key={sector} value={sector}>
-                    {registrationSectorLabel(sector)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={userSectorFilter}
+              onValueChange={setUserSectorFilter}
+              placeholder="All sectors"
+              searchPlaceholder="Type a sector..."
+              className="h-10 min-w-[200px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0"
+              contentClassName="min-w-[240px]"
+              options={[
+                {
+                  value: "ALL",
+                  label: "All sectors",
+                },
+                ...userSectors.map(
+                  (sector) => ({
+                    value: sector,
+                    label:
+                      registrationSectorLabel(
+                        sector,
+                      ),
+                    keywords: sector,
+                  }),
+                ),
+              ]}
+            />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
@@ -2618,19 +2638,29 @@ function DistributionsView() {
             </SelectContent>
           </Select>
 
-          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="w-full min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-72 overflow-y-auto">
-              <SelectItem value="ALL">All sectors</SelectItem>
-              {distributionSectors.map((sector) => (
-                <SelectItem key={sector} value={sector}>
-                  {registrationSectorLabel(sector)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={sectorFilter}
+            onValueChange={setSectorFilter}
+            placeholder="All sectors"
+            searchPlaceholder="Type a sector..."
+            className="w-full min-w-0"
+            options={[
+              {
+                value: "ALL",
+                label: "All sectors",
+              },
+              ...distributionSectors.map(
+                (sector) => ({
+                  value: sector,
+                  label:
+                    registrationSectorLabel(
+                      sector,
+                    ),
+                  keywords: sector,
+                }),
+              ),
+            ]}
+          />
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-full min-w-0">
