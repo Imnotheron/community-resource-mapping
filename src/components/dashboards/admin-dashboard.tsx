@@ -575,27 +575,73 @@ function OverviewSkeleton() {
 
 // =================== REGISTRATIONS ===================
 
+let registrationExcelParserPromise: Promise<any> | null = null
+
 async function loadRegistrationExcelParser() {
   const existing = (window as any).XLSX
   if (existing) return existing
 
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () =>
-      reject(
-        new Error(
-          'Unable to load the Excel parser. Check your internet connection and try again.',
-        ),
-      )
-    document.head.appendChild(script)
-  })
+  if (registrationExcelParserPromise) {
+    return registrationExcelParserPromise
+  }
 
-  const loaded = (window as any).XLSX
-  if (!loaded) throw new Error('Excel parser did not load correctly.')
-  return loaded
+  const sources = [
+    'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+  ]
+
+  registrationExcelParserPromise = (async () => {
+    for (const src of sources) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const existingScript = Array.from(
+            document.scripts,
+          ).find((script) => script.src === src)
+
+          if (existingScript) {
+            if ((window as any).XLSX) {
+              resolve()
+              return
+            }
+
+            existingScript.addEventListener('load', () => resolve(), {
+              once: true,
+            })
+            existingScript.addEventListener('error', () => reject(), {
+              once: true,
+            })
+            return
+          }
+
+          const script = document.createElement('script')
+          script.src = src
+          script.async = true
+          script.crossOrigin = 'anonymous'
+          script.onload = () => resolve()
+          script.onerror = () =>
+            reject(new Error(`Failed to load ${src}`))
+          document.head.appendChild(script)
+        })
+
+        const loaded = (window as any).XLSX
+        if (loaded) return loaded
+      } catch {
+        // Try the next parser source.
+      }
+    }
+
+    throw new Error(
+      'Unable to load the Excel parser. Check the internet connection or browser content blocking, then try again.',
+    )
+  })()
+
+  try {
+    return await registrationExcelParserPromise
+  } catch (error) {
+    registrationExcelParserPromise = null
+    throw error
+  }
 }
 
 function normalizeRegistrationImportRow(row: Record<string, any>) {
@@ -608,8 +654,31 @@ function normalizeRegistrationImportRow(row: Record<string, any>) {
   return normalized
 }
 
+function importText(value: unknown) {
+  if (value === null || value === undefined) return ''
+
+  return String(value)
+    .replace(/\.0+$/, '')
+    .trim()
+}
+
+function importPhone(value: unknown) {
+  const text = importText(value).replace(/\s+/g, '')
+  const digits = text.replace(/[^0-9+]/g, '')
+
+  if (/^9\d{9}$/.test(digits)) {
+    return `0${digits}`
+  }
+
+  if (/^639\d{9}$/.test(digits)) {
+    return `+${digits}`
+  }
+
+  return text
+}
+
 function importBoolean(value: unknown) {
-  const normalized = String(value || '').trim().toLowerCase()
+  const normalized = importText(value).toLowerCase()
   return ['1', 'true', 'yes', 'y', 'on'].includes(normalized)
 }
 
@@ -642,6 +711,11 @@ function RegistrationsView() {
   const [sortBy, setSortBy] = useState('LAST_NAME')
   const [sectorFilter, setSectorFilter] = useState('ALL')
   const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    fileName: string
+    importedNames: string[]
+    failedRows: string[]
+  } | null>(null)
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRegisterVulnerable, setShowRegisterVulnerable] = useState(false)
@@ -742,14 +816,87 @@ function RegistrationsView() {
 
     try {
       const XLSX = await loadRegistrationExcelParser()
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json(firstSheet, {
-        defval: '',
-      }) as Record<string, any>[]
+      const workbook = XLSX.read(await file.arrayBuffer(), {
+        type: 'array',
+        cellDates: true,
+        cellText: true,
+      })
+
+      const preferredSheetName =
+        workbook.SheetNames.find(
+          (name: string) =>
+            name.trim().toLowerCase() ===
+            'registration import',
+        ) || workbook.SheetNames[0]
+
+      const firstSheet = workbook.Sheets[preferredSheetName]
+
+      if (!firstSheet) {
+        toast.error('No worksheet was found in the Excel file')
+        return
+      }
+
+      const rows = (
+        XLSX.utils.sheet_to_json(firstSheet, {
+          defval: '',
+          raw: false,
+          dateNF: 'yyyy-mm-dd',
+        }) as Record<string, any>[]
+      ).filter((row) =>
+        Object.values(row).some(
+          (value) => importText(value).length > 0,
+        ),
+      )
 
       if (!rows.length) {
-        toast.error('The Excel file is empty')
+        toast.error('The Excel file is empty', {
+          description:
+            'Add registration rows below the header row and try again.',
+        })
+        return
+      }
+
+      const normalizedHeaders = new Set(
+        Object.keys(rows[0] || {}).map((key) =>
+          key
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, ''),
+        ),
+      )
+      const requiredHeaderGroups = [
+        ['firstname'],
+        ['lastname'],
+        ['emailaddress', 'email'],
+        ['mobilenumber', 'mobile', 'phone'],
+        ['barangay'],
+      ]
+      const requiredHeaderLabels = [
+        'First Name',
+        'Last Name',
+        'Email Address',
+        'Mobile Number',
+        'Barangay',
+      ]
+      const missingHeaders =
+        requiredHeaderGroups
+          .map((aliases, index) => ({
+            aliases,
+            label:
+              requiredHeaderLabels[index],
+          }))
+          .filter(
+            ({ aliases }) =>
+              !aliases.some((alias) =>
+                normalizedHeaders.has(alias),
+              ),
+          )
+          .map(({ label }) => label)
+
+      if (missingHeaders.length > 0) {
+        toast.error('Excel columns are incomplete', {
+          description:
+            `Missing required column${missingHeaders.length === 1 ? '' : 's'}: ${missingHeaders.join(', ')}`,
+        })
         return
       }
 
@@ -758,23 +905,24 @@ function RegistrationsView() {
         return
       }
 
-      let imported = 0
+      const importedNames: string[] = []
       const failed: string[] = []
 
       for (let index = 0; index < rows.length; index += 1) {
         const row = normalizeRegistrationImportRow(rows[index])
 
-        const firstName = String(row.firstname || '').trim()
-        const lastName = String(row.lastname || '').trim()
-        const emailAddress = String(
-          row.emailaddress || row.email || '',
+        const firstName = importText(row.firstname)
+        const lastName = importText(row.lastname)
+        const emailAddress = importText(
+          row.emailaddress || row.email,
+        ).toLowerCase()
+        const mobileNumber = importPhone(
+          row.mobilenumber || row.mobile || row.phone,
         )
-          .trim()
-          .toLowerCase()
-        const mobileNumber = String(
-          row.mobilenumber || row.mobile || row.phone || '',
-        ).trim()
-        const barangay = String(row.barangay || '').trim()
+        const barangay = importText(row.barangay)
+        const rowName = [firstName, lastName]
+          .filter(Boolean)
+          .join(' ') || `Row ${index + 2}`
 
         if (
           !firstName ||
@@ -783,7 +931,17 @@ function RegistrationsView() {
           !mobileNumber ||
           !barangay
         ) {
-          failed.push(`Row ${index + 2}: missing required fields`)
+          const missing = [
+            !firstName ? 'First Name' : '',
+            !lastName ? 'Last Name' : '',
+            !emailAddress ? 'Email Address' : '',
+            !mobileNumber ? 'Mobile Number' : '',
+            !barangay ? 'Barangay' : '',
+          ].filter(Boolean)
+
+          failed.push(
+            `Row ${index + 2} (${rowName}): missing ${missing.join(', ')}`,
+          )
           continue
         }
 
@@ -799,62 +957,85 @@ function RegistrationsView() {
           adminId,
           firstName,
           lastName,
-          middleName: String(row.middlename || '').trim(),
-          suffix: String(row.suffix || '').trim(),
+          middleName: importText(row.middlename),
+          suffix: importText(row.suffix),
           emailAddress,
           mobileNumber,
-          landlineNumber: String(row.landlinenumber || '').trim(),
-          dateOfBirth: String(row.dateofbirth || row.birthdate || '').trim(),
-          gender: String(row.gender || '').trim(),
-          civilStatus: String(row.civilstatus || '').trim(),
-          houseNumber: String(row.housenumber || '').trim(),
-          street: String(row.street || '').trim(),
+          landlineNumber: importPhone(row.landlinenumber),
+          dateOfBirth: importText(row.dateofbirth || row.birthdate),
+          gender: importText(row.gender),
+          civilStatus: importText(row.civilstatus),
+          houseNumber: importText(row.housenumber),
+          street: importText(row.street),
           barangay,
           municipality:
-            String(row.municipality || '').trim() || 'San Policarpo',
+            importText(row.municipality) || 'San Policarpo',
           province:
-            String(row.province || '').trim() || 'Eastern Samar',
-          latitude: String(row.latitude || '').trim(),
-          longitude: String(row.longitude || '').trim(),
-          educationalAttainment: String(
-            row.educationalattainment || '',
-          ).trim(),
-          employmentStatus: String(row.employmentstatus || '').trim(),
-          employmentDetails: String(row.employmentdetails || '').trim(),
-          emergencyContact: String(row.emergencycontact || '').trim(),
-          emergencyPhone: String(row.emergencyphone || '').trim(),
+            importText(row.province) || 'Eastern Samar',
+          latitude: importText(row.latitude),
+          longitude: importText(row.longitude),
+          educationalAttainment: importText(row.educationalattainment),
+          employmentStatus: importText(row.employmentstatus),
+          employmentDetails: importText(row.employmentdetails),
+          emergencyContact: importText(row.emergencycontact),
+          emergencyPhone: importPhone(row.emergencyphone),
           hasMedicalCondition: importBoolean(row.hasmedicalcondition),
-          medicalConditions: String(row.medicalconditions || '').trim(),
+          medicalConditions: importText(row.medicalconditions),
           needsAssistance: importBoolean(row.needsassistance),
-          assistanceType: String(row.assistancetype || '').trim(),
+          assistanceType: importText(row.assistancetype),
           vulnerabilityTypes,
           hasDisability: importBoolean(row.hasdisability),
-          disabilityType: String(row.disabilitytype || '').trim(),
-          disabilityCause: String(row.disabilitycause || '').trim(),
+          disabilityType: importText(row.disabilitytype),
+          disabilityCause: importText(row.disabilitycause),
         }
 
         try {
-          await apiFetch('/api/admin/register-vulnerable', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
-          imported += 1
+          const result = await apiFetch(
+            '/api/admin/register-vulnerable',
+            {
+              method: 'POST',
+              body: JSON.stringify(payload),
+            },
+          )
+
+          importedNames.push(
+            importText(result?.profile?.fullName) ||
+              rowName,
+          )
         } catch (error: any) {
           failed.push(
-            `Row ${index + 2}: ${error?.message || 'import failed'}`,
+            `Row ${index + 2} (${rowName}): ${error?.message || 'import failed'}`,
           )
         }
       }
 
-      if (imported > 0) {
+      setImportResult({
+        fileName: file.name,
+        importedNames,
+        failedRows: failed,
+      })
+
+      if (importedNames.length > 0) {
         toast.success(
-          `${imported} registration${imported === 1 ? '' : 's'} imported`,
+          `${importedNames.length} registration${importedNames.length === 1 ? '' : 's'} imported`,
           {
-            description: failed.length
-              ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
-              : 'All Excel registrations were added successfully.',
+            description:
+              failed.length > 0
+                ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported. Open Import Results for details.`
+                : importedNames.length === 1
+                  ? `${importedNames[0]} was registered successfully.`
+                  : 'All Excel registrations were added successfully.',
           },
         )
+
+        // Admin-created/imported registrations are automatically approved.
+        // Move the list to the matching view so the imported people are
+        // immediately visible instead of appearing to disappear under Pending.
+        setFilter('APPROVED')
+        setSectorFilter('ALL')
+        setQuery('')
+        setSortBy('DATE_DESC')
+
         await load()
       } else {
         toast.error('No registrations were imported', {
