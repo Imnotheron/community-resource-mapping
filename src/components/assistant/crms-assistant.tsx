@@ -22,6 +22,7 @@ import { apiFetch } from '@/lib/api-client'
 import {
   ASSISTANT_LANGUAGES,
   DEFAULT_ASSISTANT_LANGUAGE,
+  assistantLanguageName,
   assistantSpeechLocales,
   normalizeAssistantLanguage,
   type AssistantLanguageCode,
@@ -520,6 +521,8 @@ export function CrmsAssistant({
   const inputContextRef =
     useRef<AudioContext | null>(null)
   const outputContextRef =
+    useRef<AudioContext | null>(null)
+  const readyCueContextRef =
     useRef<AudioContext | null>(null)
   const generatedSpeechRef =
     useRef<HTMLAudioElement | null>(
@@ -1368,6 +1371,82 @@ export function CrmsAssistant({
     }
   }
 
+  async function playVoiceReadyCue() {
+    if (
+      !voiceModeRef.current ||
+      stoppingVoiceRef.current
+    ) {
+      return
+    }
+
+    try {
+      let context =
+        readyCueContextRef.current
+
+      if (
+        !context ||
+        context.state === 'closed'
+      ) {
+        context = new AudioContext()
+        readyCueContextRef.current =
+          context
+      }
+
+      if (
+        context.state === 'suspended'
+      ) {
+        await context.resume()
+      }
+
+      const now =
+        context.currentTime
+      const oscillator =
+        context.createOscillator()
+      const gain =
+        context.createGain()
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(
+        880,
+        now,
+      )
+      oscillator.frequency.setValueAtTime(
+        1175,
+        now + 0.055,
+      )
+
+      gain.gain.setValueAtTime(
+        0.0001,
+        now,
+      )
+      gain.gain.exponentialRampToValueAtTime(
+        0.035,
+        now + 0.01,
+      )
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        now + 0.12,
+      )
+
+      oscillator.connect(gain)
+      gain.connect(
+        context.destination,
+      )
+
+      oscillator.onended = () => {
+        oscillator.disconnect()
+        gain.disconnect()
+      }
+
+      oscillator.start(now)
+      oscillator.stop(
+        now + 0.13,
+      )
+    } catch {
+      // The visual listening state remains available if audio cues are blocked.
+    }
+  }
+
   function closeCompatibleInputGraph() {
     clearTurnMonitor()
 
@@ -1453,16 +1532,12 @@ export function CrmsAssistant({
     window.speechSynthesis?.cancel()
     stopGeneratedSpeech()
 
-    if (
-      languageRef.current === 'tl' ||
-      languageRef.current === 'war'
-    ) {
+    {
       try {
         setVoiceStatus(
-          languageRef.current ===
-            'war'
-            ? 'Preparing Eastern Samar Waray voice…'
-            : 'Preparing natural Tagalog voice…',
+          `Preparing ${assistantLanguageName(
+            languageRef.current,
+          )} voice…`,
         )
 
         const response =
@@ -1530,10 +1605,14 @@ export function CrmsAssistant({
 
         audio.onerror = () => {
           stopGeneratedSpeech()
-          setVoiceError(
-            'The high-quality voice was generated but could not be played.',
+          toast.error(
+            'Spoken reply could not be played',
+            {
+              description:
+                'CRMS will keep Voice Chat active and listen for your next turn.',
+            },
           )
-          void stopVoiceChat(false)
+          continueListening()
         }
 
         await audio.play()
@@ -1544,22 +1623,22 @@ export function CrmsAssistant({
           error,
         )
 
-        setVoiceError(
-          languageRef.current ===
-            'war'
-            ? 'High-quality Eastern Samar Waray voice is temporarily unavailable. CRMS is using the device voice as a fallback, which may pronounce Waray less accurately.'
-            : 'High-quality Tagalog voice is temporarily unavailable. CRMS is using the device voice as a fallback, which may sound less natural.',
-        )
+        // Fall back silently to the device voice. The selected language
+        // remains locked; this is only a speech-output fallback.
       }
     }
 
     if (
       !('speechSynthesis' in window)
     ) {
-      setVoiceError(
-        'This browser cannot play spoken replies. Typed chat still works.',
+      toast.error(
+        'Spoken reply is unavailable in this browser',
+        {
+          description:
+            'CRMS will keep listening for your next voice turn.',
+        },
       )
-      void stopVoiceChat(false)
+      continueListening()
       return
     }
 
@@ -1601,10 +1680,14 @@ export function CrmsAssistant({
 
     utterance.onerror = () => {
       clearSpeechWatchdog()
-      setVoiceError(
-        'The browser could not play the spoken reply.',
+      toast.error(
+        'The browser could not play the spoken reply',
+        {
+          description:
+            'CRMS will keep Voice Chat active and listen again.',
+        },
       )
-      void stopVoiceChat(false)
+      continueListening()
     }
 
     clearSpeechWatchdog()
@@ -1990,6 +2073,7 @@ export function CrmsAssistant({
 
     recorder.start(250)
     void context.resume()
+    void playVoiceReadyCue()
 
     turnFrameRef.current =
       window.requestAnimationFrame(
@@ -2087,7 +2171,9 @@ export function CrmsAssistant({
         stream
 
       setVoiceStatus(
-        'Checking available voice mode…',
+        `Starting ${assistantLanguageName(
+          languageRef.current,
+        )} voice…`,
       )
 
       const token =
@@ -2457,6 +2543,7 @@ export function CrmsAssistant({
             setVoiceStatus(
               'Listening — speak naturally',
             )
+            void playVoiceReadyCue()
 
             startMicrophoneStreaming(
               stream,
@@ -2676,6 +2763,16 @@ export function CrmsAssistant({
 
     if (outputContext) {
       await outputContext
+        .close()
+        .catch(() => undefined)
+    }
+
+    const readyCueContext =
+      readyCueContextRef.current
+    readyCueContextRef.current = null
+
+    if (readyCueContext) {
+      await readyCueContext
         .close()
         .catch(() => undefined)
     }
@@ -3051,17 +3148,6 @@ export function CrmsAssistant({
                   Your choice is used directly for chat and voice. CRMS will not auto-detect a language first.
                 </p>
               </div>
-
-              {voiceError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-                  <p className="font-semibold">
-                    Voice Chat diagnostic
-                  </p>
-                  <p className="mt-1 break-words text-xs leading-5">
-                    {voiceError}
-                  </p>
-                </div>
-              ) : null}
 
               {voiceMode ? (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
