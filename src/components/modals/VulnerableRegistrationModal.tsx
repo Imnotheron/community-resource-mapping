@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
 
@@ -1388,12 +1389,28 @@ export default function VulnerableRegistrationModal({
                 <SelectValue placeholder="Select civil status" />
               </SelectTrigger>
               <SelectContent>
+                {form.civilStatus &&
+                !['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(
+                  form.civilStatus,
+                ) ? (
+                  <SelectItem value={form.civilStatus}>
+                    {form.civilStatus} (custom)
+                  </SelectItem>
+                ) : null}
                 <SelectItem value="SINGLE">Single</SelectItem>
                 <SelectItem value="MARRIED">Married</SelectItem>
                 <SelectItem value="WIDOWED">Widowed</SelectItem>
                 <SelectItem value="SEPARATED">Separated</SelectItem>
               </SelectContent>
             </Select>
+            <Input
+              value={form.civilStatus}
+              onChange={(event) =>
+                updateField('civilStatus', event.target.value)
+              }
+              placeholder="Or type a civil status manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="Mobile Number" field="mobileNumber" required error={errors.mobileNumber}>
@@ -1475,31 +1492,27 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Barangay" field="barangay" required error={errors.barangay}>
-            <Select
+            <SearchableSelect
               value={form.barangay}
               onValueChange={(value) =>
-                updateField('barangay', value)
+                updateField(
+                  'barangay',
+                  value,
+                )
               }
-            >
-              <SelectTrigger
-                className={cn(
-                  errors.barangay &&
-                    'border-red-400 focus:ring-red-400',
-                )}
-              >
-                <SelectValue placeholder="Select barangay" />
-              </SelectTrigger>
-              <SelectContent>
-                {BARANGAYS.map((barangay) => (
-                  <SelectItem
-                    key={barangay}
-                    value={barangay}
-                  >
-                    {barangay}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select barangay"
+              searchPlaceholder="Type a barangay..."
+              className={cn(
+                errors.barangay &&
+                  'border-red-400 focus:ring-red-400',
+              )}
+              options={BARANGAYS.map(
+                (barangay) => ({
+                  value: barangay,
+                  label: barangay,
+                }),
+              )}
+            />
           </InputBlock>
 
           <InputBlock label="Municipality / City">
@@ -1982,6 +1995,17 @@ export default function VulnerableRegistrationModal({
                 )}
               </SelectContent>
             </Select>
+            <Input
+              value={form.educationalAttainment}
+              onChange={(event) =>
+                updateField(
+                  'educationalAttainment',
+                  event.target.value,
+                )
+              }
+              placeholder="Or type educational attainment manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="School Name">
@@ -2018,6 +2042,17 @@ export default function VulnerableRegistrationModal({
                 ))}
               </SelectContent>
             </Select>
+            <Input
+              value={form.employmentStatus}
+              onChange={(event) =>
+                updateField(
+                  'employmentStatus',
+                  event.target.value,
+                )
+              }
+              placeholder="Or type employment status manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="Employment Details">
@@ -2072,6 +2107,17 @@ export default function VulnerableRegistrationModal({
                 )}
               </SelectContent>
             </Select>
+            <Input
+              value={form.guardianRelationship}
+              onChange={(event) =>
+                updateField(
+                  'guardianRelationship',
+                  event.target.value,
+                )
+              }
+              placeholder="Or type relationship manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="Guardian Contact">

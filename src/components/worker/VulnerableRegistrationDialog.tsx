@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Dialog,
   DialogContent,
@@ -417,20 +418,23 @@ export default function VulnerableRegistrationDialog({
 
                     <div className="space-y-2">
                       <Label htmlFor="barangay">Barangay *</Label>
-                      <Select
+                      <SearchableSelect
                         value={formData.barangay}
-                        onValueChange={(value) => setFormData({ ...formData, barangay: value })}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Barangay" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {barangays.map(b => (
-                            <SelectItem key={b} value={b}>{b}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            barangay: value,
+                          })
+                        }
+                        placeholder="Select Barangay"
+                        searchPlaceholder="Type a barangay..."
+                        options={barangays.map(
+                          (barangay) => ({
+                            value: barangay,
+                            label: barangay,
+                          }),
+                        )}
+                      />
                     </div>
 
                     <div className="space-y-2">

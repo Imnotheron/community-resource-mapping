@@ -82,6 +82,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WowLoader } from "@/components/ui/wow-loader";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AnnouncementForm } from "@/components/forms/announcement-form";
 import { AnnouncementsCarousel } from "@/components/dashboards/announcements-carousel";
 import { apiFetch, AuthUser } from "@/lib/api-client";
@@ -574,27 +575,73 @@ function OverviewSkeleton() {
 
 // =================== REGISTRATIONS ===================
 
+let registrationExcelParserPromise: Promise<any> | null = null
+
 async function loadRegistrationExcelParser() {
   const existing = (window as any).XLSX
   if (existing) return existing
 
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () =>
-      reject(
-        new Error(
-          'Unable to load the Excel parser. Check your internet connection and try again.',
-        ),
-      )
-    document.head.appendChild(script)
-  })
+  if (registrationExcelParserPromise) {
+    return registrationExcelParserPromise
+  }
 
-  const loaded = (window as any).XLSX
-  if (!loaded) throw new Error('Excel parser did not load correctly.')
-  return loaded
+  const sources = [
+    'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+  ]
+
+  registrationExcelParserPromise = (async () => {
+    for (const src of sources) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const existingScript = Array.from(
+            document.scripts,
+          ).find((script) => script.src === src)
+
+          if (existingScript) {
+            if ((window as any).XLSX) {
+              resolve()
+              return
+            }
+
+            existingScript.addEventListener('load', () => resolve(), {
+              once: true,
+            })
+            existingScript.addEventListener('error', () => reject(), {
+              once: true,
+            })
+            return
+          }
+
+          const script = document.createElement('script')
+          script.src = src
+          script.async = true
+          script.crossOrigin = 'anonymous'
+          script.onload = () => resolve()
+          script.onerror = () =>
+            reject(new Error(`Failed to load ${src}`))
+          document.head.appendChild(script)
+        })
+
+        const loaded = (window as any).XLSX
+        if (loaded) return loaded
+      } catch {
+        // Try the next parser source.
+      }
+    }
+
+    throw new Error(
+      'Unable to load the Excel parser. Check the internet connection or browser content blocking, then try again.',
+    )
+  })()
+
+  try {
+    return await registrationExcelParserPromise
+  } catch (error) {
+    registrationExcelParserPromise = null
+    throw error
+  }
 }
 
 function normalizeRegistrationImportRow(row: Record<string, any>) {
@@ -607,8 +654,31 @@ function normalizeRegistrationImportRow(row: Record<string, any>) {
   return normalized
 }
 
+function importText(value: unknown) {
+  if (value === null || value === undefined) return ''
+
+  return String(value)
+    .replace(/\.0+$/, '')
+    .trim()
+}
+
+function importPhone(value: unknown) {
+  const text = importText(value).replace(/\s+/g, '')
+  const digits = text.replace(/[^0-9+]/g, '')
+
+  if (/^9\d{9}$/.test(digits)) {
+    return `0${digits}`
+  }
+
+  if (/^639\d{9}$/.test(digits)) {
+    return `+${digits}`
+  }
+
+  return text
+}
+
 function importBoolean(value: unknown) {
-  const normalized = String(value || '').trim().toLowerCase()
+  const normalized = importText(value).toLowerCase()
   return ['1', 'true', 'yes', 'y', 'on'].includes(normalized)
 }
 
@@ -641,6 +711,11 @@ function RegistrationsView() {
   const [sortBy, setSortBy] = useState('LAST_NAME')
   const [sectorFilter, setSectorFilter] = useState('ALL')
   const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    fileName: string
+    importedNames: string[]
+    failedRows: string[]
+  } | null>(null)
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRegisterVulnerable, setShowRegisterVulnerable] = useState(false)
@@ -737,18 +812,92 @@ function RegistrationsView() {
       return
     }
 
+    setImportResult(null)
     setImporting(true)
 
     try {
       const XLSX = await loadRegistrationExcelParser()
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json(firstSheet, {
-        defval: '',
-      }) as Record<string, any>[]
+      const workbook = XLSX.read(await file.arrayBuffer(), {
+        type: 'array',
+        cellDates: true,
+        cellText: true,
+      })
+
+      const preferredSheetName =
+        workbook.SheetNames.find(
+          (name: string) =>
+            name.trim().toLowerCase() ===
+            'registration import',
+        ) || workbook.SheetNames[0]
+
+      const firstSheet = workbook.Sheets[preferredSheetName]
+
+      if (!firstSheet) {
+        toast.error('No worksheet was found in the Excel file')
+        return
+      }
+
+      const rows = (
+        XLSX.utils.sheet_to_json(firstSheet, {
+          defval: '',
+          raw: false,
+          dateNF: 'yyyy-mm-dd',
+        }) as Record<string, any>[]
+      ).filter((row) =>
+        Object.values(row).some(
+          (value) => importText(value).length > 0,
+        ),
+      )
 
       if (!rows.length) {
-        toast.error('The Excel file is empty')
+        toast.error('The Excel file is empty', {
+          description:
+            'Add registration rows below the header row and try again.',
+        })
+        return
+      }
+
+      const normalizedHeaders = new Set(
+        Object.keys(rows[0] || {}).map((key) =>
+          key
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, ''),
+        ),
+      )
+      const requiredHeaderGroups = [
+        ['firstname'],
+        ['lastname'],
+        ['emailaddress', 'email'],
+        ['mobilenumber', 'mobile', 'phone'],
+        ['barangay'],
+      ]
+      const requiredHeaderLabels = [
+        'First Name',
+        'Last Name',
+        'Email Address',
+        'Mobile Number',
+        'Barangay',
+      ]
+      const missingHeaders =
+        requiredHeaderGroups
+          .map((aliases, index) => ({
+            aliases,
+            label:
+              requiredHeaderLabels[index],
+          }))
+          .filter(
+            ({ aliases }) =>
+              !aliases.some((alias) =>
+                normalizedHeaders.has(alias),
+              ),
+          )
+          .map(({ label }) => label)
+
+      if (missingHeaders.length > 0) {
+        toast.error('Excel columns are incomplete', {
+          description:
+            `Missing required column${missingHeaders.length === 1 ? '' : 's'}: ${missingHeaders.join(', ')}`,
+        })
         return
       }
 
@@ -757,23 +906,31 @@ function RegistrationsView() {
         return
       }
 
-      let imported = 0
+      const importedNames: string[] = []
       const failed: string[] = []
 
       for (let index = 0; index < rows.length; index += 1) {
         const row = normalizeRegistrationImportRow(rows[index])
 
-        const firstName = String(row.firstname || '').trim()
-        const lastName = String(row.lastname || '').trim()
-        const emailAddress = String(
-          row.emailaddress || row.email || '',
+        const firstName = importText(row.firstname)
+        const lastName = importText(row.lastname)
+        const emailAddress = importText(
+          row.emailaddress || row.email,
+        ).toLowerCase()
+        const mobileNumber = importPhone(
+          row.mobilenumber || row.mobile || row.phone,
         )
-          .trim()
-          .toLowerCase()
-        const mobileNumber = String(
-          row.mobilenumber || row.mobile || row.phone || '',
-        ).trim()
-        const barangay = String(row.barangay || '').trim()
+        const barangay = importText(row.barangay)
+        const middleName = importText(row.middlename)
+        const suffix = importText(row.suffix)
+        const rowName = [
+          firstName,
+          middleName,
+          lastName,
+          suffix,
+        ]
+          .filter(Boolean)
+          .join(' ') || `Row ${index + 2}`
 
         if (
           !firstName ||
@@ -782,7 +939,17 @@ function RegistrationsView() {
           !mobileNumber ||
           !barangay
         ) {
-          failed.push(`Row ${index + 2}: missing required fields`)
+          const missing = [
+            !firstName ? 'First Name' : '',
+            !lastName ? 'Last Name' : '',
+            !emailAddress ? 'Email Address' : '',
+            !mobileNumber ? 'Mobile Number' : '',
+            !barangay ? 'Barangay' : '',
+          ].filter(Boolean)
+
+          failed.push(
+            `Row ${index + 2} (${rowName}): missing ${missing.join(', ')}`,
+          )
           continue
         }
 
@@ -798,62 +965,82 @@ function RegistrationsView() {
           adminId,
           firstName,
           lastName,
-          middleName: String(row.middlename || '').trim(),
-          suffix: String(row.suffix || '').trim(),
+          middleName,
+          suffix,
           emailAddress,
           mobileNumber,
-          landlineNumber: String(row.landlinenumber || '').trim(),
-          dateOfBirth: String(row.dateofbirth || row.birthdate || '').trim(),
-          gender: String(row.gender || '').trim(),
-          civilStatus: String(row.civilstatus || '').trim(),
-          houseNumber: String(row.housenumber || '').trim(),
-          street: String(row.street || '').trim(),
+          landlineNumber: importPhone(row.landlinenumber),
+          dateOfBirth: importText(row.dateofbirth || row.birthdate),
+          gender: importText(row.gender),
+          civilStatus: importText(row.civilstatus),
+          houseNumber: importText(row.housenumber),
+          street: importText(row.street),
           barangay,
           municipality:
-            String(row.municipality || '').trim() || 'San Policarpo',
+            importText(row.municipality) || 'San Policarpo',
           province:
-            String(row.province || '').trim() || 'Eastern Samar',
-          latitude: String(row.latitude || '').trim(),
-          longitude: String(row.longitude || '').trim(),
-          educationalAttainment: String(
-            row.educationalattainment || '',
-          ).trim(),
-          employmentStatus: String(row.employmentstatus || '').trim(),
-          employmentDetails: String(row.employmentdetails || '').trim(),
-          emergencyContact: String(row.emergencycontact || '').trim(),
-          emergencyPhone: String(row.emergencyphone || '').trim(),
+            importText(row.province) || 'Eastern Samar',
+          latitude: importText(row.latitude),
+          longitude: importText(row.longitude),
+          educationalAttainment: importText(row.educationalattainment),
+          employmentStatus: importText(row.employmentstatus),
+          employmentDetails: importText(row.employmentdetails),
+          emergencyContact: importText(row.emergencycontact),
+          emergencyPhone: importPhone(row.emergencyphone),
           hasMedicalCondition: importBoolean(row.hasmedicalcondition),
-          medicalConditions: String(row.medicalconditions || '').trim(),
+          medicalConditions: importText(row.medicalconditions),
           needsAssistance: importBoolean(row.needsassistance),
-          assistanceType: String(row.assistancetype || '').trim(),
+          assistanceType: importText(row.assistancetype),
           vulnerabilityTypes,
           hasDisability: importBoolean(row.hasdisability),
-          disabilityType: String(row.disabilitytype || '').trim(),
-          disabilityCause: String(row.disabilitycause || '').trim(),
+          disabilityType: importText(row.disabilitytype),
+          disabilityCause: importText(row.disabilitycause),
         }
 
         try {
-          await apiFetch('/api/admin/register-vulnerable', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
-          imported += 1
+          const result = await apiFetch(
+            '/api/admin/register-vulnerable',
+            {
+              method: 'POST',
+              body: JSON.stringify(payload),
+            },
+          )
+
+          importedNames.push(rowName)
         } catch (error: any) {
           failed.push(
-            `Row ${index + 2}: ${error?.message || 'import failed'}`,
+            `Row ${index + 2} (${rowName}): ${error?.message || 'import failed'}`,
           )
         }
       }
 
-      if (imported > 0) {
+      setImportResult({
+        fileName: file.name,
+        importedNames,
+        failedRows: failed,
+      })
+
+      if (importedNames.length > 0) {
         toast.success(
-          `${imported} registration${imported === 1 ? '' : 's'} imported`,
+          `${importedNames.length} registration${importedNames.length === 1 ? '' : 's'} imported`,
           {
-            description: failed.length
-              ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported.`
-              : 'All Excel registrations were added successfully.',
+            description:
+              failed.length > 0
+                ? `${failed.length} row${failed.length === 1 ? '' : 's'} could not be imported. Open Import Results for details.`
+                : importedNames.length === 1
+                  ? `${importedNames[0]} was registered successfully.`
+                  : 'All Excel registrations were added successfully.',
           },
         )
+
+        // Admin-created/imported registrations are automatically approved.
+        // Move the list to the matching view so the imported people are
+        // immediately visible instead of appearing to disappear under Pending.
+        setFilter('APPROVED')
+        setSectorFilter('ALL')
+        setQuery('')
+        setSortBy('DATE_DESC')
+
         await load()
       } else {
         toast.error('No registrations were imported', {
@@ -1023,19 +1210,27 @@ function RegistrationsView() {
             </SelectContent>
           </Select>
 
-          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-72 overflow-y-auto">
-              <SelectItem value="ALL">All sectors</SelectItem>
-              {sectors.map((sector) => (
-                <SelectItem key={sector} value={sector}>
-                  {registrationSectorLabel(sector)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={sectorFilter}
+            onValueChange={setSectorFilter}
+            placeholder="All sectors"
+            searchPlaceholder="Type a sector..."
+            className="w-48"
+            options={[
+              {
+                value: "ALL",
+                label: "All sectors",
+              },
+              ...sectors.map((sector) => ({
+                value: sector,
+                label:
+                  registrationSectorLabel(
+                    sector,
+                  ),
+                keywords: sector,
+              })),
+            ]}
+          />
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-44">
@@ -1166,6 +1361,99 @@ function RegistrationsView() {
           })}
         </div>
       )}
+
+      <Dialog
+        open={!!importResult}
+        onOpenChange={(open) => {
+          if (!open) {
+            setImportResult(null)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Excel Import Results</DialogTitle>
+            <DialogDescription>
+              {importResult?.fileName
+                ? `Finished processing ${importResult.fileName}.`
+                : 'Registration import finished.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {importResult &&
+          importResult.importedNames.length > 0 ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-center gap-2 text-emerald-900">
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-600 text-white">
+                  <Check className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold">
+                    {importResult.importedNames.length}{' '}
+                    {importResult.importedNames.length === 1
+                      ? 'person registered'
+                      : 'people registered'} successfully
+                  </p>
+                  <p className="text-xs text-emerald-700">
+                    These records are approved and now visible in Vulnerable Registrations.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-emerald-100 bg-white/80 p-2">
+                {importResult.importedNames.map((name, index) => (
+                  <div
+                    key={`${name}-${index}`}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-800"
+                  >
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    <span className="font-medium">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              No registration was successfully imported.
+            </div>
+          )}
+
+          {importResult &&
+          importResult.failedRows.length > 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-center gap-2 text-amber-900">
+                <AlertCircle className="h-5 w-5" />
+                <p className="font-semibold">
+                  {importResult.failedRows.length}{' '}
+                  {importResult.failedRows.length === 1
+                    ? 'row could not be imported'
+                    : 'rows could not be imported'}
+                </p>
+              </div>
+
+              <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-xl border border-amber-100 bg-white/80 p-2">
+                {importResult.failedRows.map((failure, index) => (
+                  <p
+                    key={`${failure}-${index}`}
+                    className="rounded-lg px-2 py-1.5 text-xs leading-5 text-slate-700"
+                  >
+                    {failure}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setImportResult(null)}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!rejectTarget}
@@ -1661,19 +1949,30 @@ function UsersView() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
-            <Select value={userSectorFilter} onValueChange={setUserSectorFilter}>
-              <SelectTrigger className="h-10 min-w-[200px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end" className="max-h-72 overflow-y-auto">
-                <SelectItem value="ALL">All sectors</SelectItem>
-                {userSectors.map((sector) => (
-                  <SelectItem key={sector} value={sector}>
-                    {registrationSectorLabel(sector)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={userSectorFilter}
+              onValueChange={setUserSectorFilter}
+              placeholder="All sectors"
+              searchPlaceholder="Type a sector..."
+              className="h-10 min-w-[200px] rounded-xl border-0 bg-transparent font-semibold shadow-none focus:ring-0"
+              contentClassName="min-w-[240px]"
+              options={[
+                {
+                  value: "ALL",
+                  label: "All sectors",
+                },
+                ...userSectors.map(
+                  (sector) => ({
+                    value: sector,
+                    label:
+                      registrationSectorLabel(
+                        sector,
+                      ),
+                    keywords: sector,
+                  }),
+                ),
+              ]}
+            />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
@@ -2618,19 +2917,29 @@ function DistributionsView() {
             </SelectContent>
           </Select>
 
-          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="w-full min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-72 overflow-y-auto">
-              <SelectItem value="ALL">All sectors</SelectItem>
-              {distributionSectors.map((sector) => (
-                <SelectItem key={sector} value={sector}>
-                  {registrationSectorLabel(sector)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={sectorFilter}
+            onValueChange={setSectorFilter}
+            placeholder="All sectors"
+            searchPlaceholder="Type a sector..."
+            className="w-full min-w-0"
+            options={[
+              {
+                value: "ALL",
+                label: "All sectors",
+              },
+              ...distributionSectors.map(
+                (sector) => ({
+                  value: sector,
+                  label:
+                    registrationSectorLabel(
+                      sector,
+                    ),
+                  keywords: sector,
+                }),
+              ),
+            ]}
+          />
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-full min-w-0">
@@ -3326,29 +3635,29 @@ function AnalyticsView() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
         <p className="text-sm text-muted-foreground">
-          90-day trends for registrations, distributions, and vulnerabilities.
+          90-day activity from current CRMS records. Relief and feedback totals use the same 90-day window; vulnerability categories are a current profile snapshot.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="gov-stat">
-          <span className="stat-label">Distributions</span>
+          <span className="stat-label">Approved / Distributed (90d)</span>
           <span className="stat-value text-primary">
             {data.reliefCoverage.totalDistributions}
           </span>
         </div>
         <div className="gov-stat">
-          <span className="stat-label">Items Distributed</span>
+          <span className="stat-label">Items Distributed (90d)</span>
           <span className="stat-value">
             {data.reliefCoverage.totalQuantity}
           </span>
         </div>
         <div className="gov-stat">
-          <span className="stat-label">Feedback</span>
+          <span className="stat-label">Feedback (90d)</span>
           <span className="stat-value">{data.feedbackStats.total}</span>
         </div>
         <div className="gov-stat">
-          <span className="stat-label">Pending Feedback</span>
+          <span className="stat-label">Pending Feedback (90d)</span>
           <span className="stat-value text-amber-600">
             {data.feedbackStats.submitted}
           </span>
@@ -3395,7 +3704,7 @@ function AnalyticsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Distributions (90 days)</CardTitle>
+            <CardTitle className="text-base">Approved / Distributed Relief (90 days)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
@@ -3430,7 +3739,7 @@ function AnalyticsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Vulnerability Breakdown</CardTitle>
+            <CardTitle className="text-base">Current Vulnerability Categories</CardTitle>
           </CardHeader>
           <CardContent>
             {vulnData.length === 0 ? (
@@ -3470,7 +3779,7 @@ function AnalyticsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Distribution Types</CardTitle>
+            <CardTitle className="text-base">Delivered Relief Types (90 days)</CardTitle>
           </CardHeader>
           <CardContent>
             {typeData.length === 0 ? (

@@ -2,10 +2,15 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from 'framer-motion'
 import { Sidebar } from './sidebar'
 import type { NavItem } from './sidebar'
 import { MobileAppNav } from './mobile-app-nav'
+import { CrmsAssistant } from '@/components/assistant/crms-assistant'
 import { Button } from '@/components/ui/button'
 import { DashboardAmbient } from '@/components/effects/dashboard-ambient'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -93,7 +98,12 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [constrainedDevice, setConstrainedDevice] =
+    useState(false)
+  const [assistantReady, setAssistantReady] =
+    useState(false)
   const isMobile = useIsMobile()
+  const prefersReducedMotion = useReducedMotion()
   const [
     mobileViewportReady,
     setMobileViewportReady,
@@ -101,6 +111,26 @@ export function AppShell({
 
   useEffect(() => {
     setMobileViewportReady(true)
+
+    const navigatorWithMemory = navigator as Navigator & {
+      deviceMemory?: number
+    }
+    const lowCpu =
+      typeof navigator.hardwareConcurrency === 'number' &&
+      navigator.hardwareConcurrency <= 4
+    const lowMemory =
+      typeof navigatorWithMemory.deviceMemory === 'number' &&
+      navigatorWithMemory.deviceMemory <= 4
+
+    setConstrainedDevice(lowCpu || lowMemory)
+
+    const assistantTimer = window.setTimeout(() => {
+      setAssistantReady(true)
+    }, 800)
+
+    return () => {
+      window.clearTimeout(assistantTimer)
+    }
   }, [])
 
   const normalizedRole = String(
@@ -109,6 +139,11 @@ export function AppShell({
 
   const activeLabel =
     items.find((item) => item.id === activeView)?.label ?? 'Dashboard'
+
+  const lightweightMotion =
+    isMobile ||
+    constrainedDevice ||
+    Boolean(prefersReducedMotion)
 
   function openLogoutConfirm() {
     setLogoutOpen(true)
@@ -194,7 +229,7 @@ export function AppShell({
           />
 
           <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-            {!isMobile ? <DashboardAmbient /> : null}
+            {!lightweightMotion ? <DashboardAmbient /> : null}
 
             <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-border bg-background px-3 py-2.5 shadow-sm md:hidden">
               <div className="flex min-w-0 items-center gap-3">
@@ -275,7 +310,7 @@ export function AppShell({
                 <motion.div
                   key={activeView}
                   variants={
-                    isMobile
+                    lightweightMotion
                       ? mobileViewVariants
                       : viewVariants
                   }
@@ -283,9 +318,11 @@ export function AppShell({
                   animate="show"
                   exit="exit"
                   transition={
-                    isMobile
+                    lightweightMotion
                       ? {
-                          duration: 0.14,
+                          duration: prefersReducedMotion
+                            ? 0.01
+                            : 0.12,
                           ease: 'easeOut',
                         }
                       : {
@@ -312,6 +349,15 @@ export function AppShell({
               userRole={userRole}
               userPhoto={userPhoto}
             />
+
+            {assistantReady ? (
+              <CrmsAssistant
+                userName={userName}
+                userRole={userRole}
+                activeView={activeView}
+                activeViewLabel={activeLabel}
+              />
+            ) : null}
 
             <footer className="relative z-10 hidden h-7 shrink-0 overflow-hidden border-t border-slate-200/80 bg-white/70 px-6 text-[0.6875rem] font-medium leading-none text-slate-500 backdrop-blur-xl md:block">
               <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3">

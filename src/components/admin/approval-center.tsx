@@ -46,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { apiFetch, type AuthUser } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 type TabName = 'registrations' | 'distributions'
 type StatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -1395,19 +1396,24 @@ function FilterSelect({
   options: string[]
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL}>{allLabel}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {option}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      value={value}
+      onValueChange={onChange}
+      placeholder={allLabel}
+      searchPlaceholder="Type to search..."
+      options={[
+        {
+          value: ALL,
+          label: allLabel,
+        },
+        ...options.map(
+          (option) => ({
+            value: option,
+            label: option,
+          }),
+        ),
+      ]}
+    />
   )
 }
 

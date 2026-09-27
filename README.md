@@ -302,9 +302,15 @@ NEXT_PUBLIC_APP_URL=
 BREVO_FROM_EMAIL=
 BREVO_SMTP_LOGIN=
 BREVO_SMTP_KEY=
+
+# Optional AI assistant
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_LIVE_MODEL=gemini-3.8-live
+GEMINI_VOICE_FALLBACK_MODEL=gemini-3.5-flash-lite
 ```
 
-> Email-related values are required only for flows that send email, such as login OTP and notification delivery.
+> Email-related values are required only for flows that send email, such as login OTP and notification delivery. Real CRMS Assistant responses require `GEMINI_API_KEY`. Voice Chat prefers an accessible Gemini Live model. If the current Gemini project does not expose Live API models, CRMS automatically falls back to microphone recording → Gemini audio understanding → the normal CRMS database-aware assistant → browser speech output, so the same Voice Chat button can still be used without changing projects.
 
 ### 4. Generate Prisma Client
 

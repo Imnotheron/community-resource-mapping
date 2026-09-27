@@ -111,9 +111,18 @@ function markAnalyticsAnchors() {
   }
 
   const registrations = findCardByTitle(charts, 'Registrations (90 days)')
-  const distributions = findCardByTitle(charts, 'Distributions (90 days)')
-  const vulnerabilities = findCardByTitle(charts, 'Vulnerability Breakdown')
-  const distributionTypes = findCardByTitle(charts, 'Distribution Types')
+  const distributions = findCardByTitle(
+    charts,
+    'Approved / Distributed Relief (90 days)',
+  )
+  const vulnerabilities = findCardByTitle(
+    charts,
+    'Current Vulnerability Categories',
+  )
+  const distributionTypes = findCardByTitle(
+    charts,
+    'Delivered Relief Types (90 days)',
+  )
 
   const requiredTargets = [
     header,
@@ -149,7 +158,7 @@ export function AnalyticsWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-analytics-first-use', user.id),
-      version: 1,
+      version: 2,
       title: 'Analytics guide',
       role: 'ADMIN',
       steps: [
@@ -165,7 +174,7 @@ export function AnalyticsWalkthrough({ user }: { user: AuthUser }) {
           id: 'scope',
           title: 'Start with the reporting window',
           description:
-            'This page summarizes the most recent 90 days of registration, relief-distribution, vulnerability, and feedback activity. Use it to identify patterns that deserve closer review.',
+            'This page uses a 90-day activity window for registrations, approved or distributed relief, and feedback. The vulnerability chart is different: it is a current category snapshot of the profiles in CRMS. Use every chart according to its displayed scope.',
           target: TARGETS.header,
           placement: 'bottom',
           padding: 4,
@@ -174,7 +183,7 @@ export function AnalyticsWalkthrough({ user }: { user: AuthUser }) {
           id: 'summary-metrics',
           title: 'Read the four summary numbers carefully',
           description:
-            'Distributions counts recorded relief events. Items Distributed is the total quantity released. Feedback counts submitted messages, while Pending Feedback shows messages that still require administrative attention.',
+            'Approved / Distributed counts only delivered-relief records inside the 90-day window. Items Distributed sums their quantity. Feedback and Pending Feedback also use the same 90-day window. Pending or Rejected relief records are not included in delivered-relief totals.',
           target: TARGETS.metrics,
           placement: 'bottom',
           padding: 4,
@@ -192,7 +201,7 @@ export function AnalyticsWalkthrough({ user }: { user: AuthUser }) {
           id: 'distribution-trend',
           title: 'Separate relief events from item quantity',
           description:
-            'This chart shows the number of distribution events by date. One event can contain multiple items, so do not treat the bar height as the quantity of goods released.',
+            'This chart shows approved or distributed relief events by date, ordered from older dates toward newer dates. One event can contain multiple items, so the bar height is a count of distribution records—not the quantity of goods released.',
           target: TARGETS.distributions,
           placement: 'auto',
           padding: 4,
@@ -210,7 +219,7 @@ export function AnalyticsWalkthrough({ user }: { user: AuthUser }) {
           id: 'distribution-types',
           title: 'Compare the kinds of relief being recorded',
           description:
-            'Distribution Types compares recorded relief events by category. It helps show which kinds of assistance are being delivered most often, but it is not an inventory or remaining-stock report.',
+            'Delivered Relief Types compares approved or distributed relief records within the same 90-day period. It helps show which assistance categories were delivered most often, but it is not an inventory or remaining-stock report.',
           target: TARGETS.distributionTypes,
           placement: 'auto',
           padding: 4,

@@ -6,8 +6,10 @@ import {
   CalendarRange,
   MapPin,
   Package,
+  Plus,
   RefreshCw,
   Search,
+  UserPlus,
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,6 +20,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -27,7 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WowLoader } from '@/components/ui/wow-loader'
-import { StatusBadge, formatDate, formatDateTime } from '@/components/dashboards/shared'
+import { StatusBadge, formatDate, formatDateTime, formatVulnerabilityTypes } from '@/components/dashboards/shared'
 
 const ALL = 'ALL'
 
@@ -115,8 +126,33 @@ export function OperationsHistory({
   const [data, setData] = useState<any>({
     distributions: [],
     events: [],
+    registrations: [],
   })
   const [loading, setLoading] = useState(true)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualSaving, setManualSaving] = useState(false)
+  const [manualOptions, setManualOptions] = useState<any>({
+    workers: [],
+    profiles: [],
+  })
+  const [manualForm, setManualForm] = useState({
+    kind: 'RELIEF',
+    vulnerableProfileId: '',
+    workerId: '',
+    date: new Date().toISOString().slice(0, 10),
+    distributionType: 'Food assistance',
+    itemsProvided: '',
+    quantity: '1',
+    status: 'APPROVED',
+    notes: '',
+    title: '',
+    content: '',
+    eventType: 'GENERAL',
+    eventTime: '',
+    location: '',
+    targetRole: 'ALL',
+    priority: 'NORMAL',
+  })
 
   const [query, setQuery] = useState('')
   const [distributionType, setDistributionType] = useState(ALL)
@@ -131,6 +167,11 @@ export function OperationsHistory({
   const [eventDateMode, setEventDateMode] = useState('NEWEST')
   const [eventSpecificDate, setEventSpecificDate] = useState('')
 
+  const [registrationStatus, setRegistrationStatus] = useState(ALL)
+  const [registrationBarangay, setRegistrationBarangay] = useState(ALL)
+  const [registrationDateMode, setRegistrationDateMode] = useState('NEWEST')
+  const [registrationSpecificDate, setRegistrationSpecificDate] = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
 
@@ -143,6 +184,10 @@ export function OperationsHistory({
       setData({
         distributions: result.distributions || [],
         events: result.events || [],
+        registrations:
+          mode === 'admin'
+            ? result.registrations || []
+            : [],
       })
     } catch (error: any) {
       toast.error('Failed to load history', {
@@ -156,6 +201,59 @@ export function OperationsHistory({
   useEffect(() => {
     void load()
   }, [load])
+
+  const openManualEntry = useCallback(async () => {
+    setManualOpen(true)
+
+    if (
+      manualOptions.workers.length > 0 ||
+      manualOptions.profiles.length > 0
+    ) {
+      return
+    }
+
+    try {
+      const result = await apiFetch(
+        '/api/admin/history/manual',
+      )
+      setManualOptions({
+        workers: result.workers || [],
+        profiles: result.profiles || [],
+      })
+    } catch (error: any) {
+      toast.error('Failed to load history entry options', {
+        description: error?.message || 'Please try again.',
+      })
+    }
+  }, [
+    manualOptions.profiles.length,
+    manualOptions.workers.length,
+  ])
+
+  const saveManualEntry = useCallback(async () => {
+    setManualSaving(true)
+
+    try {
+      await apiFetch('/api/admin/history/manual', {
+        method: 'POST',
+        body: JSON.stringify(manualForm),
+      })
+
+      toast.success('Historical record added', {
+        description:
+          'The entry is now included in Operations History and related status-aware reports or analytics when applicable.',
+      })
+
+      setManualOpen(false)
+      await load()
+    } catch (error: any) {
+      toast.error('Failed to add historical record', {
+        description: error?.message || 'Please try again.',
+      })
+    } finally {
+      setManualSaving(false)
+    }
+  }, [load, manualForm])
 
   const distributionTypes = useMemo(
     () =>
@@ -267,6 +365,102 @@ export function OperationsHistory({
     query,
   ])
 
+  const registrationBarangays = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          data.registrations
+            .map((item: any) =>
+              String(item.barangay || '').trim(),
+            )
+            .filter(Boolean),
+        ),
+      ).sort((a: any, b: any) =>
+        a.localeCompare(b),
+      ),
+    [data.registrations],
+  )
+
+  const filteredRegistrations = useMemo(() => {
+    const search =
+      query.trim().toLowerCase()
+
+    return [...data.registrations]
+      .filter((item: any) => {
+        const searchable = [
+          fullName(item),
+          item.barangay,
+          item.municipality,
+          item.province,
+          item.registrationStatus,
+          item.vulnerabilityTypes,
+          item.user?.email,
+          item.user?.phone,
+          item.assistanceType,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+
+        const happenedAt = new Date(
+          item.createdAt || 0,
+        )
+
+        const specificDateMatches =
+          registrationDateMode !==
+            'SPECIFIC' ||
+          !registrationSpecificDate ||
+          (
+            happenedAt.getTime() >=
+              new Date(
+                `${registrationSpecificDate}T00:00:00`,
+              ).getTime() &&
+            happenedAt.getTime() <=
+              new Date(
+                `${registrationSpecificDate}T23:59:59.999`,
+              ).getTime()
+          )
+
+        return (
+          (!search ||
+            searchable.includes(
+              search,
+            )) &&
+          (registrationStatus === ALL ||
+            item.registrationStatus ===
+              registrationStatus) &&
+          (registrationBarangay === ALL ||
+            item.barangay ===
+              registrationBarangay) &&
+          specificDateMatches
+        )
+      })
+      .sort((a: any, b: any) => {
+        const aDate = new Date(
+          a.createdAt || 0,
+        ).getTime()
+        const bDate = new Date(
+          b.createdAt || 0,
+        ).getTime()
+
+        if (
+          registrationDateMode ===
+          'OLDEST'
+        ) {
+          return aDate - bDate
+        }
+
+        return bDate - aDate
+      })
+  }, [
+    data.registrations,
+    query,
+    registrationBarangay,
+    registrationDateMode,
+    registrationSpecificDate,
+    registrationStatus,
+  ])
+
   const filteredEvents = useMemo(() => {
     const search = query.trim().toLowerCase()
 
@@ -337,7 +531,7 @@ export function OperationsHistory({
     return (
       <WowLoader
         label="Loading operations history"
-        description="Collecting relief records, meetings, events, and municipal activities..."
+        description="Collecting registration, relief, event, and municipal activity records..."
       />
     )
   }
@@ -362,24 +556,42 @@ export function OperationsHistory({
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === 'worker'
               ? 'Review your relief distribution records and the meetings, events, and activities visible to field workers.'
-              : 'Review completed and pending relief distributions, meetings, events, and other recorded municipal activities.'}
+              : 'Review vulnerable registrations, completed and pending relief distributions, meetings, events, and other recorded municipal activities.'}
           </p>
         </div>
 
-        <Button
-          data-tour="operations-history-refresh"
-          variant="outline"
-          onClick={load}
-          className="gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {mode === 'admin' ? (
+            <Button
+              data-tour="operations-history-add-record"
+              type="button"
+              onClick={() => void openManualEntry()}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Historical Record
+            </Button>
+          ) : null}
+
+          <Button
+            data-tour="operations-history-refresh"
+            variant="outline"
+            onClick={load}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div
         data-tour="operations-history-summary"
-        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className={
+          mode === 'admin'
+            ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-5'
+            : 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4'
+        }
       >
         <Card>
           <CardContent className="p-4">
@@ -392,6 +604,20 @@ export function OperationsHistory({
             </p>
           </CardContent>
         </Card>
+
+        {mode === 'admin' ? (
+          <Card>
+            <CardContent className="p-4">
+              <UserPlus className="h-4 w-4 text-blue-600" />
+              <p className="mt-2 text-xs uppercase tracking-wide text-muted-foreground">
+                Registrations
+              </p>
+              <p className="mt-1 text-2xl font-semibold">
+                {data.registrations.length}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardContent className="p-4">
@@ -439,7 +665,11 @@ export function OperationsHistory({
       >
         <TabsList
           data-tour="operations-history-tabs"
-          className="grid w-full max-w-lg grid-cols-2"
+          className={
+            mode === 'admin'
+              ? 'grid w-full max-w-3xl grid-cols-3'
+              : 'grid w-full max-w-lg grid-cols-2'
+          }
         >
           <TabsTrigger
             data-tour="operations-history-tab-relief"
@@ -447,6 +677,14 @@ export function OperationsHistory({
           >
             Relief Distribution History
           </TabsTrigger>
+          {mode === 'admin' ? (
+            <TabsTrigger
+              data-tour="operations-history-tab-registrations"
+              value="registrations"
+            >
+              Registration History
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger
             data-tour="operations-history-tab-events"
             value="events"
@@ -463,7 +701,9 @@ export function OperationsHistory({
             <CardTitle className="text-base">
               {tab === 'relief'
                 ? 'Relief History Filters'
-                : 'Event History Filters'}
+                : tab === 'registrations'
+                  ? 'Registration History Filters'
+                  : 'Event History Filters'}
             </CardTitle>
             <CardDescription>
               Sort and narrow large historical lists before reviewing records.
@@ -479,7 +719,9 @@ export function OperationsHistory({
                 placeholder={
                   tab === 'relief'
                     ? 'Search beneficiary, worker, barangay, items...'
-                    : 'Search title, location, event type, audience...'
+                    : tab === 'registrations'
+                      ? 'Search citizen, barangay, vulnerability, email...'
+                      : 'Search title, location, event type, audience...'
                 }
                 className="pl-9"
               />
@@ -551,6 +793,69 @@ export function OperationsHistory({
                       type="date"
                       value={distributionSpecificDate}
                       onChange={(event) => setDistributionSpecificDate(event.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : tab === 'registrations' ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Registration status</Label>
+                  <Select
+                    value={registrationStatus}
+                    onValueChange={setRegistrationStatus}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>All statuses</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Barangay</Label>
+                  <Select
+                    value={registrationBarangay}
+                    onValueChange={setRegistrationBarangay}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72 overflow-y-auto">
+                      <SelectItem value={ALL}>All barangays</SelectItem>
+                      {registrationBarangays.map((name: any) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Select
+                    value={registrationDateMode}
+                    onValueChange={(value) => {
+                      setRegistrationDateMode(value)
+                      if (value !== 'SPECIFIC') setRegistrationSpecificDate('')
+                    }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NEWEST">Newest first</SelectItem>
+                      <SelectItem value="OLDEST">Oldest first</SelectItem>
+                      <SelectItem value="SPECIFIC">Specific date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {registrationDateMode === 'SPECIFIC' && (
+                  <div className="space-y-2">
+                    <Label>Specific registration date</Label>
+                    <Input
+                      type="date"
+                      value={registrationSpecificDate}
+                      onChange={(event) => setRegistrationSpecificDate(event.target.value)}
                     />
                   </div>
                 )}
@@ -706,6 +1011,105 @@ export function OperationsHistory({
           </Card>
         </TabsContent>
 
+        {mode === 'admin' ? (
+          <TabsContent
+            data-tour="operations-history-registrations"
+            value="registrations"
+            className="mt-4"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Registration History ({filteredRegistrations.length})
+                </CardTitle>
+                <CardDescription>
+                  Vulnerable citizen registrations with their current approval status and submitted profile details.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredRegistrations.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    No registration history matches the selected filters.
+                  </p>
+                ) : (
+                  <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
+                    {filteredRegistrations.map((item: any) => {
+                      const vulnerabilityTypes =
+                        formatVulnerabilityTypes(
+                          item.vulnerabilityTypes,
+                        )
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-2xl border border-slate-200 bg-white p-4"
+                        >
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-slate-950">
+                                  {fullName(item) || 'Unnamed citizen'}
+                                </h3>
+                                <StatusBadge
+                                  status={item.registrationStatus}
+                                />
+                              </div>
+
+                              <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2 xl:grid-cols-4">
+                                <span>
+                                  <b className="text-slate-700">Barangay:</b>{' '}
+                                  {item.barangay || '—'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Vulnerability:</b>{' '}
+                                  {vulnerabilityTypes.length > 0
+                                    ? vulnerabilityTypes.join(', ')
+                                    : 'Unspecified'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Submitted:</b>{' '}
+                                  {formatDate(item.createdAt)}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Last updated:</b>{' '}
+                                  {formatDateTime(item.updatedAt)}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Email:</b>{' '}
+                                  {item.user?.email || '—'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Phone:</b>{' '}
+                                  {item.user?.phone || '—'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Needs assistance:</b>{' '}
+                                  {item.needsAssistance ? 'Yes' : 'No'}
+                                </span>
+                                <span>
+                                  <b className="text-slate-700">Assistance type:</b>{' '}
+                                  {item.assistanceType || '—'}
+                                </span>
+                              </div>
+
+                              {item.rejectionReason ? (
+                                <p className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                                  <b>Rejection reason:</b>{' '}
+                                  {item.rejectionReason}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ) : null}
+
         <TabsContent
           data-tour="operations-history-events"
           value="events"
@@ -799,6 +1203,356 @@ export function OperationsHistory({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {mode === 'admin' ? (
+        <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add Historical Record</DialogTitle>
+              <DialogDescription>
+                Use this only to recover a real record that was missed during normal encoding. The entry is saved with an Administrator audit note.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Record type</Label>
+                <Select
+                  value={manualForm.kind}
+                  onValueChange={(value) =>
+                    setManualForm((current) => ({
+                      ...current,
+                      kind: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RELIEF">
+                      Relief distribution
+                    </SelectItem>
+                    <SelectItem value="EVENT">
+                      Event / municipal activity
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {manualForm.kind === 'RELIEF' ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Vulnerable citizen</Label>
+                      <Select
+                        value={manualForm.vulnerableProfileId}
+                        onValueChange={(value) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            vulnerableProfileId: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose citizen" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72 overflow-y-auto">
+                          {manualOptions.profiles.map((profile: any) => (
+                            <SelectItem
+                              key={profile.id}
+                              value={profile.id}
+                            >
+                              {profile.lastName}, {profile.firstName} — {profile.barangay}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Worker responsible</Label>
+                      <Select
+                        value={manualForm.workerId}
+                        onValueChange={(value) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            workerId: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose worker" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72 overflow-y-auto">
+                          {manualOptions.workers.map((worker: any) => (
+                            <SelectItem
+                              key={worker.id}
+                              value={worker.id}
+                            >
+                              {worker.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Distribution date</Label>
+                      <Input
+                        type="date"
+                        value={manualForm.date}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            date: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select
+                        value={manualForm.status}
+                        onValueChange={(value) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            status: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="APPROVED">Approved</SelectItem>
+                          <SelectItem value="DISTRIBUTED">Distributed</SelectItem>
+                          <SelectItem value="PENDING">Pending</SelectItem>
+                          <SelectItem value="REJECTED">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Distribution type</Label>
+                      <Input
+                        value={manualForm.distributionType}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            distributionType: event.target.value,
+                          }))
+                        }
+                        placeholder="Type or category"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Quantity</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100000"
+                        value={manualForm.quantity}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            quantity: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Items provided</Label>
+                    <Input
+                      value={manualForm.itemsProvided}
+                      onChange={(event) =>
+                        setManualForm((current) => ({
+                          ...current,
+                          itemsProvided: event.target.value,
+                        }))
+                      }
+                      placeholder="Example: Rice, canned goods, hygiene kit"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Textarea
+                      value={manualForm.notes}
+                      onChange={(event) =>
+                        setManualForm((current) => ({
+                          ...current,
+                          notes: event.target.value,
+                        }))
+                      }
+                      rows={3}
+                      placeholder="Reason this history needed to be encoded later"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Event title</Label>
+                    <Input
+                      value={manualForm.title}
+                      onChange={(event) =>
+                        setManualForm((current) => ({
+                          ...current,
+                          title: event.target.value,
+                        }))
+                      }
+                      placeholder="Historical event title"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={manualForm.content}
+                      onChange={(event) =>
+                        setManualForm((current) => ({
+                          ...current,
+                          content: event.target.value,
+                        }))
+                      }
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Event type</Label>
+                      <Input
+                        value={manualForm.eventType}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            eventType: event.target.value,
+                          }))
+                        }
+                        placeholder="Meeting, relief activity, emergency..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Event date</Label>
+                      <Input
+                        type="date"
+                        value={manualForm.date}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            date: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Time (optional)</Label>
+                      <Input
+                        type="time"
+                        value={manualForm.eventTime}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            eventTime: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Location (optional)</Label>
+                      <Input
+                        value={manualForm.location}
+                        onChange={(event) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            location: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Audience</Label>
+                      <Select
+                        value={manualForm.targetRole}
+                        onValueChange={(value) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            targetRole: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">Everyone</SelectItem>
+                          <SelectItem value="ADMIN">Administrators</SelectItem>
+                          <SelectItem value="WORKER">Workers</SelectItem>
+                          <SelectItem value="VULNERABLE">Vulnerable citizens</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Priority</Label>
+                      <Select
+                        value={manualForm.priority}
+                        onValueChange={(value) =>
+                          setManualForm((current) => ({
+                            ...current,
+                            priority: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="LOW">Low</SelectItem>
+                          <SelectItem value="NORMAL">Normal</SelectItem>
+                          <SelectItem value="HIGH">High</SelectItem>
+                          <SelectItem value="URGENT">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setManualOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void saveManualEntry()}
+                disabled={manualSaving}
+              >
+                {manualSaving ? 'Saving…' : 'Save Historical Record'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   )
 }

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 function convertBigIntToNumber(obj: any): any {
   if (obj === null || obj === undefined) return obj
@@ -19,6 +20,11 @@ function convertBigIntToNumber(obj: any): any {
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     const { searchParams } = new URL(request.url)
     const daysParam = searchParams.get('days')
 
@@ -37,7 +43,10 @@ export async function GET(request: NextRequest) {
 
     const days = parseInt(daysParam || '30', 10)
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
+    startDate.setHours(0, 0, 0, 0)
+    startDate.setDate(
+      startDate.getDate() - (days - 1),
+    )
 
     const registrationsByDate = await db.$queryRaw`
       SELECT
@@ -46,7 +55,7 @@ export async function GET(request: NextRequest) {
       FROM VulnerableProfile
       WHERE createdAt >= ${startDate}
       GROUP BY DATE(createdAt)
-      ORDER BY date DESC
+      ORDER BY date ASC
     `
 
     const distributionsByDate = await db.$queryRaw`
@@ -56,8 +65,9 @@ export async function GET(request: NextRequest) {
         SUM(quantity) as totalQuantity
       FROM ReliefDistribution
       WHERE distributionDate >= ${startDate}
+        AND status IN ('APPROVED', 'DISTRIBUTED')
       GROUP BY DATE(distributionDate)
-      ORDER BY date DESC
+      ORDER BY date ASC
     `
 
     const vulnerabilityBreakdown = await db.vulnerableProfile.findMany({
@@ -88,6 +98,8 @@ export async function GET(request: NextRequest) {
           COUNT(*) as count,
           SUM(quantity) as totalQuantity
         FROM ReliefDistribution
+        WHERE status IN ('APPROVED', 'DISTRIBUTED')
+          AND distributionDate >= ${startDate}
         GROUP BY distributionType
         ORDER BY count DESC
       `,
@@ -117,7 +129,9 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT vp.id) as totalProfiles,
           COUNT(DISTINCT rd.vulnerableProfileId) as receivedRelief
         FROM VulnerableProfile vp
-        LEFT JOIN ReliefDistribution rd ON rd.vulnerableProfileId = vp.id
+        LEFT JOIN ReliefDistribution rd
+          ON rd.vulnerableProfileId = vp.id
+          AND rd.status IN ('APPROVED', 'DISTRIBUTED')
         WHERE vp.registrationStatus = 'APPROVED' AND vp.barangay IS NOT NULL
         GROUP BY vp.barangay
         ORDER BY receivedRelief DESC
@@ -134,11 +148,29 @@ export async function GET(request: NextRequest) {
           status,
           COUNT(*) as count
         FROM ReliefFeedback
+        WHERE createdAt >= ${startDate}
         GROUP BY status
       `,
     ) as Array<{
       status?: string | null
       count?: number | null
+    }>
+
+    const distributionStatusRows = convertBigIntToNumber(
+      await db.$queryRaw`
+        SELECT
+          status,
+          COUNT(*) as count,
+          SUM(quantity) as totalQuantity
+        FROM ReliefDistribution
+        WHERE distributionDate >= ${startDate}
+        GROUP BY status
+        ORDER BY status ASC
+      `,
+    ) as Array<{
+      status?: string | null
+      count?: number | null
+      totalQuantity?: number | null
     }>
 
     const distributionByType = distributionByTypeRows.reduce(
@@ -203,6 +235,12 @@ export async function GET(request: NextRequest) {
         barangayStats,
         reliefCoverage,
         feedbackStats,
+        distributionStatusRows,
+        accuracyRules: {
+          reliefCoverageStatuses: ['APPROVED', 'DISTRIBUTED'],
+          note:
+            'The selected period includes today and starts at local server-day midnight. Distribution trend, delivered-relief totals, and distribution types count only approved or distributed records inside the period. Feedback totals are also period-scoped. Pending and rejected distributions remain visible only in period status totals. Vulnerability breakdown is a current profile-category snapshot and can count one person in multiple categories.',
+        },
         period: {
           startDate: startDate.toISOString(),
           endDate: new Date().toISOString(),

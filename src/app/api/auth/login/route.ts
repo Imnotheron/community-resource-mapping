@@ -79,8 +79,32 @@ const DEMO_LOGIN_ALIASES = new Map<string, string>([
 
 const DEMO_ACCOUNT_EMAILS = new Set([
   'admin@crms.gov.ph',
+  'admin.operations@crms.gov.ph',
+  'admin.records@crms.gov.ph',
+  'admin.reports@crms.gov.ph',
   'worker@sampolicarpo.gov',
+  'worker.alugan@sampolicarpo.gov',
+  'worker.bahai@sampolicarpo.gov',
+  'worker.bangon@sampolicarpo.gov',
+  'worker.binogawan@sampolicarpo.gov',
+  'worker.poblacion@sampolicarpo.gov',
   'maria.garcia@email.com',
+  'jose.dela.cruz@email.com',
+  'ana.bautista@email.com',
+  'pedro.mercado@email.com',
+  'rosa.navarro@email.com',
+  'manuel.gonzales@email.com',
+  'teresa.aquino@email.com',
+  'ricardo.fernandez@email.com',
+  'elena.morales@email.com',
+  'antonio.soriano@email.com',
+  'carmen.rivera@email.com',
+  'benjamin.torres@email.com',
+  'lucia.martinez@email.com',
+  'ernesto.villanueva@email.com',
+  'demo.bangon@crms.test',
+  'demo.santacruz@crms.test',
+  'demo.tanawan@crms.test',
 ])
 
 type LoginUser = Prisma.UserGetPayload<{

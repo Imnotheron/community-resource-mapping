@@ -8,6 +8,7 @@ import { MapPin, Search, Loader2, AlertTriangle, Info, Home, Map as MapIcon, Che
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
+  SAN_POLICARPO_BARANGAY_REFERENCE_POINTS,
   SAN_POLICARPO_MIN_VIEW_ZOOM,
   SAN_POLICARPO_VIEW_BOUNDS,
 } from '@/lib/san-policarpo-geography'
@@ -34,33 +35,25 @@ interface LocationPickerMapProps {
   className?: string
 }
 
-// San Policarpo, Eastern Samar barangays with coordinates
-const BARANGAYS = [
-  { name: 'Alugan', lat: 12.18, lng: 125.48, type: 'most populous' },
-  { name: 'Bahay', lat: 12.17, lng: 125.45, type: 'rural coastal', estimated: true },
-  { name: 'Bangon', lat: 12.17, lng: 125.49, type: 'inland rural', estimated: true },
-  { name: 'Baras (Lipata)', lat: 12.1847, lng: 125.4970, type: 'coastal' },
-  { name: 'Binogawan', lat: 12.20, lng: 125.50, type: 'coastal rural', estimated: true },
-  { name: 'Cajagwayan', lat: 12.19, lng: 125.47, type: 'rural', estimated: true },
-  { name: 'Japunan', lat: 12.22, lng: 125.47, type: 'rural', estimated: true },
-  { name: 'Natividad', lat: 12.20, lng: 125.52, type: 'rural', estimated: true },
-  { name: 'Pangpang', lat: 12.2316, lng: 125.4542, type: 'coastal' },
-  { name: 'Barangay No. 1 (Poblacion)', lat: 12.1786, lng: 125.5083, type: 'town center' },
-  { name: 'Barangay No. 2 (Poblacion)', lat: 12.1795, lng: 125.5081, type: 'town center' },
-  { name: 'Barangay No. 3 (Poblacion)', lat: 12.1803, lng: 125.5076, type: 'town center' },
-  { name: 'Barangay No. 4 (Poblacion)', lat: 12.1815, lng: 125.5059, type: 'town center' },
-  { name: 'Barangay No. 5 (Poblacion)', lat: 12.1824, lng: 125.5074, type: 'town center' },
-  { name: 'Santa Cruz', lat: 12.2106, lng: 125.4413, type: 'high elevation' },
-  { name: 'Tabo', lat: 12.17, lng: 125.51, type: 'rural', estimated: true },
-  { name: 'Tan-awan', lat: 12.24, lng: 125.48, type: 'rural', estimated: true },
-]
+// San Policarpo barangay reference points. These are public barangay
+// reference coordinates, not invented household locations.
+const BARANGAYS = Object.entries(
+  SAN_POLICARPO_BARANGAY_REFERENCE_POINTS,
+).map(([name, point]) => ({
+  name,
+  lat: point.lat,
+  lng: point.lng,
+  type: name.includes('(Poblacion)')
+    ? 'town center'
+    : 'barangay center',
+}))
 
 // San Policarpo, Eastern Samar bounds (based on actual barangay coordinates)
 const SAN_POLICARPO_BOUNDS = {
-  north: 12.25,   // Pangpang (12.2316) + buffer
-  south: 12.16,   // Southern barangays + buffer
-  east: 125.52,   // Poblacion (125.5083) + buffer
-  west: 125.43    // Santa Cruz (125.4413) - buffer
+  north: 12.278,
+  south: 12.165,
+  east: 125.555,
+  west: 125.405,
 }
 
 // Municipal Center: 12°10′45″N, 125°30′26″E

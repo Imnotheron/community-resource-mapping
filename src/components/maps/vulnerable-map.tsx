@@ -41,6 +41,9 @@ export interface VulnerablePoint {
   lastReliefStatus?: string | null;
   missingNeeds?: string[] | string | null;
   assistanceType?: string | null;
+  reliefAgeDays?: number | null;
+  reliefResetAfterDays?: number | null;
+  markerStatus?: "NEEDS_ASSISTANCE" | "NO_RELIEF" | "GIVEN" | null;
 }
 
 interface VulnerableMapProps {
@@ -55,13 +58,35 @@ function isWithinSanPolicarpo(latitude: number, longitude: number) {
 }
 
 function getStatus(point: VulnerablePoint) {
-  if (point.needsAssistance) {
-    return { label: "Needs assistance", color: "#dc2626", soft: "#fee2e2" };
+  const status =
+    point.markerStatus ||
+    (point.hasReceivedRelief
+      ? "GIVEN"
+      : point.needsAssistance
+        ? "NEEDS_ASSISTANCE"
+        : "NO_RELIEF");
+
+  if (status === "GIVEN") {
+    return {
+      label: "Relief given",
+      color: "#16a34a",
+      soft: "#dcfce7",
+    };
   }
-  if (point.hasReceivedRelief) {
-    return { label: "Relief received", color: "#059669", soft: "#d1fae5" };
+
+  if (status === "NO_RELIEF") {
+    return {
+      label: "No relief yet",
+      color: "#eab308",
+      soft: "#fef9c3",
+    };
   }
-  return { label: "No relief yet", color: "#d97706", soft: "#fef3c7" };
+
+  return {
+    label: "Needs assistance",
+    color: "#dc2626",
+    soft: "#fee2e2",
+  };
 }
 
 function getAge(point: VulnerablePoint) {
@@ -120,6 +145,17 @@ function ProfileDrawer({ point, onClose, onViewProfile }: {
             <div className="rounded-2xl border border-slate-200 p-4"><UserRound className="h-4 w-4 text-emerald-600" /><p className="mt-2 text-xs text-slate-500">Age</p><p className="font-semibold">{getAge(point)}</p></div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="font-semibold">Location Details</p><p className="mt-2 text-sm text-slate-600">{point.address || "No address recorded"}</p><p className="mt-2 text-xs text-slate-500">{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</p></div>
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="font-semibold">Relief marker cycle</p>
+            <p className="mt-2 text-sm text-slate-600">
+              {point.lastDistributionDate
+                ? `Last approved relief: ${new Date(point.lastDistributionDate).toLocaleDateString("en-PH")}`
+                : "No approved relief distribution recorded yet."}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Green markers automatically return to red after {point.reliefResetAfterDays || 30} days so old distributions do not keep a household marked as recently served.
+            </p>
+          </div>
           <div className="rounded-2xl border border-slate-200 p-4"><p className="font-semibold">Vulnerabilities</p><div className="mt-2 flex flex-wrap gap-2">{(point.vulnerabilityTypes?.length ? point.vulnerabilityTypes : ["Not specified"]).map((v) => <span key={v} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{String(v).replace(/_/g, " ")}</span>)}</div></div>
         </div>
         {onViewProfile || point.profileUrl ? (
@@ -141,9 +177,15 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
   const validPoints = useMemo(() => points.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude) && isWithinSanPolicarpo(point.latitude, point.longitude)), [points]);
   const stats = useMemo(() => ({
     total: validPoints.length,
-    needs: validPoints.filter((point) => point.needsAssistance).length,
-    noRelief: validPoints.filter((point) => !point.needsAssistance && !point.hasReceivedRelief).length,
-    received: validPoints.filter((point) => !point.needsAssistance && point.hasReceivedRelief).length,
+    needs: validPoints.filter(
+      (point) => getStatus(point).label === "Needs assistance",
+    ).length,
+    noRelief: validPoints.filter(
+      (point) => getStatus(point).label === "No relief yet",
+    ).length,
+    received: validPoints.filter(
+      (point) => getStatus(point).label === "Relief given",
+    ).length,
   }), [validPoints]);
 
   useEffect(() => {
