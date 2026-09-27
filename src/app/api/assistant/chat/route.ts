@@ -2,6 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
+import {
+  assistantLanguageInstruction,
+  normalizeAssistantLanguage,
+  type AssistantLanguageCode,
+} from '@/lib/assistant-language'
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
 
@@ -1424,12 +1429,105 @@ async function buildQueryAwareContext({
   ].join('\n')
 }
 
+function directLookupCopy(
+  language: AssistantLanguageCode,
+) {
+  if (language === 'tl') {
+    return {
+      noMatchHeading:
+        'Walang nahanap na katugmang user',
+      searched: (terms: string) =>
+        `Hinanap ko sa kasalukuyang **CRMS Users** records ang **${terms}**, pero walang nahanap na katugmang account.`,
+      userFoundHeading:
+        'Nahanap ang user',
+      fullName: 'Buong pangalan',
+      role: 'Role',
+      email: 'Email',
+      phone: 'Telepono',
+      barangay: 'Barangay',
+      registrationStatus:
+        'Status ng registration',
+      vulnerabilityType:
+        'Uri ng vulnerability',
+      needsAssistance:
+        'Kailangan ng assistance',
+      assistanceType:
+        'Uri ng assistance',
+      notRecorded: 'Walang record',
+      yes: 'Oo',
+      no: 'Hindi',
+      matchesHeading: (count: number) =>
+        `${count} katugmang users ang nahanap`,
+      registration: 'Registration',
+    }
+  }
+
+  if (language === 'war') {
+    return {
+      noMatchHeading:
+        'Waray nabilngan nga katugbang nga user',
+      searched: (terms: string) =>
+        `Gin-usisa ko an yana nga **CRMS Users** records para ha **${terms}**, pero waray nabilngan nga katugbang nga account.`,
+      userFoundHeading:
+        'Nabilngan an user',
+      fullName: 'Bug-os nga ngaran',
+      role: 'Role',
+      email: 'Email',
+      phone: 'Telepono',
+      barangay: 'Barangay',
+      registrationStatus:
+        'Status han registration',
+      vulnerabilityType:
+        'Klase han vulnerability',
+      needsAssistance:
+        'Nagkikinahanglan hin bulig',
+      assistanceType:
+        'Klase han bulig',
+      notRecorded: 'Waray nakarekord',
+      yes: 'Oo',
+      no: 'Diri',
+      matchesHeading: (count: number) =>
+        `${count} nga katugbang nga users an nabilngan`,
+      registration: 'Registration',
+    }
+  }
+
+  return {
+    noMatchHeading:
+      'No matching user found',
+    searched: (terms: string) =>
+      `I searched the current **CRMS Users** records for **${terms}** and found no matching account.`,
+    userFoundHeading: 'User found',
+    fullName: 'Full name',
+    role: 'Role',
+    email: 'Email',
+    phone: 'Phone',
+    barangay: 'Barangay',
+    registrationStatus:
+      'Registration status',
+    vulnerabilityType:
+      'Vulnerability type',
+    needsAssistance:
+      'Needs assistance',
+    assistanceType:
+      'Assistance type',
+    notRecorded: 'Not recorded',
+    yes: 'Yes',
+    no: 'No',
+    matchesHeading: (count: number) =>
+      `${count} matching users found`,
+    registration: 'Registration',
+  }
+}
+
 async function directAdminUserLookup({
   message,
   retrievalMessage,
+  language,
 }: {
   message: string
   retrievalMessage: string
+  language: AssistantLanguageCode
 }) {
   const normalized =
     normalizeLookupText(message)
@@ -1448,6 +1546,15 @@ async function directAdminUserLookup({
       'user list',
       'check the user',
       'check users',
+      'may user',
+      'meron bang',
+      'hanapin',
+      'tingnan ang user',
+      'nasa users list',
+      'mayda ba',
+      'adi ba',
+      'bilnga',
+      'usisa an user',
     ])
 
   if (!lookupIntent) return null
@@ -1510,13 +1617,18 @@ async function directAdminUserLookup({
       5,
     )
 
+  const copy =
+    directLookupCopy(language)
+
   if (matches.length === 0) {
     return {
       provider: 'crms-db',
       reply: [
-        '### No matching user found',
+        `### ${copy.noMatchHeading}`,
         '',
-        `I searched the current **CRMS Users** records for **${terms.join(' ')}** and found no matching account.`,
+        copy.searched(
+          terms.join(' '),
+        ),
       ].join('\n'),
     }
   }
@@ -1529,19 +1641,19 @@ async function directAdminUserLookup({
     return {
       provider: 'crms-db',
       reply: [
-        '### User found',
+        `### ${copy.userFoundHeading}`,
         '',
-        `- **Full name:** ${user.name}`,
-        `- **Role:** ${user.role}`,
-        `- **Email:** ${user.email}`,
-        `- **Phone:** ${user.phone || 'Not recorded'}`,
+        `- **${copy.fullName}:** ${user.name}`,
+        `- **${copy.role}:** ${user.role}`,
+        `- **${copy.email}:** ${user.email}`,
+        `- **${copy.phone}:** ${user.phone || copy.notRecorded}`,
         ...(profile
           ? [
-              `- **Barangay:** ${profile.barangay || 'Not recorded'}`,
-              `- **Registration status:** ${profile.registrationStatus || 'Not recorded'}`,
-              `- **Vulnerability type:** ${profile.vulnerabilityTypes || 'Not recorded'}`,
-              `- **Needs assistance:** ${profile.needsAssistance ? 'Yes' : 'No'}`,
-              `- **Assistance type:** ${profile.assistanceType || 'Not recorded'}`,
+              `- **${copy.barangay}:** ${profile.barangay || copy.notRecorded}`,
+              `- **${copy.registrationStatus}:** ${profile.registrationStatus || copy.notRecorded}`,
+              `- **${copy.vulnerabilityType}:** ${profile.vulnerabilityTypes || copy.notRecorded}`,
+              `- **${copy.needsAssistance}:** ${profile.needsAssistance ? copy.yes : copy.no}`,
+              `- **${copy.assistanceType}:** ${profile.assistanceType || copy.notRecorded}`,
             ]
           : []),
       ].join('\n'),
@@ -1551,17 +1663,17 @@ async function directAdminUserLookup({
   return {
     provider: 'crms-db',
     reply: [
-      `### ${matches.length} matching users found`,
+      `### ${copy.matchesHeading(matches.length)}`,
       '',
       ...matches.flatMap(
         (user, index) => [
           `${index + 1}. **${user.name}** — ${user.role}`,
-          `   - Email: ${user.email}`,
-          `   - Phone: ${user.phone || 'Not recorded'}`,
+          `   - ${copy.email}: ${user.email}`,
+          `   - ${copy.phone}: ${user.phone || copy.notRecorded}`,
           ...(user.vulnerableProfile
             ? [
-                `   - Barangay: ${user.vulnerableProfile.barangay || 'Not recorded'}`,
-                `   - Registration: ${user.vulnerableProfile.registrationStatus || 'Not recorded'}`,
+                `   - ${copy.barangay}: ${user.vulnerableProfile.barangay || copy.notRecorded}`,
+                `   - ${copy.registration}: ${user.vulnerableProfile.registrationStatus || copy.notRecorded}`,
               ]
             : []),
         ],
@@ -1582,6 +1694,10 @@ export async function POST(request: NextRequest) {
       body.activeViewLabel,
       160,
     )
+    const language =
+      normalizeAssistantLanguage(
+        body.language,
+      )
 
     if (!message) {
       return NextResponse.json(
@@ -1653,6 +1769,7 @@ export async function POST(request: NextRequest) {
         await directAdminUserLookup({
           message,
           retrievalMessage,
+          language,
         })
 
       if (directLookup) {
@@ -1692,25 +1809,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const liveContext =
-      await buildLiveSystemContext({
+    const [
+      liveContext,
+      queryAwareContext,
+    ] = await Promise.all([
+      buildLiveSystemContext({
         role: auth.role,
         userId: auth.userId,
         activeView,
         activeViewLabel,
-      })
-
-    const queryAwareContext =
-      await buildQueryAwareContext({
+      }),
+      buildQueryAwareContext({
         role: auth.role,
         userId: auth.userId,
         message:
           retrievalMessage,
-      })
+      }),
+    ])
 
     const systemInstruction = [
       'You are CRMS Assistant, the dedicated in-app assistant for the Community Resource Mapping System (CRMS) of San Policarpo, Eastern Samar.',
       `The signed-in role is ${auth.role}.`,
+      assistantLanguageInstruction(
+        language,
+      ),
       'STRICT SCOPE: Answer only questions about this CRMS system, its current data snapshot supplied below, its screens, workflows, roles, registration, relief distribution, Operations/Activity History, announcements, feedback, analytics, maps, reports, authentication, account setup, or how to perform an action inside CRMS.',
       'If the user asks about unrelated topics such as general trivia, entertainment, homework unrelated to CRMS, politics, shopping, coding outside this CRMS project, or other subjects, politely say that you are limited to CRMS and ask them to phrase a CRMS-related question. Do not answer the unrelated question.',
       'Use BOTH the live system snapshot and the query-aware database lookup below. The backend searches CRMS records for every relevant question so you can answer from actual current data instead of saying you cannot see the system.',
@@ -1756,7 +1878,7 @@ export async function POST(request: NextRequest) {
           ],
           generationConfig: {
             temperature: 0.15,
-            maxOutputTokens: 650,
+            maxOutputTokens: 520,
           },
         }),
       },
