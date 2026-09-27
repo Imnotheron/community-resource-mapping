@@ -587,7 +587,11 @@ export function OperationsHistory({
 
       <div
         data-tour="operations-history-summary"
-        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className={
+          mode === 'admin'
+            ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-5'
+            : 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4'
+        }
       >
         <Card>
           <CardContent className="p-4">
@@ -600,6 +604,20 @@ export function OperationsHistory({
             </p>
           </CardContent>
         </Card>
+
+        {mode === 'admin' ? (
+          <Card>
+            <CardContent className="p-4">
+              <UserPlus className="h-4 w-4 text-blue-600" />
+              <p className="mt-2 text-xs uppercase tracking-wide text-muted-foreground">
+                Registrations
+              </p>
+              <p className="mt-1 text-2xl font-semibold">
+                {data.registrations.length}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardContent className="p-4">
@@ -647,7 +665,11 @@ export function OperationsHistory({
       >
         <TabsList
           data-tour="operations-history-tabs"
-          className="grid w-full max-w-lg grid-cols-2"
+          className={
+            mode === 'admin'
+              ? 'grid w-full max-w-3xl grid-cols-3'
+              : 'grid w-full max-w-lg grid-cols-2'
+          }
         >
           <TabsTrigger
             data-tour="operations-history-tab-relief"
@@ -655,6 +677,14 @@ export function OperationsHistory({
           >
             Relief Distribution History
           </TabsTrigger>
+          {mode === 'admin' ? (
+            <TabsTrigger
+              data-tour="operations-history-tab-registrations"
+              value="registrations"
+            >
+              Registration History
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger
             data-tour="operations-history-tab-events"
             value="events"
@@ -671,7 +701,9 @@ export function OperationsHistory({
             <CardTitle className="text-base">
               {tab === 'relief'
                 ? 'Relief History Filters'
-                : 'Event History Filters'}
+                : tab === 'registrations'
+                  ? 'Registration History Filters'
+                  : 'Event History Filters'}
             </CardTitle>
             <CardDescription>
               Sort and narrow large historical lists before reviewing records.
@@ -687,7 +719,9 @@ export function OperationsHistory({
                 placeholder={
                   tab === 'relief'
                     ? 'Search beneficiary, worker, barangay, items...'
-                    : 'Search title, location, event type, audience...'
+                    : tab === 'registrations'
+                      ? 'Search citizen, barangay, vulnerability, email...'
+                      : 'Search title, location, event type, audience...'
                 }
                 className="pl-9"
               />
@@ -759,6 +793,69 @@ export function OperationsHistory({
                       type="date"
                       value={distributionSpecificDate}
                       onChange={(event) => setDistributionSpecificDate(event.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : tab === 'registrations' ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Registration status</Label>
+                  <Select
+                    value={registrationStatus}
+                    onValueChange={setRegistrationStatus}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>All statuses</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Barangay</Label>
+                  <Select
+                    value={registrationBarangay}
+                    onValueChange={setRegistrationBarangay}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72 overflow-y-auto">
+                      <SelectItem value={ALL}>All barangays</SelectItem>
+                      {registrationBarangays.map((name: any) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Select
+                    value={registrationDateMode}
+                    onValueChange={(value) => {
+                      setRegistrationDateMode(value)
+                      if (value !== 'SPECIFIC') setRegistrationSpecificDate('')
+                    }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NEWEST">Newest first</SelectItem>
+                      <SelectItem value="OLDEST">Oldest first</SelectItem>
+                      <SelectItem value="SPECIFIC">Specific date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {registrationDateMode === 'SPECIFIC' && (
+                  <div className="space-y-2">
+                    <Label>Specific registration date</Label>
+                    <Input
+                      type="date"
+                      value={registrationSpecificDate}
+                      onChange={(event) => setRegistrationSpecificDate(event.target.value)}
                     />
                   </div>
                 )}
