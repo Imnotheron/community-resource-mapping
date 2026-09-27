@@ -2,6 +2,10 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
+import {
+  assistantLanguageInstruction,
+  normalizeAssistantLanguage,
+} from '@/lib/assistant-language'
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
 
@@ -25,6 +29,13 @@ type GoogleApiError = {
   status?: string
   message: string
 }
+
+const MODEL_ACCESS_CACHE_MS =
+  5 * 60 * 1000
+let modelAccessCache: {
+  expiresAt: number
+  names: string[]
+} | null = null
 
 async function readGoogleApiError(
   response: Response,
@@ -150,6 +161,42 @@ async function listAccessibleGeminiModels(
   } finally {
     clearTimeout(timeout)
   }
+}
+
+async function getAccessibleGeminiModels(
+  apiKey: string,
+) {
+  if (
+    modelAccessCache &&
+    modelAccessCache.expiresAt >
+      Date.now()
+  ) {
+    return {
+      ok: true as const,
+      names: new Set<string>(
+        modelAccessCache.names,
+      ),
+      cached: true,
+    }
+  }
+
+  const result =
+    await listAccessibleGeminiModels(
+      apiKey,
+    )
+
+  if (result.ok) {
+    modelAccessCache = {
+      expiresAt:
+        Date.now() +
+        MODEL_ACCESS_CACHE_MS,
+      names: Array.from(
+        result.names,
+      ),
+    }
+  }
+
+  return result
 }
 
 function chooseLiveModel(
@@ -618,16 +665,30 @@ export async function POST(request: NextRequest) {
       body.activeViewLabel,
       160,
     )
+    const language =
+      normalizeAssistantLanguage(
+        body.language,
+      )
     const configuredModel =
       clean(
         process.env.GEMINI_LIVE_MODEL,
         100,
       ) || 'gemini-3.8-live'
 
-    const modelAccess =
-      await listAccessibleGeminiModels(
+    const [
+      modelAccess,
+      liveContext,
+    ] = await Promise.all([
+      getAccessibleGeminiModels(
         apiKey,
-      )
+      ),
+      buildVoiceContext(
+        auth.role,
+        auth.userId,
+        activeView,
+        activeViewLabel,
+      ),
+    ])
 
     const accessibleNames =
       modelAccess.ok
@@ -675,14 +736,6 @@ export async function POST(request: NextRequest) {
         )
       })
 
-    const liveContext =
-      await buildVoiceContext(
-        auth.role,
-        auth.userId,
-        activeView,
-        activeViewLabel,
-      )
-
     const systemInstruction = [
       'You are CRMS Assistant, the real-time voice assistant inside the Community Resource Mapping System of San Policarpo, Eastern Samar.',
       'You must only discuss CRMS itself: its current records, screens, users, vulnerable profiles, registrations, relief operations, Operations or Activity History, announcements, feedback, resources, maps, analytics, reports, authentication, and instructions for using the system.',
@@ -691,6 +744,9 @@ export async function POST(request: NextRequest) {
       'Never invent a user, record, status, total, address, date, or action.',
       'Never reveal or request passwords, password hashes, OTP values, API keys, or authentication secrets.',
       `Signed-in role: ${auth.role}.`,
+      assistantLanguageInstruction(
+        language,
+      ),
       auth.role === 'ADMIN'
         ? 'The Administrator may discuss the municipality-wide CRMS records supplied below.'
         : auth.role === 'WORKER'
