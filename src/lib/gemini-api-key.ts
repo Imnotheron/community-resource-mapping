@@ -1,5 +1,3 @@
-"use server"
-
 export function getGeminiApiKey() {
   return (
     process.env.GEMINI_API_KEY ||
