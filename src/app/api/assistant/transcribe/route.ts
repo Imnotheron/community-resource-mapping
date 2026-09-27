@@ -69,12 +69,18 @@ export async function POST(
       .catch(() => ({}))
 
     const audio =
-      clean(body.audio, 14_000_000)
+      String(
+        body.audio || '',
+      ).trim()
     const mimeType =
       clean(
         body.mimeType,
         100,
       ).toLowerCase()
+    const canonicalMimeType =
+      mimeType
+        .split(';')[0]
+        .trim()
     const requestedModel = clean(
       body.model,
       100,
@@ -118,14 +124,14 @@ export async function POST(
 
     if (
       !allowedAudioMime(
-        mimeType,
+        canonicalMimeType,
       )
     ) {
       return NextResponse.json(
         {
           success: false,
           error:
-            `Unsupported voice recording format: ${mimeType || 'unknown'}.`,
+            `Unsupported voice recording format: ${canonicalMimeType || 'unknown'}.`,
         },
         { status: 415 },
       )
@@ -160,7 +166,8 @@ export async function POST(
                   },
                   {
                     inlineData: {
-                      mimeType,
+                      mimeType:
+                        canonicalMimeType,
                       data: audio,
                     },
                   },
