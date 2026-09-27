@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
         SUM(quantity) as totalQuantity
       FROM ReliefDistribution
       WHERE distributionDate >= ${startDate}
+        AND status IN ('APPROVED', 'DISTRIBUTED')
       GROUP BY DATE(distributionDate)
       ORDER BY date DESC
     `
@@ -88,6 +89,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) as count,
           SUM(quantity) as totalQuantity
         FROM ReliefDistribution
+        WHERE status IN ('APPROVED', 'DISTRIBUTED')
         GROUP BY distributionType
         ORDER BY count DESC
       `,
@@ -117,7 +119,9 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT vp.id) as totalProfiles,
           COUNT(DISTINCT rd.vulnerableProfileId) as receivedRelief
         FROM VulnerableProfile vp
-        LEFT JOIN ReliefDistribution rd ON rd.vulnerableProfileId = vp.id
+        LEFT JOIN ReliefDistribution rd
+          ON rd.vulnerableProfileId = vp.id
+          AND rd.status IN ('APPROVED', 'DISTRIBUTED')
         WHERE vp.registrationStatus = 'APPROVED' AND vp.barangay IS NOT NULL
         GROUP BY vp.barangay
         ORDER BY receivedRelief DESC
@@ -139,6 +143,22 @@ export async function GET(request: NextRequest) {
     ) as Array<{
       status?: string | null
       count?: number | null
+    }>
+
+    const distributionStatusRows = convertBigIntToNumber(
+      await db.$queryRaw`
+        SELECT
+          status,
+          COUNT(*) as count,
+          SUM(quantity) as totalQuantity
+        FROM ReliefDistribution
+        GROUP BY status
+        ORDER BY status ASC
+      `,
+    ) as Array<{
+      status?: string | null
+      count?: number | null
+      totalQuantity?: number | null
     }>
 
     const distributionByType = distributionByTypeRows.reduce(
@@ -203,6 +223,12 @@ export async function GET(request: NextRequest) {
         barangayStats,
         reliefCoverage,
         feedbackStats,
+        distributionStatusRows,
+        accuracyRules: {
+          reliefCoverageStatuses: ['APPROVED', 'DISTRIBUTED'],
+          note:
+            'Coverage, distribution trend, and distribution type charts count only approved or distributed relief records. Pending and rejected records remain visible in status totals but are excluded from delivered-relief metrics.',
+        },
         period: {
           startDate: startDate.toISOString(),
           endDate: new Date().toISOString(),

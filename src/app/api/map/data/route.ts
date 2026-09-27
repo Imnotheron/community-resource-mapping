@@ -100,9 +100,17 @@ export async function GET(request: NextRequest) {
           },
         },
         reliefDistributions: {
+          where: {
+            status: {
+              in: ['APPROVED', 'DISTRIBUTED'],
+            },
+          },
           select: {
             id: true,
             distributionDate: true,
+            distributionType: true,
+            itemsProvided: true,
+            status: true,
           },
           orderBy: {
             distributionDate: 'desc',
@@ -113,10 +121,28 @@ export async function GET(request: NextRequest) {
     })
 
     const mapData = profiles.map((profile) => {
-      const hasReceivedRelief = profile.reliefDistributions.length > 0
-      const lastDistributionDate = hasReceivedRelief
-        ? profile.reliefDistributions[0].distributionDate
-        : undefined
+      const latestRelief = profile.reliefDistributions[0]
+      const hasReceivedRelief = Boolean(latestRelief)
+      const lastDistributionDate = latestRelief?.distributionDate
+      const resetAfterDays = 30
+      const reliefAgeDays = lastDistributionDate
+        ? Math.max(
+            0,
+            Math.floor(
+              (Date.now() - lastDistributionDate.getTime()) /
+                (24 * 60 * 60 * 1000),
+            ),
+          )
+        : null
+
+      const markerStatus =
+        hasReceivedRelief &&
+        reliefAgeDays !== null &&
+        reliefAgeDays < resetAfterDays
+          ? 'GIVEN'
+          : profile.needsAssistance || hasReceivedRelief
+            ? 'NEEDS_ASSISTANCE'
+            : 'NO_RELIEF'
 
       let vulnerabilityTypes: string[] = []
       try {
@@ -145,6 +171,12 @@ export async function GET(request: NextRequest) {
         disabilityCause: profile.disabilityCause || null,
         hasReceivedRelief,
         lastDistributionDate,
+        lastDistributionType: latestRelief?.distributionType || null,
+        lastItemsReceived: latestRelief?.itemsProvided || null,
+        lastReliefStatus: latestRelief?.status || null,
+        reliefAgeDays,
+        reliefResetAfterDays: resetAfterDays,
+        markerStatus,
         totalMembers: profile.household?.totalMembers,
         vulnerableMembers: profile.household?.vulnerableMembers,
         needsAssistance: profile.needsAssistance,
