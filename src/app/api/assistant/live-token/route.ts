@@ -807,6 +807,17 @@ export async function POST(request: NextRequest) {
                 responseModalities: [
                   'AUDIO',
                 ],
+                realtimeInputConfig: {
+                  automaticActivityDetection: {
+                    disabled: false,
+                    startOfSpeechSensitivity:
+                      'START_SENSITIVITY_HIGH',
+                    endOfSpeechSensitivity:
+                      'END_SENSITIVITY_HIGH',
+                    prefixPaddingMs: 120,
+                    silenceDurationMs: 650,
+                  },
+                },
               },
             },
           },
