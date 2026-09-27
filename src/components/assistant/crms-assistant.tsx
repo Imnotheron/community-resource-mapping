@@ -34,10 +34,12 @@ type Message = {
 }
 
 type LiveTokenResponse = {
-  token: string
+  mode: 'live' | 'turn'
+  token?: string
   model: string
-  systemInstruction: string
-  expiresAt: string
+  systemInstruction?: string
+  expiresAt?: string
+  reason?: string
 }
 
 const POSITION_KEY =
@@ -256,6 +258,42 @@ function appendTranscript(
   ).trim()
 }
 
+async function blobToBase64(
+  blob: Blob,
+) {
+  const bytes =
+    new Uint8Array(
+      await blob.arrayBuffer(),
+    )
+
+  return bytesToBase64(bytes)
+}
+
+function preferredRecordingMime() {
+  if (
+    typeof MediaRecorder ===
+    'undefined'
+  ) {
+    return ''
+  }
+
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+    'audio/mp4',
+  ]
+
+  return (
+    candidates.find((mime) =>
+      MediaRecorder.isTypeSupported(
+        mime,
+      ),
+    ) || ''
+  )
+}
+
 export function CrmsAssistant({
   userName,
   userRole,
@@ -277,6 +315,12 @@ export function CrmsAssistant({
     useState('AI connection not verified')
   const [voiceMode, setVoiceMode] =
     useState(false)
+  const [
+    voiceTransport,
+    setVoiceTransport,
+  ] = useState<
+    'live' | 'turn' | null
+  >(null)
   const [voiceStatus, setVoiceStatus] =
     useState('Voice Chat ready')
   const [voiceError, setVoiceError] =
@@ -297,6 +341,30 @@ export function CrmsAssistant({
     useRef<WebSocket | null>(null)
   const mediaStreamRef =
     useRef<MediaStream | null>(null)
+  const voiceTransportRef =
+    useRef<'live' | 'turn' | null>(
+      null,
+    )
+  const turnModelRef =
+    useRef('gemini-3.5-flash-lite')
+  const turnRecorderRef =
+    useRef<MediaRecorder | null>(
+      null,
+    )
+  const turnChunksRef =
+    useRef<Blob[]>([])
+  const turnAnalyserRef =
+    useRef<AnalyserNode | null>(
+      null,
+    )
+  const turnFrameRef =
+    useRef<number | null>(null)
+  const turnSpeechSeenRef =
+    useRef(false)
+  const turnLastSpeechAtRef =
+    useRef(0)
+  const turnStartedAtRef =
+    useRef(0)
   const inputContextRef =
     useRef<AudioContext | null>(null)
   const outputContextRef =
@@ -449,10 +517,9 @@ export function CrmsAssistant({
     setMessages(next)
   }
 
-  async function sendTypedMessage() {
-    const content = input.trim()
-    if (!content || sending) return
-
+  async function requestAssistantReply(
+    content: string,
+  ) {
     const history = [
       ...messagesRef.current,
     ].slice(-14)
@@ -461,38 +528,57 @@ export function CrmsAssistant({
       role: 'user',
       content,
     })
+
+    const data =
+      await apiFetch<{
+        reply: string
+        provider?: string
+        model?: string
+      }>('/api/assistant/chat', {
+        method: 'POST',
+        body: JSON.stringify({
+          message: content,
+          history,
+          activeView,
+          activeViewLabel,
+        }),
+      })
+
+    const reply =
+      String(
+        data.reply || '',
+      ).trim() ||
+      'The assistant returned an empty response.'
+
+    addMessage({
+      role: 'assistant',
+      content: reply,
+    })
+
+    setProviderLabel(
+      data.provider === 'gemini'
+        ? `Gemini · ${data.model || 'connected model'}`
+        : 'AI connected',
+    )
+
+    return {
+      reply,
+      model:
+        data.model ||
+        'connected model',
+    }
+  }
+
+  async function sendTypedMessage() {
+    const content = input.trim()
+    if (!content || sending) return
+
     setInput('')
     setSending(true)
 
     try {
-      const data =
-        await apiFetch<{
-          reply: string
-          provider?: string
-          model?: string
-        }>('/api/assistant/chat', {
-          method: 'POST',
-          body: JSON.stringify({
-            message: content,
-            history,
-            activeView,
-            activeViewLabel,
-          }),
-        })
-
-      addMessage({
-        role: 'assistant',
-        content:
-          String(
-            data.reply || '',
-          ).trim() ||
-          'The assistant returned an empty response.',
-      })
-
-      setProviderLabel(
-        data.provider === 'gemini'
-          ? `Gemini · ${data.model || 'connected model'}`
-          : 'AI connected',
+      await requestAssistantReply(
+        content,
       )
     } catch (error: any) {
       setProviderLabel(
@@ -712,6 +798,403 @@ export function CrmsAssistant({
     }
   }
 
+  function clearTurnMonitor() {
+    if (
+      turnFrameRef.current !== null
+    ) {
+      window.cancelAnimationFrame(
+        turnFrameRef.current,
+      )
+      turnFrameRef.current = null
+    }
+
+    turnAnalyserRef.current = null
+  }
+
+  function speakCompatibleReply(
+    text: string,
+  ) {
+    if (
+      !voiceModeRef.current ||
+      voiceTransportRef.current !==
+        'turn'
+    ) {
+      return
+    }
+
+    if (
+      !('speechSynthesis' in window)
+    ) {
+      setVoiceError(
+        'This browser cannot play spoken replies. Typed chat still works.',
+      )
+      void stopVoiceChat(false)
+      return
+    }
+
+    window.speechSynthesis.cancel()
+
+    const utterance =
+      new SpeechSynthesisUtterance(
+        text,
+      )
+    utterance.lang = 'en-PH'
+    utterance.rate = 1
+
+    setVoiceStatus(
+      'CRMS Assistant is speaking…',
+    )
+
+    utterance.onend = () => {
+      if (
+        voiceModeRef.current &&
+        voiceTransportRef.current ===
+          'turn' &&
+        mediaStreamRef.current
+      ) {
+        window.setTimeout(() => {
+          if (
+            voiceModeRef.current &&
+            mediaStreamRef.current
+          ) {
+            startCompatibleVoiceTurn(
+              mediaStreamRef.current,
+            )
+          }
+        }, 300)
+      }
+    }
+
+    utterance.onerror = () => {
+      setVoiceError(
+        'The browser could not play the spoken reply.',
+      )
+      void stopVoiceChat(false)
+    }
+
+    window.speechSynthesis.speak(
+      utterance,
+    )
+  }
+
+  async function processCompatibleVoice(
+    blob: Blob,
+    mimeType: string,
+  ) {
+    if (
+      !voiceModeRef.current ||
+      stoppingVoiceRef.current
+    ) {
+      return
+    }
+
+    try {
+      setVoiceStatus(
+        'Understanding your voice…',
+      )
+
+      const audio =
+        await blobToBase64(blob)
+
+      const transcription =
+        await apiFetch<{
+          transcript: string
+          model?: string
+        }>(
+          '/api/assistant/transcribe',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              audio,
+              mimeType,
+              model:
+                turnModelRef.current,
+            }),
+          },
+        )
+
+      const transcript =
+        String(
+          transcription.transcript ||
+            '',
+        ).trim()
+
+      if (!transcript) {
+        throw new Error(
+          'No speech was understood.',
+        )
+      }
+
+      setInput(transcript)
+      setVoiceStatus(
+        'Checking CRMS…',
+      )
+      setSending(true)
+
+      const result =
+        await requestAssistantReply(
+          transcript,
+        )
+
+      setInput('')
+      setProviderLabel(
+        `Gemini Voice · ${transcription.model || turnModelRef.current}`,
+      )
+      setVoiceStatus(
+        'Preparing spoken reply…',
+      )
+
+      speakCompatibleReply(
+        result.reply,
+      )
+    } catch (error: any) {
+      const message =
+        error?.message ||
+        'Compatible Voice Chat failed.'
+
+      setVoiceError(message)
+      setVoiceStatus(
+        'Voice Chat stopped',
+      )
+      await stopVoiceChat(false)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  function startCompatibleVoiceTurn(
+    stream: MediaStream,
+  ) {
+    if (
+      !voiceModeRef.current ||
+      voiceTransportRef.current !==
+        'turn' ||
+      stoppingVoiceRef.current
+    ) {
+      return
+    }
+
+    if (
+      typeof MediaRecorder ===
+      'undefined'
+    ) {
+      setVoiceError(
+        'This browser does not support audio recording for Voice Chat.',
+      )
+      void stopVoiceChat(false)
+      return
+    }
+
+    clearTurnMonitor()
+
+    const mimeType =
+      preferredRecordingMime()
+
+    let recorder: MediaRecorder
+
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(
+            stream,
+            { mimeType },
+          )
+        : new MediaRecorder(
+            stream,
+          )
+    } catch {
+      setVoiceError(
+        'The browser could not start the microphone recorder.',
+      )
+      void stopVoiceChat(false)
+      return
+    }
+
+    turnRecorderRef.current =
+      recorder
+    turnChunksRef.current = []
+    turnSpeechSeenRef.current =
+      false
+    turnStartedAtRef.current =
+      performance.now()
+    turnLastSpeechAtRef.current =
+      0
+
+    recorder.ondataavailable = (
+      event,
+    ) => {
+      if (
+        event.data &&
+        event.data.size > 0
+      ) {
+        turnChunksRef.current.push(
+          event.data,
+        )
+      }
+    }
+
+    recorder.onerror = () => {
+      setVoiceError(
+        'The browser microphone recorder reported an error.',
+      )
+      void stopVoiceChat(false)
+    }
+
+    recorder.onstop = () => {
+      clearTurnMonitor()
+
+      if (
+        stoppingVoiceRef.current ||
+        !voiceModeRef.current
+      ) {
+        return
+      }
+
+      const chunks =
+        turnChunksRef.current
+      turnChunksRef.current = []
+
+      if (
+        !turnSpeechSeenRef.current ||
+        chunks.length === 0
+      ) {
+        setVoiceError(
+          'No speech was detected. Tap Voice Chat to try again.',
+        )
+        void stopVoiceChat(false)
+        return
+      }
+
+      const blob = new Blob(
+        chunks,
+        {
+          type:
+            recorder.mimeType ||
+            mimeType ||
+            'audio/webm',
+        },
+      )
+
+      void processCompatibleVoice(
+        blob,
+        blob.type,
+      )
+    }
+
+    const context =
+      new AudioContext({
+        latencyHint: 'interactive',
+      })
+    inputContextRef.current =
+      context
+
+    const source =
+      context.createMediaStreamSource(
+        stream,
+      )
+    inputSourceRef.current =
+      source
+
+    const analyser =
+      context.createAnalyser()
+    analyser.fftSize = 1024
+    analyser.smoothingTimeConstant =
+      0.15
+    turnAnalyserRef.current =
+      analyser
+
+    source.connect(analyser)
+
+    const samples =
+      new Float32Array(
+        analyser.fftSize,
+      )
+
+    const monitor = () => {
+      if (
+        !voiceModeRef.current ||
+        recorder.state !==
+          'recording'
+      ) {
+        return
+      }
+
+      analyser.getFloatTimeDomainData(
+        samples,
+      )
+
+      let sum = 0
+      for (
+        let index = 0;
+        index < samples.length;
+        index += 1
+      ) {
+        sum +=
+          samples[index] *
+          samples[index]
+      }
+
+      const rms = Math.sqrt(
+        sum / samples.length,
+      )
+      const now =
+        performance.now()
+
+      if (rms >= 0.018) {
+        turnSpeechSeenRef.current =
+          true
+        turnLastSpeechAtRef.current =
+          now
+        setVoiceStatus(
+          'Listening — speak naturally',
+        )
+      } else if (
+        turnSpeechSeenRef.current &&
+        now -
+          turnLastSpeechAtRef.current >=
+          950
+      ) {
+        setVoiceStatus(
+          'Processing your voice…',
+        )
+        recorder.stop()
+        return
+      } else if (
+        !turnSpeechSeenRef.current &&
+        now -
+          turnStartedAtRef.current >=
+          12_000
+      ) {
+        recorder.stop()
+        return
+      } else if (
+        turnSpeechSeenRef.current &&
+        now -
+          turnStartedAtRef.current >=
+          20_000
+      ) {
+        recorder.stop()
+        return
+      }
+
+      turnFrameRef.current =
+        window.requestAnimationFrame(
+          monitor,
+        )
+    }
+
+    setVoiceStatus(
+      'Listening — speak naturally',
+    )
+
+    recorder.start(250)
+    void context.resume()
+
+    turnFrameRef.current =
+      window.requestAnimationFrame(
+        monitor,
+      )
+  }
+
   function clearPreflightTimeout() {
     if (
       preflightTimeoutRef.current !== null
@@ -770,6 +1253,8 @@ export function CrmsAssistant({
     stoppingVoiceRef.current = false
     liveReadyRef.current = false
     voiceModeRef.current = true
+    voiceTransportRef.current = null
+    setVoiceTransport(null)
     preflightRef.current = false
     preflightAudioRef.current = false
     clearPreflightTimeout()
@@ -803,15 +1288,6 @@ export function CrmsAssistant({
       mediaStreamRef.current =
         stream
 
-      const outputContext =
-        new AudioContext({
-          sampleRate: 24_000,
-          latencyHint: 'interactive',
-        })
-      outputContextRef.current =
-        outputContext
-      await outputContext.resume()
-
       setVoiceStatus(
         'Getting secure Gemini Live access…',
       )
@@ -827,6 +1303,47 @@ export function CrmsAssistant({
             }),
           },
         )
+
+      if (
+        token.mode === 'turn'
+      ) {
+        voiceTransportRef.current =
+          'turn'
+        setVoiceTransport('turn')
+        turnModelRef.current =
+          token.model
+
+        setProviderLabel(
+          `Gemini Voice · ${token.model}`,
+        )
+        setVoiceStatus(
+          'Listening — speak naturally',
+        )
+
+        startCompatibleVoiceTurn(
+          stream,
+        )
+        return
+      }
+
+      if (!token.token) {
+        throw new Error(
+          'Gemini Live did not return a session token.',
+        )
+      }
+
+      voiceTransportRef.current =
+        'live'
+      setVoiceTransport('live')
+
+      const outputContext =
+        new AudioContext({
+          sampleRate: 24_000,
+          latencyHint: 'interactive',
+        })
+      outputContextRef.current =
+        outputContext
+      await outputContext.resume()
 
       setVoiceStatus(
         'Opening secure Gemini Live connection…',
@@ -900,7 +1417,8 @@ export function CrmsAssistant({
                 parts: [
                   {
                     text:
-                      token.systemInstruction,
+                      token.systemInstruction ||
+                        'You are the CRMS voice assistant.',
                   },
                 ],
               },
@@ -1252,11 +1770,34 @@ export function CrmsAssistant({
   ) {
     stoppingVoiceRef.current = true
     clearSetupTimeout()
+    clearTurnMonitor()
+
+    window.speechSynthesis?.cancel()
+
+    const recorder =
+      turnRecorderRef.current
+    turnRecorderRef.current = null
+
+    if (
+      recorder &&
+      recorder.state !== 'inactive'
+    ) {
+      recorder.onstop = null
+      try {
+        recorder.stop()
+      } catch {
+        // Recorder may already be stopped.
+      }
+    }
+
+    turnChunksRef.current = []
 
     clearPreflightTimeout()
     preflightRef.current = false
     preflightAudioRef.current = false
     voiceModeRef.current = false
+    voiceTransportRef.current = null
+    setVoiceTransport(null)
     stopQueuedPlayback()
 
     const socket =
@@ -1517,7 +2058,7 @@ export function CrmsAssistant({
 
   return (
     <>
-      {portalReady
+      {portalReady && !open
         ? createPortal(
             launcher,
             document.body,
@@ -1626,7 +2167,9 @@ export function CrmsAssistant({
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-emerald-950">
-                        Gemini Live Voice
+                        {voiceTransport === 'live'
+                          ? 'Gemini Live Voice'
+                          : 'CRMS Voice Chat'}
                       </p>
                       <p className="text-xs text-emerald-800">
                         {voiceStatus}
@@ -1736,7 +2279,7 @@ export function CrmsAssistant({
               </div>
 
               <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
-                One button controls Voice Chat. CRMS now performs a provider audio self-test before enabling the microphone; if any stage fails, the exact diagnostic stays visible in this panel.
+                One button controls Voice Chat. CRMS uses Gemini Live when your project supports it; otherwise it automatically uses Gemini audio understanding for each spoken turn and reads the answer aloud.
               </p>
             </div>
           </div>
