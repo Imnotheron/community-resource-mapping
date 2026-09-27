@@ -675,6 +675,25 @@ export async function POST(request: NextRequest) {
         100,
       ) || 'gemini-3.8-live'
 
+    // For Tagalog and Eastern Samar Waray, use the turn-based cascade
+    // intentionally. It lets CRMS lock transcription to the selected
+    // language and render the exact assistant text through Gemini TTS
+    // with pronunciation/accent guidance instead of relying on browser
+    // speech synthesis or Live's automatic language choice.
+    if (
+      language === 'tl' ||
+      language === 'war'
+    ) {
+      return turnVoiceResponse(
+        chooseTurnVoiceModel(
+          new Set<string>(),
+        ),
+        language === 'war'
+          ? 'CRMS uses controlled Gemini TTS for Eastern Samar Waray pronunciation.'
+          : 'CRMS uses controlled Gemini TTS for natural Tagalog pronunciation.',
+      )
+    }
+
     const [
       modelAccess,
       liveContext,
