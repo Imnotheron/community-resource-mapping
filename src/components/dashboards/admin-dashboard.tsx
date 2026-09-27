@@ -3326,29 +3326,29 @@ function AnalyticsView() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
         <p className="text-sm text-muted-foreground">
-          90-day trends backed by current CRMS records. Delivered-relief charts count only approved or distributed records.
+          90-day activity from current CRMS records. Relief and feedback totals use the same 90-day window; vulnerability categories are a current profile snapshot.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="gov-stat">
-          <span className="stat-label">Approved / Distributed</span>
+          <span className="stat-label">Approved / Distributed (90d)</span>
           <span className="stat-value text-primary">
             {data.reliefCoverage.totalDistributions}
           </span>
         </div>
         <div className="gov-stat">
-          <span className="stat-label">Items Distributed</span>
+          <span className="stat-label">Items Distributed (90d)</span>
           <span className="stat-value">
             {data.reliefCoverage.totalQuantity}
           </span>
         </div>
         <div className="gov-stat">
-          <span className="stat-label">Feedback</span>
+          <span className="stat-label">Feedback (90d)</span>
           <span className="stat-value">{data.feedbackStats.total}</span>
         </div>
         <div className="gov-stat">
-          <span className="stat-label">Pending Feedback</span>
+          <span className="stat-label">Pending Feedback (90d)</span>
           <span className="stat-value text-amber-600">
             {data.feedbackStats.submitted}
           </span>
@@ -3430,7 +3430,7 @@ function AnalyticsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Vulnerability Breakdown</CardTitle>
+            <CardTitle className="text-base">Current Vulnerability Categories</CardTitle>
           </CardHeader>
           <CardContent>
             {vulnData.length === 0 ? (
@@ -3470,7 +3470,7 @@ function AnalyticsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Delivered Relief Types</CardTitle>
+            <CardTitle className="text-base">Delivered Relief Types (90 days)</CardTitle>
           </CardHeader>
           <CardContent>
             {typeData.length === 0 ? (
