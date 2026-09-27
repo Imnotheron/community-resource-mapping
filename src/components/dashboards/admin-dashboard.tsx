@@ -921,7 +921,14 @@ function RegistrationsView() {
           row.mobilenumber || row.mobile || row.phone,
         )
         const barangay = importText(row.barangay)
-        const rowName = [firstName, lastName]
+        const middleName = importText(row.middlename)
+        const suffix = importText(row.suffix)
+        const rowName = [
+          firstName,
+          middleName,
+          lastName,
+          suffix,
+        ]
           .filter(Boolean)
           .join(' ') || `Row ${index + 2}`
 
@@ -958,8 +965,8 @@ function RegistrationsView() {
           adminId,
           firstName,
           lastName,
-          middleName: importText(row.middlename),
-          suffix: importText(row.suffix),
+          middleName,
+          suffix,
           emailAddress,
           mobileNumber,
           landlineNumber: importPhone(row.landlinenumber),
@@ -999,10 +1006,7 @@ function RegistrationsView() {
             },
           )
 
-          importedNames.push(
-            importText(result?.profile?.fullName) ||
-              rowName,
-          )
+          importedNames.push(rowName)
         } catch (error: any) {
           failed.push(
             `Row ${index + 2} (${rowName}): ${error?.message || 'import failed'}`,
