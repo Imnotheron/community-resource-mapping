@@ -247,7 +247,55 @@ const VULNERABLE_ACCOUNTS = [
     needsAssistance: true,
     assistanceType: 'Medicine, Food assistance',
   },
-]
+,
+  {
+    email: 'demo.bangon@crms.test',
+    name: 'Demo Resident Bangon',
+    phone: '09172000014',
+    firstName: 'DEMO',
+    middleName: '',
+    lastName: 'BANGON',
+    birthDate: '1966-02-14',
+    gender: 'Male',
+    civilStatus: 'Married',
+    barangay: 'Bangon',
+    ...SAN_POLICARPO_BARANGAY_REFERENCE_POINTS['Bangon' as SanPolicarpoBarangay],
+    types: ['SENIOR_CITIZEN'],
+    needsAssistance: true,
+    assistanceType: 'Food assistance',
+  },
+  {
+    email: 'demo.santacruz@crms.test',
+    name: 'Demo Resident Santa Cruz',
+    phone: '09172000015',
+    firstName: 'DEMO',
+    middleName: '',
+    lastName: 'SANTA CRUZ',
+    birthDate: '1979-07-09',
+    gender: 'Female',
+    civilStatus: 'Single',
+    barangay: 'Santa Cruz',
+    ...SAN_POLICARPO_BARANGAY_REFERENCE_POINTS['Santa Cruz' as SanPolicarpoBarangay],
+    types: ['PWD'],
+    needsAssistance: false,
+    assistanceType: '',
+  },
+  {
+    email: 'demo.tanawan@crms.test',
+    name: 'Demo Resident Tan-awan',
+    phone: '09172000016',
+    firstName: 'DEMO',
+    middleName: '',
+    lastName: 'TAN-AWAN',
+    birthDate: '1962-10-25',
+    gender: 'Male',
+    civilStatus: 'Widowed',
+    barangay: 'Tan-awan',
+    ...SAN_POLICARPO_BARANGAY_REFERENCE_POINTS['Tan-awan' as SanPolicarpoBarangay],
+    types: ['SENIOR_CITIZEN'],
+    needsAssistance: true,
+    assistanceType: 'Medicine',
+  }]
 
 async function main() {
   console.log('🌱 Starting database seeding...')
@@ -426,31 +474,10 @@ async function main() {
   console.log('   maria.garcia@email.com / vulnerable123')
 
   const expectedDemoEmails = [
-    'admin@crms.gov.ph',
-    'admin.operations@crms.gov.ph',
-    'admin.records@crms.gov.ph',
-    'admin.reports@crms.gov.ph',
-    'worker@sampolicarpo.gov',
-    'worker.alugan@sampolicarpo.gov',
-    'worker.bahai@sampolicarpo.gov',
-    'worker.bangon@sampolicarpo.gov',
-    'worker.binogawan@sampolicarpo.gov',
-    'worker.poblacion@sampolicarpo.gov',
-    'maria.garcia@email.com',
-    'jose.dela.cruz@email.com',
-    'ana.bautista@email.com',
-    'pedro.mercado@email.com',
-    'rosa.navarro@email.com',
-    'manuel.gonzales@email.com',
-    'teresa.aquino@email.com',
-    'ricardo.fernandez@email.com',
-    'elena.morales@email.com',
-    'antonio.soriano@email.com',
-    'carmen.rivera@email.com',
-    'benjamin.torres@email.com',
-    'lucia.martinez@email.com',
-    'ernesto.villanueva@email.com',
-  ]
+    ...ADMIN_ACCOUNTS,
+    ...WORKER_ACCOUNTS,
+    ...VULNERABLE_ACCOUNTS,
+  ].map((account) => account.email.toLowerCase())
 
   const recordedDemoUsers = await prisma.user.findMany({
     where: {

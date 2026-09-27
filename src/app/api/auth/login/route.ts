@@ -102,6 +102,9 @@ const DEMO_ACCOUNT_EMAILS = new Set([
   'benjamin.torres@email.com',
   'lucia.martinez@email.com',
   'ernesto.villanueva@email.com',
+  'demo.bangon@crms.test',
+  'demo.santacruz@crms.test',
+  'demo.tanawan@crms.test',
 ])
 
 type LoginUser = Prisma.UserGetPayload<{
