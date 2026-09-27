@@ -812,6 +812,7 @@ function RegistrationsView() {
       return
     }
 
+    setImportResult(null)
     setImporting(true)
 
     try {
@@ -1356,6 +1357,99 @@ function RegistrationsView() {
           })}
         </div>
       )}
+
+      <Dialog
+        open={!!importResult}
+        onOpenChange={(open) => {
+          if (!open) {
+            setImportResult(null)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Excel Import Results</DialogTitle>
+            <DialogDescription>
+              {importResult?.fileName
+                ? `Finished processing ${importResult.fileName}.`
+                : 'Registration import finished.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {importResult &&
+          importResult.importedNames.length > 0 ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-center gap-2 text-emerald-900">
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-600 text-white">
+                  <Check className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold">
+                    {importResult.importedNames.length}{' '}
+                    {importResult.importedNames.length === 1
+                      ? 'person registered'
+                      : 'people registered'} successfully
+                  </p>
+                  <p className="text-xs text-emerald-700">
+                    These records are approved and now visible in Vulnerable Registrations.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-emerald-100 bg-white/80 p-2">
+                {importResult.importedNames.map((name, index) => (
+                  <div
+                    key={`${name}-${index}`}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-800"
+                  >
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    <span className="font-medium">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              No registration was successfully imported.
+            </div>
+          )}
+
+          {importResult &&
+          importResult.failedRows.length > 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-center gap-2 text-amber-900">
+                <AlertCircle className="h-5 w-5" />
+                <p className="font-semibold">
+                  {importResult.failedRows.length}{' '}
+                  {importResult.failedRows.length === 1
+                    ? 'row could not be imported'
+                    : 'rows could not be imported'}
+                </p>
+              </div>
+
+              <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-xl border border-amber-100 bg-white/80 p-2">
+                {importResult.failedRows.map((failure, index) => (
+                  <p
+                    key={`${failure}-${index}`}
+                    className="rounded-lg px-2 py-1.5 text-xs leading-5 text-slate-700"
+                  >
+                    {failure}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setImportResult(null)}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!rejectTarget}
