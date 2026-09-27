@@ -6,10 +6,58 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+const SelectDismissContext =
+  React.createContext<(() => void) | null>(
+    null,
+  )
+
 function Select({
+  open: controlledOpen,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  const [internalOpen, setInternalOpen] =
+    React.useState(defaultOpen ?? false)
+  const open =
+    controlledOpen ?? internalOpen
+
+  const handleOpenChange =
+    React.useCallback(
+      (nextOpen: boolean) => {
+        if (
+          controlledOpen === undefined
+        ) {
+          setInternalOpen(nextOpen)
+        }
+
+        onOpenChange?.(nextOpen)
+      },
+      [
+        controlledOpen,
+        onOpenChange,
+      ],
+    )
+
+  const dismiss = React.useCallback(
+    () => handleOpenChange(false),
+    [handleOpenChange],
+  )
+
+  return (
+    <SelectDismissContext.Provider
+      value={dismiss}
+    >
+      <SelectPrimitive.Root
+        data-slot="select"
+        open={open}
+        onOpenChange={
+          handleOpenChange
+        }
+        {...props}
+      />
+    </SelectDismissContext.Provider>
+  )
 }
 
 function SelectGroup({
@@ -54,8 +102,15 @@ function SelectContent({
   className,
   children,
   position = "popper",
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const dismiss =
+    React.useContext(
+      SelectDismissContext,
+    )
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -67,6 +122,28 @@ function SelectContent({
           className
         )}
         position={position}
+        onPointerDownOutside={(
+          event,
+        ) => {
+          onPointerDownOutside?.(
+            event,
+          )
+
+          if (
+            !event.defaultPrevented
+          ) {
+            dismiss?.()
+          }
+        }}
+        onFocusOutside={(event) => {
+          onFocusOutside?.(event)
+
+          if (
+            !event.defaultPrevented
+          ) {
+            dismiss?.()
+          }
+        }}
         {...props}
       >
         <SelectScrollUpButton />
