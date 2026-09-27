@@ -11,7 +11,6 @@ import {
   AudioLines,
   Bot,
   History,
-  Loader2,
   MessageSquarePlus,
   PhoneOff,
   Send,
@@ -1684,7 +1683,7 @@ export function CrmsAssistant({
 
       setInput(transcript)
       setVoiceStatus(
-        'Checking CRMS…',
+        'Thinking…',
       )
       setSending(true)
 
@@ -3157,9 +3156,14 @@ export function CrmsAssistant({
               )}
 
               {sending ? (
-                <div className="mr-8 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Checking CRMS…
+                <div
+                  className="mr-8 inline-flex w-fit items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-slate-400"
+                  role="status"
+                  aria-label="Assistant is thinking"
+                >
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
                 </div>
               ) : null}
 
