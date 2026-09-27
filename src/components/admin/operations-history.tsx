@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  UserPlus,
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -37,7 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WowLoader } from '@/components/ui/wow-loader'
-import { StatusBadge, formatDate, formatDateTime } from '@/components/dashboards/shared'
+import { StatusBadge, formatDate, formatDateTime, formatVulnerabilityTypes } from '@/components/dashboards/shared'
 
 const ALL = 'ALL'
 
@@ -125,6 +126,7 @@ export function OperationsHistory({
   const [data, setData] = useState<any>({
     distributions: [],
     events: [],
+    registrations: [],
   })
   const [loading, setLoading] = useState(true)
   const [manualOpen, setManualOpen] = useState(false)
@@ -165,6 +167,11 @@ export function OperationsHistory({
   const [eventDateMode, setEventDateMode] = useState('NEWEST')
   const [eventSpecificDate, setEventSpecificDate] = useState('')
 
+  const [registrationStatus, setRegistrationStatus] = useState(ALL)
+  const [registrationBarangay, setRegistrationBarangay] = useState(ALL)
+  const [registrationDateMode, setRegistrationDateMode] = useState('NEWEST')
+  const [registrationSpecificDate, setRegistrationSpecificDate] = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
 
@@ -177,6 +184,10 @@ export function OperationsHistory({
       setData({
         distributions: result.distributions || [],
         events: result.events || [],
+        registrations:
+          mode === 'admin'
+            ? result.registrations || []
+            : [],
       })
     } catch (error: any) {
       toast.error('Failed to load history', {
@@ -354,6 +365,102 @@ export function OperationsHistory({
     query,
   ])
 
+  const registrationBarangays = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          data.registrations
+            .map((item: any) =>
+              String(item.barangay || '').trim(),
+            )
+            .filter(Boolean),
+        ),
+      ).sort((a: any, b: any) =>
+        a.localeCompare(b),
+      ),
+    [data.registrations],
+  )
+
+  const filteredRegistrations = useMemo(() => {
+    const search =
+      query.trim().toLowerCase()
+
+    return [...data.registrations]
+      .filter((item: any) => {
+        const searchable = [
+          fullName(item),
+          item.barangay,
+          item.municipality,
+          item.province,
+          item.registrationStatus,
+          item.vulnerabilityTypes,
+          item.user?.email,
+          item.user?.phone,
+          item.assistanceType,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+
+        const happenedAt = new Date(
+          item.createdAt || 0,
+        )
+
+        const specificDateMatches =
+          registrationDateMode !==
+            'SPECIFIC' ||
+          !registrationSpecificDate ||
+          (
+            happenedAt.getTime() >=
+              new Date(
+                `${registrationSpecificDate}T00:00:00`,
+              ).getTime() &&
+            happenedAt.getTime() <=
+              new Date(
+                `${registrationSpecificDate}T23:59:59.999`,
+              ).getTime()
+          )
+
+        return (
+          (!search ||
+            searchable.includes(
+              search,
+            )) &&
+          (registrationStatus === ALL ||
+            item.registrationStatus ===
+              registrationStatus) &&
+          (registrationBarangay === ALL ||
+            item.barangay ===
+              registrationBarangay) &&
+          specificDateMatches
+        )
+      })
+      .sort((a: any, b: any) => {
+        const aDate = new Date(
+          a.createdAt || 0,
+        ).getTime()
+        const bDate = new Date(
+          b.createdAt || 0,
+        ).getTime()
+
+        if (
+          registrationDateMode ===
+          'OLDEST'
+        ) {
+          return aDate - bDate
+        }
+
+        return bDate - aDate
+      })
+  }, [
+    data.registrations,
+    query,
+    registrationBarangay,
+    registrationDateMode,
+    registrationSpecificDate,
+    registrationStatus,
+  ])
+
   const filteredEvents = useMemo(() => {
     const search = query.trim().toLowerCase()
 
@@ -424,7 +531,7 @@ export function OperationsHistory({
     return (
       <WowLoader
         label="Loading operations history"
-        description="Collecting relief records, meetings, events, and municipal activities..."
+        description="Collecting registration, relief, event, and municipal activity records..."
       />
     )
   }
@@ -449,7 +556,7 @@ export function OperationsHistory({
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === 'worker'
               ? 'Review your relief distribution records and the meetings, events, and activities visible to field workers.'
-              : 'Review completed and pending relief distributions, meetings, events, and other recorded municipal activities.'}
+              : 'Review vulnerable registrations, completed and pending relief distributions, meetings, events, and other recorded municipal activities.'}
           </p>
         </div>
 
