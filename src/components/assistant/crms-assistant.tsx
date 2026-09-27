@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown'
 import {
   AudioLines,
   Bot,
+  History,
   Loader2,
   MessageSquarePlus,
   PhoneOff,
@@ -39,6 +40,61 @@ import {
 type Message = {
   role: 'user' | 'assistant'
   content: string
+}
+
+type ChatSession = {
+  id: string
+  title: string
+  messages: Message[]
+  updatedAt: number
+}
+
+type StoredChatHistory = {
+  activeChatId?: string
+  sessions?: ChatSession[]
+}
+
+function createChatId() {
+  return [
+    Date.now().toString(36),
+    Math.random()
+      .toString(36)
+      .slice(2, 10),
+  ].join('-')
+}
+
+function chatHistoryKey(
+  userRole: string,
+  userName: string,
+) {
+  const owner = [
+    userRole || 'USER',
+    userName || 'anonymous',
+  ]
+    .join(':')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+
+  return `crms-assistant-history-v1:${owner}`
+}
+
+function chatTitle(
+  messages: Message[],
+) {
+  const firstQuestion =
+    messages.find(
+      (message) =>
+        message.role === 'user',
+    )?.content || 'New chat'
+
+  const compact =
+    firstQuestion
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  return compact.length > 48
+    ? compact.slice(0, 48) + '…'
+    : compact || 'New chat'
 }
 
 type LiveTokenResponse = {
@@ -376,8 +432,16 @@ export function CrmsAssistant({
     useState<Message[]>([])
   const [sending, setSending] =
     useState(false)
-  const [providerLabel, setProviderLabel] =
-    useState('AI connection not verified')
+  const [
+    chatSessions,
+    setChatSessions,
+  ] = useState<ChatSession[]>([])
+  const [
+    activeChatId,
+    setActiveChatId,
+  ] = useState('')
+  const [historyOpen, setHistoryOpen] =
+    useState(false)
   const [voiceMode, setVoiceMode] =
     useState(false)
   const [
@@ -410,6 +474,16 @@ export function CrmsAssistant({
 
   const messagesRef =
     useRef<Message[]>([])
+  const chatSessionsRef =
+    useRef<ChatSession[]>([])
+  const activeChatIdRef =
+    useRef('')
+  const historyReadyRef =
+    useRef(false)
+  const messagesEndRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    )
   const languageRef =
     useRef<AssistantLanguageCode>(
       DEFAULT_ASSISTANT_LANGUAGE,
@@ -486,6 +560,148 @@ export function CrmsAssistant({
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined'
+    ) {
+      return
+    }
+
+    const storageKey =
+      chatHistoryKey(
+        userRole,
+        userName,
+      )
+
+    try {
+      const raw =
+        window.localStorage.getItem(
+          storageKey,
+        )
+      const stored: StoredChatHistory =
+        raw ? JSON.parse(raw) : {}
+      const sessions =
+        Array.isArray(
+          stored.sessions,
+        )
+          ? stored.sessions
+              .filter(
+                (session) =>
+                  session &&
+                  typeof session.id ===
+                    'string' &&
+                  Array.isArray(
+                    session.messages,
+                  ),
+              )
+              .map((session) => ({
+                id: session.id,
+                title:
+                  String(
+                    session.title ||
+                      'Previous chat',
+                  ).slice(0, 80),
+                messages:
+                  session.messages
+                    .filter(
+                      (message) =>
+                        message?.role ===
+                          'user' ||
+                        message?.role ===
+                          'assistant',
+                    )
+                    .map(
+                      (message) => ({
+                        role:
+                          message.role,
+                        content:
+                          String(
+                            message.content ||
+                              '',
+                          ).slice(
+                            0,
+                            6_000,
+                          ),
+                      }),
+                    )
+                    .slice(-40),
+                updatedAt:
+                  Number(
+                    session.updatedAt,
+                  ) || Date.now(),
+              }))
+              .sort(
+                (left, right) =>
+                  right.updatedAt -
+                  left.updatedAt,
+              )
+              .slice(0, 20)
+          : []
+
+      chatSessionsRef.current =
+        sessions
+      setChatSessions(sessions)
+
+      const selected =
+        sessions.find(
+          (session) =>
+            session.id ===
+            stored.activeChatId,
+        ) || sessions[0]
+
+      if (selected) {
+        activeChatIdRef.current =
+          selected.id
+        setActiveChatId(
+          selected.id,
+        )
+        messagesRef.current =
+          selected.messages
+        setMessages(
+          selected.messages,
+        )
+      } else {
+        const id =
+          createChatId()
+        activeChatIdRef.current =
+          id
+        setActiveChatId(id)
+      }
+    } catch {
+      const id = createChatId()
+      activeChatIdRef.current = id
+      setActiveChatId(id)
+      chatSessionsRef.current = []
+      setChatSessions([])
+    } finally {
+      historyReadyRef.current =
+        true
+    }
+  }, [userRole, userName])
+
+  useEffect(() => {
+    if (!open) return
+
+    const timeout =
+      window.setTimeout(() => {
+        messagesEndRef.current
+          ?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'end',
+          })
+      }, 40)
+
+    return () =>
+      window.clearTimeout(
+        timeout,
+      )
+  }, [
+    messages,
+    sending,
+    voiceStatus,
+    open,
+  ])
 
   useEffect(() => {
     setPortalReady(true)
@@ -736,6 +952,87 @@ export function CrmsAssistant({
     }
   }
 
+  function persistChatSessions(
+    sessions: ChatSession[],
+    currentChatId: string,
+  ) {
+    const limited =
+      sessions
+        .slice()
+        .sort(
+          (left, right) =>
+            right.updatedAt -
+            left.updatedAt,
+        )
+        .slice(0, 20)
+
+    chatSessionsRef.current =
+      limited
+    activeChatIdRef.current =
+      currentChatId
+    setChatSessions(limited)
+    setActiveChatId(
+      currentChatId,
+    )
+
+    if (
+      !historyReadyRef.current ||
+      typeof window ===
+        'undefined'
+    ) {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        chatHistoryKey(
+          userRole,
+          userName,
+        ),
+        JSON.stringify({
+          activeChatId:
+            currentChatId,
+          sessions: limited,
+        }),
+      )
+    } catch {
+      // Chat history storage is optional.
+    }
+  }
+
+  function saveMessagesToHistory(
+    nextMessages: Message[],
+  ) {
+    if (
+      nextMessages.length === 0
+    ) {
+      return
+    }
+
+    const id =
+      activeChatIdRef.current ||
+      createChatId()
+    const session: ChatSession = {
+      id,
+      title:
+        chatTitle(nextMessages),
+      messages:
+        nextMessages.slice(-40),
+      updatedAt: Date.now(),
+    }
+
+    persistChatSessions(
+      [
+        session,
+        ...chatSessionsRef.current.filter(
+          (item) =>
+            item.id !== id,
+        ),
+      ],
+      id,
+    )
+  }
+
   function addMessage(
     message: Message,
   ) {
@@ -746,6 +1043,26 @@ export function CrmsAssistant({
 
     messagesRef.current = next
     setMessages(next)
+    saveMessagesToHistory(next)
+  }
+
+  function openChatSession(
+    session: ChatSession,
+  ) {
+    void stopVoiceChat(false)
+    messagesRef.current =
+      session.messages
+    setMessages(
+      session.messages,
+    )
+    setInput('')
+    setVoiceError(null)
+    setHistoryOpen(false)
+
+    persistChatSessions(
+      chatSessionsRef.current,
+      session.id,
+    )
   }
 
   async function requestAssistantReply(
@@ -788,14 +1105,6 @@ export function CrmsAssistant({
       content: reply,
     })
 
-    setProviderLabel(
-      data.provider === 'gemini'
-        ? `Gemini · ${data.model || 'connected model'}`
-        : data.provider === 'crms-db'
-          ? 'CRMS Database · verified'
-          : 'AI connected',
-    )
-
     return {
       reply,
       model:
@@ -816,9 +1125,6 @@ export function CrmsAssistant({
         content,
       )
     } catch (error: any) {
-      setProviderLabel(
-        'AI offline / not configured',
-      )
       toast.error(
         'CRMS Assistant unavailable',
         {
@@ -1253,9 +1559,6 @@ export function CrmsAssistant({
         )
 
       setInput('')
-      setProviderLabel(
-        `Gemini Voice · ${transcription.model || turnModelRef.current}`,
-      )
       setVoiceStatus(
         'Preparing spoken reply…',
       )
@@ -1617,10 +1920,6 @@ export function CrmsAssistant({
     setVoiceStatus(
       'Requesting microphone permission…',
     )
-    setProviderLabel(
-      'Starting Voice Chat…',
-    )
-
     try {
       const stream =
         await navigator.mediaDevices.getUserMedia(
@@ -1665,9 +1964,6 @@ export function CrmsAssistant({
         turnModelRef.current =
           token.model
 
-        setProviderLabel(
-          `Gemini Voice · ${token.model}`,
-        )
         setVoiceStatus(
           'Listening — speak naturally',
         )
@@ -1803,10 +2099,6 @@ export function CrmsAssistant({
           preflightAudioRef.current =
             false
 
-          setProviderLabel(
-            'Gemini Live · ' +
-              token.model,
-          )
           setVoiceStatus(
             'Testing Live audio response…',
           )
@@ -2234,12 +2526,6 @@ export function CrmsAssistant({
       'Voice Chat ready',
     )
 
-    if (userInitiated) {
-      setProviderLabel(
-        'Gemini Live ended',
-      )
-    }
-
     window.setTimeout(() => {
       stoppingVoiceRef.current =
         false
@@ -2248,13 +2534,20 @@ export function CrmsAssistant({
 
   async function newChat() {
     await stopVoiceChat(false)
+
+    const id = createChatId()
+    activeChatIdRef.current = id
     messagesRef.current = []
     setMessages([])
     setInput('')
-    setProviderLabel(
-      'AI connection not verified',
-    )
     setVoiceError(null)
+    setHistoryOpen(false)
+
+    persistChatSessions(
+      chatSessionsRef.current,
+      id,
+    )
+
     toast.success(
       'New CRMS chat started',
     )
@@ -2439,20 +2732,94 @@ export function CrmsAssistant({
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  void newChat()
-                }
-                className="shrink-0 gap-1.5 px-2 text-xs"
-              >
-                <MessageSquarePlus className="h-4 w-4" />
-                New chat
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setHistoryOpen(
+                      (current) =>
+                        !current,
+                    )
+                  }
+                  className="gap-1.5 px-2 text-xs"
+                  aria-expanded={
+                    historyOpen
+                  }
+                >
+                  <History className="h-4 w-4" />
+                  History
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    void newChat()
+                  }
+                  className="gap-1.5 px-2 text-xs"
+                >
+                  <MessageSquarePlus className="h-4 w-4" />
+                  New chat
+                </Button>
+              </div>
             </div>
           </SheetHeader>
+
+          {historyOpen ? (
+            <div className="border-b bg-white p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Chat history
+                </p>
+                <span className="text-[0.6875rem] text-slate-400">
+                  {chatSessions.length}
+                  {chatSessions.length ===
+                  1
+                    ? ' chat'
+                    : ' chats'}
+                </span>
+              </div>
+              <div className="max-h-52 space-y-1 overflow-y-auto">
+                {chatSessions.length ===
+                0 ? (
+                  <p className="rounded-lg bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                    No previous chats yet.
+                  </p>
+                ) : (
+                  chatSessions.map(
+                    (session) => (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() =>
+                          openChatSession(
+                            session,
+                          )
+                        }
+                        className={
+                          session.id ===
+                          activeChatId
+                            ? 'w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left'
+                            : 'w-full rounded-xl border border-transparent px-3 py-2 text-left hover:border-slate-200 hover:bg-slate-50'
+                        }
+                      >
+                        <p className="truncate text-sm font-medium text-slate-800">
+                          {session.title}
+                        </p>
+                        <p className="mt-0.5 text-[0.6875rem] text-slate-500">
+                          {new Date(
+                            session.updatedAt,
+                          ).toLocaleString()}
+                        </p>
+                      </button>
+                    ),
+                  )
+                )}
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -2524,15 +2891,6 @@ export function CrmsAssistant({
                 <p className="mt-1.5 text-[0.6875rem] leading-4 text-slate-500">
                   Your choice is used directly for chat and voice. CRMS will not auto-detect a language first.
                 </p>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                <span className="font-medium text-slate-700">
-                  {providerLabel}
-                </span>
-                <span className="text-slate-500">
-                  CRMS data access
-                </span>
               </div>
 
               {voiceError ? (
@@ -2668,6 +3026,12 @@ export function CrmsAssistant({
                   Checking CRMS…
                 </div>
               ) : null}
+
+              <div
+                ref={messagesEndRef}
+                aria-hidden="true"
+                className="h-px"
+              />
             </div>
 
             <div className="border-t bg-white p-3">
