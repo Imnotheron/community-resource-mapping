@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
 
@@ -1491,31 +1492,27 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Barangay" field="barangay" required error={errors.barangay}>
-            <Select
+            <SearchableSelect
               value={form.barangay}
               onValueChange={(value) =>
-                updateField('barangay', value)
+                updateField(
+                  'barangay',
+                  value,
+                )
               }
-            >
-              <SelectTrigger
-                className={cn(
-                  errors.barangay &&
-                    'border-red-400 focus:ring-red-400',
-                )}
-              >
-                <SelectValue placeholder="Select barangay" />
-              </SelectTrigger>
-              <SelectContent>
-                {BARANGAYS.map((barangay) => (
-                  <SelectItem
-                    key={barangay}
-                    value={barangay}
-                  >
-                    {barangay}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select barangay"
+              searchPlaceholder="Type a barangay..."
+              className={cn(
+                errors.barangay &&
+                  'border-red-400 focus:ring-red-400',
+              )}
+              options={BARANGAYS.map(
+                (barangay) => ({
+                  value: barangay,
+                  label: barangay,
+                }),
+              )}
+            />
           </InputBlock>
 
           <InputBlock label="Municipality / City">
