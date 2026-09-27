@@ -19,6 +19,13 @@ import {
 import { toast } from 'sonner'
 
 import { apiFetch } from '@/lib/api-client'
+import {
+  ASSISTANT_LANGUAGES,
+  DEFAULT_ASSISTANT_LANGUAGE,
+  assistantSpeechLocales,
+  normalizeAssistantLanguage,
+  type AssistantLanguageCode,
+} from '@/lib/assistant-language'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -45,6 +52,8 @@ type LiveTokenResponse = {
 
 const POSITION_KEY =
   'crms-assistant-launcher-position-v4'
+const LANGUAGE_KEY =
+  'crms-assistant-language-v1'
 const LAUNCHER_SIZE = 54
 const LAUNCHER_VISIBLE_EDGE = 18
 
@@ -381,6 +390,10 @@ export function CrmsAssistant({
     useState('Voice Chat ready')
   const [voiceError, setVoiceError] =
     useState<string | null>(null)
+  const [language, setLanguage] =
+    useState<AssistantLanguageCode>(
+      DEFAULT_ASSISTANT_LANGUAGE,
+    )
   const [
     launcherPosition,
     setLauncherPosition,
@@ -397,6 +410,10 @@ export function CrmsAssistant({
 
   const messagesRef =
     useRef<Message[]>([])
+  const languageRef =
+    useRef<AssistantLanguageCode>(
+      DEFAULT_ASSISTANT_LANGUAGE,
+    )
   const socketRef =
     useRef<WebSocket | null>(null)
   const mediaStreamRef =
@@ -472,6 +489,25 @@ export function CrmsAssistant({
 
   useEffect(() => {
     setPortalReady(true)
+
+    try {
+      const savedLanguage =
+        normalizeAssistantLanguage(
+          window.localStorage.getItem(
+            LANGUAGE_KEY,
+          ),
+        )
+
+      languageRef.current =
+        savedLanguage
+      setLanguage(savedLanguage)
+    } catch {
+      languageRef.current =
+        DEFAULT_ASSISTANT_LANGUAGE
+      setLanguage(
+        DEFAULT_ASSISTANT_LANGUAGE,
+      )
+    }
 
     try {
       const saved =
@@ -736,6 +772,8 @@ export function CrmsAssistant({
           history,
           activeView,
           activeViewLabel,
+          language:
+            languageRef.current,
         }),
       })
 
@@ -1067,7 +1105,29 @@ export function CrmsAssistant({
       new SpeechSynthesisUtterance(
         spokenText,
       )
-    utterance.lang = 'en-PH'
+    const preferredLocales =
+      assistantSpeechLocales(
+        languageRef.current,
+      )
+    const availableVoices =
+      window.speechSynthesis.getVoices()
+    const preferredVoice =
+      preferredLocales
+        .map((locale) =>
+          availableVoices.find(
+            (voice) =>
+              voice.lang.toLowerCase() ===
+              locale.toLowerCase(),
+          ),
+        )
+        .find(Boolean)
+
+    utterance.lang =
+      preferredVoice?.lang ||
+      preferredLocales[0]
+    if (preferredVoice) {
+      utterance.voice = preferredVoice
+    }
     utterance.rate = 1
 
     setVoiceStatus(
@@ -1163,6 +1223,8 @@ export function CrmsAssistant({
               mimeType,
               model:
                 turnModelRef.current,
+              language:
+                languageRef.current,
             }),
           },
         )
@@ -1588,6 +1650,8 @@ export function CrmsAssistant({
             body: JSON.stringify({
               activeView,
               activeViewLabel,
+              language:
+                languageRef.current,
             }),
           },
         )
@@ -2406,6 +2470,59 @@ export function CrmsAssistant({
                 <p className="mt-2 text-xs text-emerald-800">
                   Current page:{' '}
                   {activeViewLabel}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label
+                    htmlFor="crms-assistant-language"
+                    className="text-xs font-semibold text-slate-700"
+                  >
+                    Response language
+                  </label>
+                  <select
+                    id="crms-assistant-language"
+                    value={language}
+                    disabled={
+                      voiceMode || sending
+                    }
+                    onChange={(event) => {
+                      const nextLanguage =
+                        normalizeAssistantLanguage(
+                          event.target.value,
+                        )
+
+                      languageRef.current =
+                        nextLanguage
+                      setLanguage(nextLanguage)
+
+                      try {
+                        window.localStorage.setItem(
+                          LANGUAGE_KEY,
+                          nextLanguage,
+                        )
+                      } catch {
+                        // Language storage is optional.
+                      }
+                    }}
+                    className="max-w-[14rem] rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Choose CRMS Assistant language"
+                  >
+                    {ASSISTANT_LANGUAGES.map(
+                      (item) => (
+                        <option
+                          key={item.code}
+                          value={item.code}
+                        >
+                          {item.label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
+                <p className="mt-1.5 text-[0.6875rem] leading-4 text-slate-500">
+                  Your choice is used directly for chat and voice. CRMS will not auto-detect a language first.
                 </p>
               </div>
 
