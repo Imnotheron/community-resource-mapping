@@ -7,6 +7,7 @@ import {
   normalizeAssistantLanguage,
 } from '@/lib/assistant-language'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { getGeminiApiKey } from '@/lib/gemini-api-key'
 
 function clean(
   value: unknown,
@@ -52,17 +53,14 @@ export async function POST(
       return auth.error
     }
 
-    const apiKey = clean(
-      process.env.GEMINI_API_KEY,
-      500,
-    )
+    const apiKey = clean(getGeminiApiKey(), 500)
 
     if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
           error:
-            'Gemini API is not configured.',
+            'Gemini API is not configured for this deployment.',
         },
         { status: 503 },
       )
