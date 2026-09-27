@@ -184,7 +184,7 @@ export async function POST(
             ],
             generationConfig: {
               temperature: 0,
-              maxOutputTokens: 350,
+              maxOutputTokens: 120,
             },
           }),
           signal:
