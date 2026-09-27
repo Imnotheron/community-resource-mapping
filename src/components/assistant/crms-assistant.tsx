@@ -811,6 +811,24 @@ export function CrmsAssistant({
     turnAnalyserRef.current = null
   }
 
+  function closeCompatibleInputGraph() {
+    clearTurnMonitor()
+
+    inputSourceRef.current?.disconnect()
+    inputSourceRef.current = null
+    turnAnalyserRef.current = null
+
+    const context =
+      inputContextRef.current
+    inputContextRef.current = null
+
+    if (context) {
+      void context
+        .close()
+        .catch(() => undefined)
+    }
+  }
+
   function speakCompatibleReply(
     text: string,
   ) {
@@ -1040,7 +1058,7 @@ export function CrmsAssistant({
     }
 
     recorder.onstop = () => {
-      clearTurnMonitor()
+      closeCompatibleInputGraph()
 
       if (
         stoppingVoiceRef.current ||
@@ -1770,7 +1788,7 @@ export function CrmsAssistant({
   ) {
     stoppingVoiceRef.current = true
     clearSetupTimeout()
-    clearTurnMonitor()
+    closeCompatibleInputGraph()
 
     window.speechSynthesis?.cancel()
 
