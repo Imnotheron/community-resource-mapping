@@ -629,67 +629,51 @@ export async function POST(request: NextRequest) {
         apiKey,
       )
 
+    const accessibleNames =
+      modelAccess.ok
+        ? modelAccess.names
+        : new Set<string>()
+
     if (!modelAccess.ok) {
-      const detail =
-        formatGoogleApiError(
-          'Gemini API access check failed',
-          modelAccess.error,
-        )
-
-      console.error(detail)
-
-      return NextResponse.json(
-        {
-          success: false,
-          code:
-            'GEMINI_API_ACCESS_FAILED',
-          error: detail,
-          diagnostics: {
-            stage: 'models',
-            configuredModel,
-            keyType:
-              apiKey.startsWith('AQ.')
-                ? 'AQ auth key'
-                : apiKey.startsWith(
-                      'AIza',
-                    )
-                  ? 'legacy API key'
-                  : 'unknown key format',
-          },
-        },
-        {
-          status:
-            modelAccess.error
-              .httpStatus || 502,
-        },
-      )
-    }
-
-    const modelChoice =
-      chooseLiveModel(
-        modelAccess.names,
-        configuredModel,
-      )
-    const model =
-      modelChoice.selected
-
-    if (!model) {
-      const fallbackModel =
-        chooseTurnVoiceModel(
-          modelAccess.names,
-        )
-
-      return turnVoiceResponse(
-        fallbackModel,
-        'This Gemini project does not expose a conversational Live model, so CRMS automatically switched to compatible voice mode using Gemini audio understanding plus spoken browser output.',
-      )
-    }
-
-    if (model !== configuredModel) {
       console.warn(
-        `Configured Live model ${configuredModel} is unavailable; CRMS automatically selected ${model} for this Gemini project.`,
+        'Gemini model listing failed; CRMS will still probe the documented Live models directly:',
+        formatGoogleApiError(
+          'Model list',
+          modelAccess.error,
+        ),
       )
     }
+
+    const liveCandidates = [
+      configuredModel,
+      'gemini-3.8-live',
+      'gemini-3.1-flash-live-preview',
+      'gemini-2.5-flash-native-audio-preview-12-2025',
+    ]
+      .filter(
+        (model, index, all) =>
+          Boolean(model) &&
+          all.indexOf(model) === index,
+      )
+      .sort((left, right) => {
+        const leftVisible =
+          accessibleNames.has(
+            `models/${left}`,
+          )
+            ? 1
+            : 0
+        const rightVisible =
+          accessibleNames.has(
+            `models/${right}`,
+          )
+            ? 1
+            : 0
+
+        return (
+          rightVisible -
+          leftVisible
+        )
+      })
 
     const liveContext =
       await buildVoiceContext(
@@ -722,133 +706,162 @@ export async function POST(request: NextRequest) {
     const expireTime = new Date(
       now + 25 * 60 * 1000,
     ).toISOString()
-    const newSessionExpireTime = new Date(
-      now + 60 * 1000,
-    ).toISOString()
+    const newSessionExpireTime =
+      new Date(
+        now + 60 * 1000,
+      ).toISOString()
 
-    // First use Google's documented constrained-token shape.
-    // sessionResumption is included because it is part of Google's
-    // current constrained Live-token REST example.
-    const constrainedToken =
-      await createLiveToken(
-        apiKey,
-        {
-          uses: 1,
-          expireTime,
-          newSessionExpireTime,
-          liveConnectConstraints: {
-            model:
-              `models/${model}`,
-            config: {
-              sessionResumption: {},
-              responseModalities: [
-                'AUDIO',
-              ],
+    const liveErrors: string[] = []
+
+    // Do not treat GET /models as authoritative for Live availability.
+    // Some projects can use a Live model even when it is not surfaced in
+    // the normal model listing. Probe each documented Live model by asking
+    // Google for a constrained ephemeral token; a successful token is the
+    // strongest server-side proof that the project can start that model.
+    for (const model of liveCandidates) {
+      const constrainedToken =
+        await createLiveToken(
+          apiKey,
+          {
+            uses: 1,
+            expireTime,
+            newSessionExpireTime,
+            liveConnectConstraints: {
+              model:
+                `models/${model}`,
+              config: {
+                sessionResumption: {},
+                responseModalities: [
+                  'AUDIO',
+                ],
+              },
             },
           },
-        },
-      )
+        )
 
-    if (constrainedToken.ok) {
-      return NextResponse.json({
-        success: true,
-        mode: 'live',
-        token:
-          constrainedToken.token,
-        tokenMode: 'constrained',
-        model,
-        systemInstruction:
-          systemInstruction.slice(
-            0,
-            28_000,
-          ),
-        expiresAt: expireTime,
-        diagnostics: {
-          stage: 'ready',
-          model,
-          configuredModel,
-          automaticFallback:
-            model !== configuredModel,
+      if (constrainedToken.ok) {
+        return NextResponse.json({
+          success: true,
+          mode: 'live',
+          token:
+            constrainedToken.token,
           tokenMode:
             'constrained',
-          contextCharacters:
-            systemInstruction.length,
-        },
-      })
-    }
-
-    // Some projects/keys can issue an ephemeral token but reject
-    // liveConnectConstraints. Retry once using Google's minimal
-    // documented token request. The WebSocket setup still locks the
-    // model and AUDIO modality for the actual session.
-    const minimalToken =
-      await createLiveToken(
-        apiKey,
-        {
-          uses: 1,
-          expireTime,
-          newSessionExpireTime,
-        },
-      )
-
-    if (minimalToken.ok) {
-      console.warn(
-        'Gemini constrained token failed; using minimal ephemeral token:',
-        constrainedToken.error,
-      )
-
-      return NextResponse.json({
-        success: true,
-        mode: 'live',
-        token: minimalToken.token,
-        tokenMode: 'minimal',
-        model,
-        systemInstruction:
-          systemInstruction.slice(
-            0,
-            28_000,
-          ),
-        expiresAt: expireTime,
-        diagnostics: {
-          stage: 'ready',
           model,
-          configuredModel,
-          automaticFallback:
-            model !== configuredModel,
-          tokenMode: 'minimal',
-          constrainedTokenError:
-            formatGoogleApiError(
-              'Constrained token',
-              constrainedToken.error,
+          systemInstruction:
+            systemInstruction.slice(
+              0,
+              28_000,
             ),
-          contextCharacters:
-            systemInstruction.length,
-        },
-      })
+          expiresAt:
+            expireTime,
+          diagnostics: {
+            stage: 'ready',
+            model,
+            configuredModel,
+            automaticFallback:
+              model !==
+              configuredModel,
+            modelWasListed:
+              accessibleNames.has(
+                `models/${model}`,
+              ),
+            tokenMode:
+              'constrained',
+            contextCharacters:
+              systemInstruction.length,
+          },
+        })
+      }
+
+      liveErrors.push(
+        formatGoogleApiError(
+          model,
+          constrainedToken.error,
+        ),
+      )
     }
 
-    const constrainedDetail =
-      formatGoogleApiError(
-        'Constrained token',
-        constrainedToken.error,
+    // If Google lists a Live model but rejects the constrained-token shape,
+    // try the minimal documented ephemeral token once and let the WebSocket
+    // self-test validate the model end-to-end.
+    const listedLiveModel =
+      liveCandidates.find(
+        (model) =>
+          accessibleNames.has(
+            `models/${model}`,
+          ),
       )
-    const minimalDetail =
-      formatGoogleApiError(
-        'Minimal token',
-        minimalToken.error,
+
+    if (listedLiveModel) {
+      const minimalToken =
+        await createLiveToken(
+          apiKey,
+          {
+            uses: 1,
+            expireTime,
+            newSessionExpireTime,
+          },
+        )
+
+      if (minimalToken.ok) {
+        return NextResponse.json({
+          success: true,
+          mode: 'live',
+          token:
+            minimalToken.token,
+          tokenMode: 'minimal',
+          model:
+            listedLiveModel,
+          systemInstruction:
+            systemInstruction.slice(
+              0,
+              28_000,
+            ),
+          expiresAt:
+            expireTime,
+          diagnostics: {
+            stage: 'ready',
+            model:
+              listedLiveModel,
+            configuredModel,
+            automaticFallback:
+              listedLiveModel !==
+              configuredModel,
+            tokenMode:
+              'minimal',
+            constrainedAttempts:
+              liveErrors,
+            contextCharacters:
+              systemInstruction.length,
+          },
+        })
+      }
+
+      liveErrors.push(
+        formatGoogleApiError(
+          'minimal-token',
+          minimalToken.error,
+        ),
+      )
+    }
+
+    const fallbackModel =
+      chooseTurnVoiceModel(
+        accessibleNames,
       )
 
     console.warn(
-      'Gemini Live token creation failed; switching to compatible voice mode:',
-      constrainedDetail,
-      minimalDetail,
+      'No tested Gemini Live model could issue a usable ephemeral token. CRMS is switching to compatible voice mode.',
+      liveErrors,
     )
 
     return turnVoiceResponse(
-      chooseTurnVoiceModel(
-        modelAccess.names,
-      ),
-      'Gemini Live authentication is unavailable for this project, so CRMS automatically switched to compatible voice mode.',
+      fallbackModel,
+      [
+        'Real-time Gemini Live is not available to this API project right now.',
+        'CRMS automatically switched to compatible voice mode, which records each spoken turn, sends the audio to Gemini for transcription/understanding, answers from current CRMS data, speaks the reply, and then listens again.',
+      ].join(' '),
     )
 
   } catch (error) {
