@@ -514,6 +514,10 @@ export function CrmsAssistant({
     useRef<number | null>(null)
   const turnSpeechSeenRef =
     useRef(false)
+  const turnRealtimeTranscriptRef =
+    useRef('')
+  const turnRecognitionRef =
+    useRef<any>(null)
   const turnLastSpeechAtRef =
     useRef(0)
   const turnStartedAtRef =
@@ -1447,8 +1451,118 @@ export function CrmsAssistant({
     }
   }
 
+  function stopRealtimeRecognition() {
+    const recognition =
+      turnRecognitionRef.current
+    turnRecognitionRef.current = null
+
+    if (!recognition) {
+      return
+    }
+
+    recognition.onresult = null
+    recognition.onerror = null
+    recognition.onend = null
+
+    try {
+      recognition.stop()
+    } catch {
+      try {
+        recognition.abort()
+      } catch {
+        // Recognition may already be stopped.
+      }
+    }
+  }
+
+  function startRealtimeTranscription() {
+    if (
+      typeof window === 'undefined'
+    ) {
+      return false
+    }
+
+    const SpeechRecognitionCtor =
+      (window as any).SpeechRecognition ||
+      (window as any)
+        .webkitSpeechRecognition
+
+    if (!SpeechRecognitionCtor) {
+      return false
+    }
+
+    stopRealtimeRecognition()
+    turnRealtimeTranscriptRef.current = ''
+
+    try {
+      const recognition =
+        new SpeechRecognitionCtor()
+
+      recognition.lang =
+        assistantSpeechLocales(
+          languageRef.current,
+        )[0]
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.maxAlternatives = 1
+
+      recognition.onresult = (
+        event: any,
+      ) => {
+        const pieces: string[] = []
+
+        for (
+          let index = 0;
+          index < event.results.length;
+          index += 1
+        ) {
+          const transcript =
+            String(
+              event.results[index]?.[0]
+                ?.transcript || '',
+            ).trim()
+
+          if (transcript) {
+            pieces.push(transcript)
+          }
+        }
+
+        const transcript =
+          pieces.join(' ').trim()
+
+        if (transcript) {
+          turnRealtimeTranscriptRef.current =
+            transcript
+        }
+      }
+
+      recognition.onerror = () => {
+        // Gemini audio transcription remains the fallback.
+      }
+
+      recognition.onend = () => {
+        if (
+          turnRecognitionRef.current ===
+          recognition
+        ) {
+          turnRecognitionRef.current =
+            null
+        }
+      }
+
+      turnRecognitionRef.current =
+        recognition
+      recognition.start()
+      return true
+    } catch {
+      turnRecognitionRef.current = null
+      return false
+    }
+  }
+
   function closeCompatibleInputGraph() {
     clearTurnMonitor()
+    stopRealtimeRecognition()
 
     inputSourceRef.current?.disconnect()
     inputSourceRef.current = null
@@ -1717,6 +1831,7 @@ export function CrmsAssistant({
   async function processCompatibleVoice(
     blob: Blob,
     mimeType: string,
+    realtimeTranscript = '',
   ) {
     if (
       !voiceModeRef.current ||
@@ -1726,37 +1841,44 @@ export function CrmsAssistant({
     }
 
     try {
-      setVoiceStatus(
-        'Understanding your voice…',
-      )
+      let transcript =
+        String(
+          realtimeTranscript || '',
+        ).trim()
 
-      const audio =
-        await blobToBase64(blob)
-
-      const transcription =
-        await apiFetch<{
-          transcript: string
-          model?: string
-        }>(
-          '/api/assistant/transcribe',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              audio,
-              mimeType,
-              model:
-                turnModelRef.current,
-              language:
-                languageRef.current,
-            }),
-          },
+      if (!transcript) {
+        setVoiceStatus(
+          'Understanding your voice…',
         )
 
-      const transcript =
-        String(
-          transcription.transcript ||
-            '',
-        ).trim()
+        const audio =
+          await blobToBase64(blob)
+
+        const transcription =
+          await apiFetch<{
+            transcript: string
+            model?: string
+          }>(
+            '/api/assistant/transcribe',
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                audio,
+                mimeType,
+                model:
+                  turnModelRef.current,
+                language:
+                  languageRef.current,
+              }),
+            },
+          )
+
+        transcript =
+          String(
+            transcription.transcript ||
+              '',
+          ).trim()
+      }
 
       if (!transcript) {
         throw new Error(
@@ -1850,6 +1972,8 @@ export function CrmsAssistant({
     turnChunksRef.current = []
     turnSpeechSeenRef.current =
       false
+    turnRealtimeTranscriptRef.current =
+      ''
     turnStartedAtRef.current =
       performance.now()
     turnLastSpeechAtRef.current =
@@ -1876,6 +2000,9 @@ export function CrmsAssistant({
     }
 
     recorder.onstop = () => {
+      const realtimeTranscript =
+        turnRealtimeTranscriptRef.current
+          .trim()
       closeCompatibleInputGraph()
 
       if (
@@ -1913,6 +2040,7 @@ export function CrmsAssistant({
       void processCompatibleVoice(
         blob,
         blob.type,
+        realtimeTranscript,
       )
     }
 
@@ -1948,8 +2076,8 @@ export function CrmsAssistant({
     let noiseFloor = 0.003
     let speechFrames = 0
 
-    const END_OF_SPEECH_SILENCE_MS = 650
-    const NO_SPEECH_TIMEOUT_MS = 8_000
+    const END_OF_SPEECH_SILENCE_MS = 400
+    const NO_SPEECH_TIMEOUT_MS = 6_000
     const MAX_TURN_MS = 16_000
 
     const monitor = () => {
@@ -2082,7 +2210,8 @@ export function CrmsAssistant({
       'Listening — speak naturally',
     )
 
-    recorder.start(250)
+    startRealtimeTranscription()
+    recorder.start(120)
     void context.resume()
     void playVoiceReadyCue()
 
@@ -2693,6 +2822,8 @@ export function CrmsAssistant({
     }
 
     turnChunksRef.current = []
+    turnRealtimeTranscriptRef.current = ''
+    stopRealtimeRecognition()
 
     clearPreflightTimeout()
     preflightRef.current = false
