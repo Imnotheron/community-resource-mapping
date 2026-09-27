@@ -354,6 +354,8 @@ export function AppShell({
               <CrmsAssistant
                 userName={userName}
                 userRole={userRole}
+                activeView={activeView}
+                activeViewLabel={activeLabel}
               />
             ) : null}
 
