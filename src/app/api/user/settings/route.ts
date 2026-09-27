@@ -10,10 +10,22 @@ type ThemeChoice = 'light' | 'dark'
 type AccentColor = 'emerald' | 'teal' | 'green' | 'amber'
 type FontSizeChoice = 'small' | 'medium' | 'large'
 
+type ReportTemplateChoice = 'FORMAL' | 'COMPACT' | 'SUMMARY'
+
+type ReportSettings = {
+  template?: ReportTemplateChoice
+  title?: string
+  preparedName?: string
+  preparedPosition?: string
+  approvedName?: string
+  approvedPosition?: string
+}
+
 type UserPreferences = {
   theme?: ThemeChoice
   accent?: AccentColor
   fontSize?: FontSizeChoice
+  reportSettings?: ReportSettings
   [key: string]: unknown
 }
 
@@ -42,6 +54,31 @@ function normalizeFontSize(value: unknown): FontSizeChoice | null {
     : null
 }
 
+function cleanReportText(value: unknown, max: number) {
+  return String(value || '').trim().slice(0, max)
+}
+
+function normalizeReportSettings(value: unknown): ReportSettings | null {
+  if (!value || typeof value !== 'object') return null
+
+  const input = value as Record<string, unknown>
+  const template =
+    input.template === 'FORMAL' ||
+    input.template === 'COMPACT' ||
+    input.template === 'SUMMARY'
+      ? input.template
+      : 'FORMAL'
+
+  return {
+    template,
+    title: cleanReportText(input.title, 140),
+    preparedName: cleanReportText(input.preparedName, 120),
+    preparedPosition: cleanReportText(input.preparedPosition, 120),
+    approvedName: cleanReportText(input.approvedName, 120),
+    approvedPosition: cleanReportText(input.approvedPosition, 120),
+  }
+}
+
 function parsePreferences(
   value: string | null | undefined,
 ): UserPreferences {
@@ -64,6 +101,8 @@ function serializeUser(user: any) {
     theme: normalizeTheme(preferences.theme) || 'light',
     accent: normalizeAccent(preferences.accent) || 'emerald',
     fontSize: normalizeFontSize(preferences.fontSize) || 'medium',
+    reportSettings:
+      normalizeReportSettings(preferences.reportSettings) || undefined,
   }
 }
 
@@ -271,6 +310,24 @@ export async function PUT(request: NextRequest) {
       }
 
       preferences.accent = accent
+    }
+
+    if (body.reportSettings !== undefined) {
+      const reportSettings = normalizeReportSettings(
+        body.reportSettings,
+      )
+
+      if (!reportSettings) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid report settings',
+          },
+          { status: 400 },
+        )
+      }
+
+      preferences.reportSettings = reportSettings
     }
 
     const wantsPasswordChange =

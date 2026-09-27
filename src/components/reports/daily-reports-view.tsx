@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { CalendarDays, FileText, Printer, RefreshCw } from 'lucide-react'
+import { CalendarDays, FileText, Printer, RefreshCw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { apiFetch, type AuthUser } from '@/lib/api-client'
@@ -46,6 +46,37 @@ function formatDateTime(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+type ReportTemplateChoice = 'FORMAL' | 'COMPACT' | 'SUMMARY'
+
+type ReportSettings = {
+  template: ReportTemplateChoice
+  title: string
+  preparedName: string
+  preparedPosition: string
+  approvedName: string
+  approvedPosition: string
+}
+
+function defaultReportSettings(
+  user: AuthUser,
+  isAdmin: boolean,
+): ReportSettings {
+  return {
+    template: 'FORMAL',
+    title: isAdmin
+      ? 'Daily Municipal Operations Report'
+      : 'Daily Worker Accomplishment Report',
+    preparedName: user.name || '',
+    preparedPosition: isAdmin
+      ? 'CRMS Administrator'
+      : 'Field Worker',
+    approvedName: '',
+    approvedPosition: isAdmin
+      ? 'MSWDO Head / Municipal Mayor'
+      : 'Supervisor / MSWDO',
+  }
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {
@@ -105,16 +136,40 @@ function ReportHeader({
 }
 
 function SignatureBlock({
-  leftLabel,
-  rightLabel,
+  settings,
 }: {
-  leftLabel: string
-  rightLabel: string
+  settings: ReportSettings
 }) {
+  const blocks = [
+    {
+      label: 'Prepared by',
+      name: settings.preparedName,
+      position: settings.preparedPosition,
+    },
+    {
+      label: 'Reviewed / Approved by',
+      name: settings.approvedName,
+      position: settings.approvedPosition,
+    },
+  ]
+
   return (
     <section className="report-signatures mt-12 grid grid-cols-2 gap-16 text-center text-sm">
-      <div className="border-t border-slate-900 pt-2">{leftLabel}</div>
-      <div className="border-t border-slate-900 pt-2">{rightLabel}</div>
+      {blocks.map((item) => (
+        <div key={item.label}>
+          <p className="mb-10 text-xs text-slate-500">
+            {item.label}
+          </p>
+          <div className="border-t border-slate-900 pt-2">
+            <p className="font-semibold uppercase">
+              {item.name || '____________________________'}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {item.position || 'Position'}
+            </p>
+          </div>
+        </div>
+      ))}
     </section>
   )
 }
@@ -127,11 +182,19 @@ function ReportTable({ children }: { children: ReactNode }) {
   )
 }
 
-function AdminReport({ report }: { report: any }) {
+function AdminReport({
+  report,
+  settings,
+}: {
+  report: any
+  settings: ReportSettings
+}) {
   return (
-    <div className="report-document space-y-6">
+    <div
+      className={`report-document space-y-6 report-template-${settings.template.toLowerCase()}`}
+    >
       <ReportHeader
-        title="Daily Municipal Operations Report"
+        title={settings.title || 'Daily Municipal Operations Report'}
         date={report.date}
         generatedAt={report.generatedAt}
       />
@@ -152,6 +215,7 @@ function AdminReport({ report }: { report: any }) {
         </div>
       </section>
 
+      {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Daily Relief Distributions
@@ -199,7 +263,9 @@ function AdminReport({ report }: { report: any }) {
           </table>
         </ReportTable>
       </section>
+      )}
 
+      {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           New Registrations
@@ -235,6 +301,7 @@ function AdminReport({ report }: { report: any }) {
           </table>
         </ReportTable>
       </section>
+      )}
 
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
@@ -262,16 +329,24 @@ function AdminReport({ report }: { report: any }) {
         </ReportTable>
       </section>
 
-      <SignatureBlock leftLabel="Prepared by" rightLabel="Reviewed / Approved by" />
+      <SignatureBlock settings={settings} />
     </div>
   )
 }
 
-function WorkerReport({ report }: { report: any }) {
+function WorkerReport({
+  report,
+  settings,
+}: {
+  report: any
+  settings: ReportSettings
+}) {
   return (
-    <div className="report-document space-y-6">
+    <div
+      className={`report-document space-y-6 report-template-${settings.template.toLowerCase()}`}
+    >
       <ReportHeader
-        title="Daily Worker Accomplishment Report"
+        title={settings.title || 'Daily Worker Accomplishment Report'}
         date={report.date}
         generatedAt={report.generatedAt}
       />
@@ -346,6 +421,7 @@ function WorkerReport({ report }: { report: any }) {
         </ReportTable>
       </section>
 
+      {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Field Notes
@@ -370,8 +446,9 @@ function WorkerReport({ report }: { report: any }) {
           )}
         </div>
       </section>
+      )}
 
-      <SignatureBlock leftLabel="Field Worker" rightLabel="Reviewed by Supervisor" />
+      <SignatureBlock settings={settings} />
     </div>
   )
 }
@@ -386,6 +463,12 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
   const [sortBy, setSortBy] = useState('LAST_NAME')
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [savingReportSettings, setSavingReportSettings] =
+    useState(false)
+  const [reportSettings, setReportSettings] =
+    useState<ReportSettings>(() =>
+      defaultReportSettings(user, isAdmin),
+    )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -416,6 +499,58 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    let active = true
+
+    apiFetch<{ user?: { reportSettings?: Partial<ReportSettings> } }>(
+      '/api/user/settings',
+      { useUserHeader: true },
+    )
+      .then((data) => {
+        if (!active) return
+        const saved = data.user?.reportSettings
+        if (!saved) return
+
+        setReportSettings((current) => ({
+          ...current,
+          ...saved,
+          template:
+            saved.template === 'FORMAL' ||
+            saved.template === 'COMPACT' ||
+            saved.template === 'SUMMARY'
+              ? saved.template
+              : current.template,
+        }))
+      })
+      .catch(() => {
+        // Report settings are optional. Defaults keep reporting usable.
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function saveReportSettings() {
+    setSavingReportSettings(true)
+    try {
+      await apiFetch('/api/user/settings', {
+        method: 'PUT',
+        useUserHeader: true,
+        body: JSON.stringify({
+          reportSettings,
+        }),
+      })
+      toast.success('Report settings saved')
+    } catch (error: any) {
+      toast.error('Failed to save report settings', {
+        description: error.message,
+      })
+    } finally {
+      setSavingReportSettings(false)
+    }
+  }
 
   const barangays = useMemo(() => report?.barangays || [], [report])
   const people = useMemo(() => report?.people || [], [report])
@@ -778,6 +913,19 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             page-break-inside: avoid !important;
           }
 
+          .report-template-compact {
+            font-size: 8.5pt !important;
+            line-height: 1.25 !important;
+          }
+
+          .report-template-compact .report-section {
+            margin-bottom: 3mm !important;
+          }
+
+          .report-template-compact .report-metric {
+            min-height: 15mm !important;
+          }
+
           .report-signatures {
             display: grid !important;
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -817,6 +965,141 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           </Button>
         </div>
       </div>
+
+      <Card className="no-print border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4 text-emerald-600" />
+            Report Template & Signatories
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Template</Label>
+              <Select
+                value={reportSettings.template}
+                onValueChange={(value) =>
+                  setReportSettings((current) => ({
+                    ...current,
+                    template:
+                      value as ReportTemplateChoice,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FORMAL">
+                    Formal — full detail
+                  </SelectItem>
+                  <SelectItem value="COMPACT">
+                    Compact — full detail, tighter layout
+                  </SelectItem>
+                  <SelectItem value="SUMMARY">
+                    Summary — key totals and summaries
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 md:col-span-1 xl:col-span-2">
+              <Label htmlFor="report-custom-title">
+                Report title
+              </Label>
+              <Input
+                id="report-custom-title"
+                value={reportSettings.title}
+                onChange={(event) =>
+                  setReportSettings((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+                maxLength={140}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <p className="text-sm font-semibold">
+                Prepared by
+              </p>
+              <div className="mt-3 grid gap-3">
+                <Input
+                  value={reportSettings.preparedName}
+                  onChange={(event) =>
+                    setReportSettings((current) => ({
+                      ...current,
+                      preparedName: event.target.value,
+                    }))
+                  }
+                  placeholder="Name"
+                  maxLength={120}
+                />
+                <Input
+                  value={reportSettings.preparedPosition}
+                  onChange={(event) =>
+                    setReportSettings((current) => ({
+                      ...current,
+                      preparedPosition: event.target.value,
+                    }))
+                  }
+                  placeholder="Position"
+                  maxLength={120}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <p className="text-sm font-semibold">
+                Reviewed / Approved by
+              </p>
+              <div className="mt-3 grid gap-3">
+                <Input
+                  value={reportSettings.approvedName}
+                  onChange={(event) =>
+                    setReportSettings((current) => ({
+                      ...current,
+                      approvedName: event.target.value,
+                    }))
+                  }
+                  placeholder="Mayor / MSWDO head name"
+                  maxLength={120}
+                />
+                <Input
+                  value={reportSettings.approvedPosition}
+                  onChange={(event) =>
+                    setReportSettings((current) => ({
+                      ...current,
+                      approvedPosition: event.target.value,
+                    }))
+                  }
+                  placeholder="Position"
+                  maxLength={120}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void saveReportSettings()}
+              disabled={savingReportSettings}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {savingReportSettings
+                ? 'Saving…'
+                : 'Save report settings'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="no-print border-slate-200">
         <CardHeader className="pb-3">
@@ -947,7 +1230,17 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               : 'Daily Worker Accomplishment Report'
           }
         >
-          {isAdmin ? <AdminReport report={displayReport} /> : <WorkerReport report={displayReport} />}
+          {isAdmin ? (
+            <AdminReport
+              report={displayReport}
+              settings={reportSettings}
+            />
+          ) : (
+            <WorkerReport
+              report={displayReport}
+              settings={reportSettings}
+            />
+          )}
         </div>
       )}
     </div>
