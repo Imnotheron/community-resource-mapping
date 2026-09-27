@@ -5,10 +5,58 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 
+const PopoverDismissContext =
+  React.createContext<(() => void) | null>(
+    null,
+  )
+
 function Popover({
+  open: controlledOpen,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+  const [internalOpen, setInternalOpen] =
+    React.useState(defaultOpen ?? false)
+  const open =
+    controlledOpen ?? internalOpen
+
+  const handleOpenChange =
+    React.useCallback(
+      (nextOpen: boolean) => {
+        if (
+          controlledOpen === undefined
+        ) {
+          setInternalOpen(nextOpen)
+        }
+
+        onOpenChange?.(nextOpen)
+      },
+      [
+        controlledOpen,
+        onOpenChange,
+      ],
+    )
+
+  const dismiss = React.useCallback(
+    () => handleOpenChange(false),
+    [handleOpenChange],
+  )
+
+  return (
+    <PopoverDismissContext.Provider
+      value={dismiss}
+    >
+      <PopoverPrimitive.Root
+        data-slot="popover"
+        open={open}
+        onOpenChange={
+          handleOpenChange
+        }
+        {...props}
+      />
+    </PopoverDismissContext.Provider>
+  )
 }
 
 function PopoverTrigger({
@@ -21,8 +69,15 @@ function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const dismiss =
+    React.useContext(
+      PopoverDismissContext,
+    )
+
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
@@ -33,6 +88,28 @@ function PopoverContent({
           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden",
           className
         )}
+        onPointerDownOutside={(
+          event,
+        ) => {
+          onPointerDownOutside?.(
+            event,
+          )
+
+          if (
+            !event.defaultPrevented
+          ) {
+            dismiss?.()
+          }
+        }}
+        onFocusOutside={(event) => {
+          onFocusOutside?.(event)
+
+          if (
+            !event.defaultPrevented
+          ) {
+            dismiss?.()
+          }
+        }}
         {...props}
       />
     </PopoverPrimitive.Portal>
