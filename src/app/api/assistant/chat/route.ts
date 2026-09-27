@@ -467,6 +467,44 @@ async function buildQueryAwareContext({
         'admin request',
         'approval request',
       ])
+    const wantsHouseholds =
+      broadDataQuestion ||
+      mentions(message, [
+        'household',
+        'house',
+        'family',
+        'address',
+        'member',
+      ])
+    const wantsFieldNotes =
+      broadDataQuestion ||
+      mentions(message, [
+        'field note',
+        'field notes',
+        'note',
+      ])
+    const wantsNotifications =
+      broadDataQuestion ||
+      mentions(message, [
+        'notification',
+        'notifications',
+        'notified',
+      ])
+    const wantsDrafts =
+      broadDataQuestion ||
+      mentions(message, [
+        'draft',
+        'drafts',
+        'unfinished registration',
+      ])
+    const wantsDocuments =
+      broadDataQuestion ||
+      mentions(message, [
+        'document',
+        'documents',
+        'uploaded file',
+        'proof',
+      ])
 
     const reliefWhere =
       terms.length > 0
@@ -884,6 +922,306 @@ async function buildQueryAwareContext({
       )
     }
 
+    if (wantsHouseholds) {
+      tasks.push(
+        db.household
+          .findMany({
+            orderBy: {
+              updatedAt: 'desc',
+            },
+            take:
+              broadDataQuestion
+                ? 30
+                : 50,
+            select: {
+              id: true,
+              address: true,
+              barangay: true,
+              latitude: true,
+              longitude: true,
+              headOfHousehold: true,
+              totalMembers: true,
+              vulnerableMembers: true,
+              notes: true,
+              createdAt: true,
+              updatedAt: true,
+              assignedWorker: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              vulnerableProfile: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  registrationStatus: true,
+                },
+              },
+            },
+          })
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.address,
+                        row.barangay,
+                        row.headOfHousehold,
+                        row.notes,
+                        row.assignedWorker?.name,
+                        row.assignedWorker?.email,
+                        row.vulnerableProfile
+                          ?.firstName,
+                        row.vulnerableProfile
+                          ?.lastName,
+                      ]
+                        .filter(Boolean)
+                        .join(' '),
+                    30,
+                  )
+
+            sections.push(
+              'HOUSEHOLD MATCHES (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsFieldNotes) {
+      tasks.push(
+        db.fieldNote
+          .findMany({
+            orderBy: {
+              updatedAt: 'desc',
+            },
+            take: 50,
+            select: {
+              id: true,
+              note: true,
+              createdAt: true,
+              updatedAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          })
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows.slice(
+                    0,
+                    30,
+                  )
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.note,
+                        row.user.name,
+                        row.user.email,
+                        row.user.role,
+                      ].join(' '),
+                    30,
+                  )
+
+            sections.push(
+              'FIELD NOTE MATCHES (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsNotifications) {
+      tasks.push(
+        db.notification
+          .findMany({
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 50,
+            select: {
+              id: true,
+              type: true,
+              title: true,
+              message: true,
+              status: true,
+              sentViaEmail: true,
+              sentViaSms: true,
+              emailSentAt: true,
+              smsSentAt: true,
+              createdAt: true,
+              updatedAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          })
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows.slice(
+                    0,
+                    30,
+                  )
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.type,
+                        row.title,
+                        row.message,
+                        row.status,
+                        row.user.name,
+                        row.user.email,
+                      ].join(' '),
+                    30,
+                  )
+
+            sections.push(
+              'NOTIFICATION MATCHES (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsDrafts) {
+      tasks.push(
+        db.vulnerableRegistrationDraft
+          .findMany({
+            orderBy: {
+              updatedAt: 'desc',
+            },
+            take: 30,
+            select: {
+              id: true,
+              adminId: true,
+              title: true,
+              currentStep: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+              admin: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          })
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.title,
+                        row.status,
+                        row.admin.name,
+                        row.admin.email,
+                      ].join(' '),
+                    30,
+                  )
+
+            sections.push(
+              'REGISTRATION DRAFT MATCHES (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsDocuments) {
+      tasks.push(
+        db.vulnerabilityDocument
+          .findMany({
+            orderBy: {
+              uploadedAt: 'desc',
+            },
+            take: 50,
+            select: {
+              id: true,
+              documentType: true,
+              fileName: true,
+              uploadedAt: true,
+              profile: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  barangay: true,
+                  registrationStatus: true,
+                },
+              },
+            },
+          })
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows.slice(
+                    0,
+                    30,
+                  )
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.documentType,
+                        row.fileName,
+                        row.profile
+                          .firstName,
+                        row.profile
+                          .lastName,
+                        row.profile
+                          .barangay,
+                      ].join(' '),
+                    30,
+                  )
+
+            sections.push(
+              'DOCUMENT METADATA MATCHES (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
     await Promise.all(tasks)
 
     return sections.join('\n')
@@ -1200,7 +1538,7 @@ export async function POST(request: NextRequest) {
       'Worker areas include Dashboard, My Relief Records, Activity History, Record Relief, Register Citizen, Field Notes, Community Updates, Daily Reports, and Help Guide.',
       'Vulnerable Citizen areas include Home, My Information, My Relief History, Send Feedback, Community Updates, and Help Guide.',
       'When the user asks what to do, give short numbered steps that match the signed-in role and current page when possible.',
-      'When an Administrator asks what data exists, summarize the database catalog and then describe the relevant current records. When they ask for a person, account, barangay, relief entry, announcement, feedback item, resource, or request, use the query-aware lookup instead of giving a generic navigation answer.',
+      'When an Administrator asks what data exists, summarize the database catalog and then describe the relevant current records. When they ask for a person, account, barangay, household, relief entry, announcement, feedback item, resource, field note, notification, registration draft, document metadata, or request, use the query-aware lookup instead of giving a generic navigation answer.',
       'AUTHORITATIVE MATCH RULE: If AUTHORITATIVE USER MATCHES or AUTHORITATIVE VULNERABLE PROFILE MATCHES contains a row, that record exists in CRMS. Never say the record was not found. When the user asks whether a named person exists, answer from those rows first and include the matched full name and role. A zero-row match is the only basis for saying no matching record was found.',
       'Do not expose password hashes, OTP state, API keys, or other authentication secrets. Those fields are intentionally never supplied.',
       'Keep answers concise and operational unless the user asks for detail.',
