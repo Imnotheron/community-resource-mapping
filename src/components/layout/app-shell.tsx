@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Sidebar } from './sidebar'
 import type { NavItem } from './sidebar'
 import { MobileAppNav } from './mobile-app-nav'
+import { CrmsAssistant } from '@/components/assistant/crms-assistant'
 import { Button } from '@/components/ui/button'
 import { DashboardAmbient } from '@/components/effects/dashboard-ambient'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -311,6 +312,11 @@ export function AppShell({
               userName={userName}
               userRole={userRole}
               userPhoto={userPhoto}
+            />
+
+            <CrmsAssistant
+              userName={userName}
+              userRole={userRole}
             />
 
             <footer className="relative z-10 hidden h-7 shrink-0 overflow-hidden border-t border-slate-200/80 bg-white/70 px-6 text-[0.6875rem] font-medium leading-none text-slate-500 backdrop-blur-xl md:block">
