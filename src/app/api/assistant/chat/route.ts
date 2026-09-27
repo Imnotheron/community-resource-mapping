@@ -252,6 +252,11 @@ function queryTerms(message: string) {
   return [
     ...new Set(
       message
+        .normalize('NFD')
+        .replace(
+          /[\u0300-\u036f]/g,
+          '',
+        )
         .toLowerCase()
         .replace(/[^a-z0-9@._-]+/g, ' ')
         .split(/\s+/)
