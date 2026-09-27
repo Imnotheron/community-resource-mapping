@@ -966,7 +966,10 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
         </div>
       </div>
 
-      <Card className="no-print border-slate-200">
+      <Card
+        data-tour="daily-reports-template-settings"
+        className="no-print border-slate-200"
+      >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4 text-emerald-600" />

@@ -837,6 +837,8 @@ function WorkerAnnouncementsGuide({ user }: { user: AuthUser }) {
 const REPORTS_ANCHOR = 'data-worker-reports-tour-anchor'
 const REPORTS_TARGETS = {
   header: '[data-tour="worker-reports-header"]',
+  template:
+    '[data-tour="daily-reports-template-settings"]',
   date: '[data-tour="worker-reports-date"]',
   summary: '[data-tour="worker-reports-summary"]',
   distributions: '[data-tour="worker-reports-distributions"]',
@@ -853,7 +855,12 @@ function workerReportsVisible() {
   const heading = findHeading('Daily Reports')
   if (!heading) return false
   const root = featureRoot('Daily Reports')
-  return Boolean(root && normalizedText(root.textContent).includes('Daily Worker Accomplishment Report'))
+  return Boolean(
+    root &&
+      root.querySelector<HTMLElement>(
+        '.report-print-root',
+      ),
+  )
 }
 
 function reportSection(root: ParentNode, title: string) {
@@ -883,16 +890,39 @@ function markReportsAnchors() {
     'Daily Reports',
     'Generate a date-based report, verify the figures, then print it on A4 paper.',
   ], 3)
+  const template =
+    root.querySelector<HTMLElement>(
+      REPORTS_TARGETS.template,
+    )
   const dateInput = root.querySelector<HTMLInputElement>('#report-date')
   const date = dateInput ? ancestorContaining(dateInput, ['Report date'], 3) : null
   const summary = report ? reportSection(report, 'Daily Summary') : reportTarget
-  const distributions = report ? reportSection(report, 'Relief Distributions') : reportTarget
-  const notes = report ? reportSection(report, 'Field Notes') : reportTarget
+  const distributions = report
+    ? reportSection(report, 'Relief Distributions') ??
+      reportTarget
+    : reportTarget
+  const notes = report
+    ? reportSection(report, 'Field Notes') ??
+      reportTarget
+    : reportTarget
   const print = findButton(root, 'Print Report')
 
-  if (!header || !date || !summary || !distributions || !notes || !print) return false
+  if (
+    !header ||
+    !template ||
+    !date ||
+    !summary ||
+    !distributions ||
+    !notes ||
+    !print
+  ) return false
 
   setTourAnchor(header, 'worker-reports-header', REPORTS_ANCHOR)
+  setTourAnchor(
+    template,
+    'worker-reports-template',
+    REPORTS_ANCHOR,
+  )
   setTourAnchor(date, 'worker-reports-date', REPORTS_ANCHOR)
   setTourAnchor(summary, 'worker-reports-summary', REPORTS_ANCHOR)
   setTourAnchor(distributions, 'worker-reports-distributions', REPORTS_ANCHOR)
@@ -905,7 +935,7 @@ function markReportsAnchors() {
 function WorkerReportsGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-daily-reports-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'Worker Daily Reports guide',
     role: 'WORKER',
     steps: [
@@ -924,6 +954,15 @@ function WorkerReportsGuide({ user }: { user: AuthUser }) {
           'Review the underlying distributions and field notes before signing or circulating a report. A generated total can still reflect an incorrect beneficiary, quantity, date, status, or note.',
         target: REPORTS_TARGETS.header,
         placement: 'bottom',
+        padding: 4,
+      },
+      {
+        id: 'template',
+        title: 'Choose the report layout and keep signatories current',
+        description:
+          'Formal shows full detail, Compact uses a tighter print layout, and Summary focuses on key totals. The report title and both signature names and positions can be edited and saved so personnel changes do not require a code change.',
+        target: REPORTS_TARGETS.template,
+        placement: 'auto',
         padding: 4,
       },
       {

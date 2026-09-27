@@ -15,7 +15,7 @@ export function createRegistrationFormTour(
 
   return {
     id: tourId,
-    version: 3,
+    version: 4,
     title: 'Registration form guide',
     role,
     steps: [
@@ -67,7 +67,7 @@ export function createRegistrationFormTour(
         id: 'personal',
         title: '1. Personal — identify and locate the correct person',
         description:
-          'Enter the name, date of birth, gender, contact details, and barangay. A red asterisk means the field is required. Use the map to verify the location, then check the address before moving on.',
+          'Enter the name, date of birth, gender, contact details, and barangay. A red asterisk means the field is required. Civil Status includes common choices but also allows manual typing when the correct value is not listed. Use the map to verify the location, then check the address before moving on.',
         target: TARGETS.section,
         placement: 'bottom',
         padding: 3,
@@ -87,7 +87,7 @@ export function createRegistrationFormTour(
         id: 'administrative',
         title: '3. Administrative — add support and emergency details',
         description:
-          'Use this section for administrative IDs, education or employment information, guardian details when applicable, and the emergency contact. The emergency contact and phone are important required fields.',
+          'Use this section for administrative IDs, education or employment information, guardian details when applicable, and the emergency contact. Education, employment status, and guardian relationship provide common dropdown choices plus a manual typing field for valid values that are not listed. The emergency contact and phone are important required fields.',
         target: TARGETS.section,
         placement: 'bottom',
         padding: 3,

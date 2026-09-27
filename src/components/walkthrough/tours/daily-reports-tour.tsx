@@ -22,6 +22,8 @@ const DISCOVERY_TIMEOUT_MS = 12_000
 const TARGETS = {
   header: '[data-tour="daily-reports-header"]',
   actions: '[data-tour="daily-reports-actions"]',
+  templateSettings:
+    '[data-tour="daily-reports-template-settings"]',
   date: '[data-tour="daily-reports-date"]',
   barangay: '[data-tour="daily-reports-barangay"]',
   worker: '[data-tour="daily-reports-worker"]',
@@ -164,6 +166,11 @@ function markDailyReportAnchors() {
     ? ancestorContaining(filtersTitle, ['Report date', 'Barangay', 'Worker'], 5)
     : null
 
+  const templateSettings =
+    root.querySelector<HTMLElement>(
+      TARGETS.templateSettings,
+    )
+
   const dateInput = root.querySelector<HTMLInputElement>('#report-date')
   const dateGroup = dateInput
     ? ancestorContaining(dateInput, ['Report date'], 3)
@@ -196,7 +203,13 @@ function markDailyReportAnchors() {
     : null
   const reportTarget = report ?? noData
 
-  if (loading || !filters || !dateGroup || !reportTarget) {
+  if (
+    loading ||
+    !templateSettings ||
+    !filters ||
+    !dateGroup ||
+    !reportTarget
+  ) {
     clearReportAnchors()
     return false
   }
@@ -214,6 +227,10 @@ function markDailyReportAnchors() {
 
   setAnchor(header, 'daily-reports-header')
   setAnchor(actions ?? header, 'daily-reports-actions')
+  setAnchor(
+    templateSettings,
+    'daily-reports-template-settings',
+  )
   setAnchor(dateGroup, 'daily-reports-date')
   setAnchor(barangayGroup ?? filters, 'daily-reports-barangay')
   setAnchor(workerGroup ?? filters, 'daily-reports-worker')
@@ -238,7 +255,7 @@ export function DailyReportsWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-daily-reports-first-use', user.id),
-      version: 1,
+      version: 2,
       title: 'Daily Reports guide',
       role: 'ADMIN',
       steps: [
@@ -257,6 +274,15 @@ export function DailyReportsWalkthrough({ user }: { user: AuthUser }) {
             'Daily Reports summarizes information already stored in CRMS. It does not independently confirm that every registration, distribution, field note, worker activity signal, or status is complete and correct. Review the underlying records before signing or circulating a report.',
           target: TARGETS.header,
           placement: 'bottom',
+          padding: 4,
+        },
+        {
+          id: 'template-settings',
+          title: 'Choose a report format and maintain the signatories',
+          description:
+            'Formal keeps the complete layout, Compact keeps the detail with tighter print spacing, and Summary focuses on key totals and summaries. You can edit the report title and the Prepared by and Reviewed / Approved by names and positions. Save report settings after a Mayor, MSWDO head, supervisor, or other authorized signatory changes.',
+          target: TARGETS.templateSettings,
+          placement: 'auto',
           padding: 4,
         },
         {

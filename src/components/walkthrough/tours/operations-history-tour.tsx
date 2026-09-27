@@ -6,7 +6,10 @@ import { History } from 'lucide-react'
 import type { AuthUser } from '@/lib/api-client'
 import { userScopedTourId } from '@/components/walkthrough/onboarding-policy'
 import { ContextualFeatureGuide } from '@/components/walkthrough/tours/contextual-feature-guide'
-import type { WalkthroughTour } from '@/components/walkthrough/types'
+import type {
+  WalkthroughStep,
+  WalkthroughTour,
+} from '@/components/walkthrough/types'
 
 type HistoryMode = 'admin' | 'worker'
 
@@ -14,6 +17,7 @@ const TARGETS = {
   root: '[data-tour="operations-history-root"]',
   header: '[data-tour="operations-history-header"]',
   refresh: '[data-tour="operations-history-refresh"]',
+  addRecord: '[data-tour="operations-history-add-record"]',
   summary: '[data-tour="operations-history-summary"]',
   tabs: '[data-tour="operations-history-tabs"]',
   reliefTab: '[data-tour="operations-history-tab-relief"]',
@@ -94,7 +98,7 @@ export function OperationsHistoryWalkthrough({
         `${mode}-operations-history-first-use`,
         user.id,
       ),
-      version: 1,
+      version: 2,
       title: isWorker
         ? 'Activity History guide'
         : 'Operations History guide',
@@ -182,6 +186,19 @@ export function OperationsHistoryWalkthrough({
           padding: 4,
           beforeEnter: () => showHistoryTab(mode, 'events'),
         },
+        ...(!isWorker
+          ? [
+              {
+                id: 'manual-history',
+                title: 'Recover a missed real-world record when necessary',
+                description:
+                  'Add Historical Record is for legitimate records that were not encoded at the time they happened. You can recover a past relief distribution or municipal event. Use the actual historical date and source information; do not create a record merely to change totals or map colors. Saved entries include an Administrator audit note.',
+                target: TARGETS.addRecord,
+                placement: 'left',
+                padding: 3,
+              } satisfies WalkthroughStep,
+            ]
+          : []),
         {
           id: 'refresh',
           title: 'Refresh when you need the latest saved history',

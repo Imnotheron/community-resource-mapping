@@ -456,6 +456,7 @@ export function OperationsHistory({
         <div className="flex flex-wrap gap-2">
           {mode === 'admin' ? (
             <Button
+              data-tour="operations-history-add-record"
               type="button"
               onClick={() => void openManualEntry()}
               className="gap-2"
