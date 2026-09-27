@@ -180,6 +180,51 @@ function chooseLiveModel(
   }
 }
 
+function chooseTurnVoiceModel(
+  accessibleNames: Set<string>,
+) {
+  const configured =
+    clean(
+      process.env.GEMINI_VOICE_FALLBACK_MODEL ||
+        process.env.GEMINI_TEXT_MODEL ||
+        process.env.GEMINI_MODEL,
+      100,
+    ) || 'gemini-3.5-flash-lite'
+
+  const candidates = [
+    configured,
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+  ].filter(
+    (model, index, all) =>
+      Boolean(model) &&
+      all.indexOf(model) === index,
+  )
+
+  return (
+    candidates.find((model) =>
+      accessibleNames.has(
+        `models/${model}`,
+      ),
+    ) || configured
+  )
+}
+
+function turnVoiceResponse(
+  model: string,
+  reason: string,
+) {
+  return NextResponse.json({
+    success: true,
+    mode: 'turn',
+    model,
+    reason,
+  })
+}
+
 async function createLiveToken(
   apiKey: string,
   body: Record<string, unknown>,
@@ -629,31 +674,14 @@ export async function POST(request: NextRequest) {
       modelChoice.selected
 
     if (!model) {
-      const accessibleLiveModels =
-        [...modelAccess.names]
-          .filter((name) =>
-            /live|native-audio/i.test(
-              name,
-            ),
-          )
-          .slice(0, 20)
+      const fallbackModel =
+        chooseTurnVoiceModel(
+          modelAccess.names,
+        )
 
-      return NextResponse.json(
-        {
-          success: false,
-          code:
-            'NO_SUPPORTED_LIVE_MODEL',
-          error:
-            'This Gemini project can authenticate, but none of the CRMS-supported Live models are available to it. CRMS checked Gemini 3.8 Live, Gemini 3.1 Flash Live Preview, and Gemini 2.5 Flash Native Audio.',
-          diagnostics: {
-            stage: 'models',
-            configuredModel,
-            triedModels:
-              modelChoice.candidates,
-            accessibleLiveModels,
-          },
-        },
-        { status: 409 },
+      return turnVoiceResponse(
+        fallbackModel,
+        'This Gemini project does not expose a conversational Live model, so CRMS automatically switched to compatible voice mode using Gemini audio understanding plus spoken browser output.',
       )
     }
 
@@ -724,6 +752,7 @@ export async function POST(request: NextRequest) {
     if (constrainedToken.ok) {
       return NextResponse.json({
         success: true,
+        mode: 'live',
         token:
           constrainedToken.token,
         tokenMode: 'constrained',
@@ -770,6 +799,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
+        mode: 'live',
         token: minimalToken.token,
         tokenMode: 'minimal',
         model,
@@ -807,42 +837,20 @@ export async function POST(request: NextRequest) {
         'Minimal token',
         minimalToken.error,
       )
-    const detail =
-      `${constrainedDetail} | ${minimalDetail}`
 
-    console.error(
-      'Gemini Live token creation failed:',
-      detail,
+    console.warn(
+      'Gemini Live token creation failed; switching to compatible voice mode:',
+      constrainedDetail,
+      minimalDetail,
     )
 
-    return NextResponse.json(
-      {
-        success: false,
-        code:
-          'GEMINI_LIVE_AUTH_FAILED',
-        error: detail,
-        diagnostics: {
-          stage: 'auth_tokens',
-          model,
-          keyType:
-            apiKey.startsWith('AQ.')
-              ? 'AQ auth key'
-              : apiKey.startsWith(
-                    'AIza',
-                  )
-                ? 'legacy API key'
-                : 'unknown key format',
-        },
-      },
-      {
-        status:
-          minimalToken.error
-            .httpStatus ||
-          constrainedToken.error
-            .httpStatus ||
-          502,
-      },
+    return turnVoiceResponse(
+      chooseTurnVoiceModel(
+        modelAccess.names,
+      ),
+      'Gemini Live authentication is unavailable for this project, so CRMS automatically switched to compatible voice mode.',
     )
+
   } catch (error) {
     console.error(
       'CRMS Live token error:',
