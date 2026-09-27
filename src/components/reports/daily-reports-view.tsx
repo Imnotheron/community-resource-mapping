@@ -375,6 +375,7 @@ function WorkerReport({
         </div>
       </section>
 
+      {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Relief Distributions
@@ -420,6 +421,7 @@ function WorkerReport({
           </table>
         </ReportTable>
       </section>
+      )}
 
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
