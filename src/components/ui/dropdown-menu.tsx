@@ -83,7 +83,6 @@ function DropdownMenuContent({
   className,
   sideOffset = 4,
   onPointerDownOutside,
-  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   const dismiss =
@@ -106,15 +105,6 @@ function DropdownMenuContent({
           onPointerDownOutside?.(
             event,
           )
-
-          if (
-            !event.defaultPrevented
-          ) {
-            dismiss?.()
-          }
-        }}
-        onFocusOutside={(event) => {
-          onFocusOutside?.(event)
 
           if (
             !event.defaultPrevented
