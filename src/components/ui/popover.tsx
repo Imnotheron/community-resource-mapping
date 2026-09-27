@@ -70,7 +70,6 @@ function PopoverContent({
   align = "center",
   sideOffset = 4,
   onPointerDownOutside,
-  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   const dismiss =
@@ -94,15 +93,6 @@ function PopoverContent({
           onPointerDownOutside?.(
             event,
           )
-
-          if (
-            !event.defaultPrevented
-          ) {
-            dismiss?.()
-          }
-        }}
-        onFocusOutside={(event) => {
-          onFocusOutside?.(event)
 
           if (
             !event.defaultPrevented
