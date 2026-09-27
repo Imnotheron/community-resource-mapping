@@ -5,8 +5,13 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 
+type PopoverDismissContextValue = {
+  dismiss: () => void
+  ownerId: string
+}
+
 const PopoverDismissContext =
-  React.createContext<(() => void) | null>(
+  React.createContext<PopoverDismissContextValue | null>(
     null,
   )
 
@@ -20,6 +25,7 @@ function Popover({
     React.useState(defaultOpen ?? false)
   const open =
     controlledOpen ?? internalOpen
+  const ownerId = React.useId()
 
   const handleOpenChange =
     React.useCallback(
@@ -43,9 +49,62 @@ function Popover({
     [handleOpenChange],
   )
 
+  React.useEffect(() => {
+    if (
+      !open ||
+      typeof document === 'undefined'
+    ) {
+      return
+    }
+
+    const onDocumentPointerDown = (
+      event: PointerEvent,
+    ) => {
+      const target = event.target
+
+      if (!(target instanceof Element)) {
+        dismiss()
+        return
+      }
+
+      if (
+        target.closest(
+          `[data-crms-popover-owner="${ownerId}"]`,
+        )
+      ) {
+        return
+      }
+
+      dismiss()
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      onDocumentPointerDown,
+      true,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        onDocumentPointerDown,
+        true,
+      )
+    }
+  }, [dismiss, open, ownerId])
+
+  const contextValue =
+    React.useMemo(
+      () => ({
+        dismiss,
+        ownerId,
+      }),
+      [dismiss, ownerId],
+    )
+
   return (
     <PopoverDismissContext.Provider
-      value={dismiss}
+      value={contextValue}
     >
       <PopoverPrimitive.Root
         data-slot="popover"
@@ -62,7 +121,20 @@ function Popover({
 function PopoverTrigger({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+  const context =
+    React.useContext(
+      PopoverDismissContext,
+    )
+
+  return (
+    <PopoverPrimitive.Trigger
+      data-slot="popover-trigger"
+      data-crms-popover-owner={
+        context?.ownerId
+      }
+      {...props}
+    />
+  )
 }
 
 function PopoverContent({
@@ -72,15 +144,20 @@ function PopoverContent({
   onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
-  const dismiss =
+  const context =
     React.useContext(
       PopoverDismissContext,
     )
+  const dismiss =
+    context?.dismiss
 
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
+        data-crms-popover-owner={
+          context?.ownerId
+        }
         align={align}
         sideOffset={sideOffset}
         className={cn(
