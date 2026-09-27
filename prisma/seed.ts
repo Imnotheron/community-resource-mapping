@@ -247,7 +247,6 @@ const VULNERABLE_ACCOUNTS = [
     needsAssistance: true,
     assistanceType: 'Medicine, Food assistance',
   },
-,
   {
     email: 'demo.bangon@crms.test',
     name: 'Demo Resident Bangon',
@@ -303,6 +302,22 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10)
   const workerPassword = await bcrypt.hash('worker123', 10)
   const vulnerablePassword = await bcrypt.hash('vulnerable123', 10)
+
+  const invalidVulnerableEntries =
+    VULNERABLE_ACCOUNTS.filter(
+      (account) =>
+        !account ||
+        !account.email ||
+        !account.barangay ||
+        !Number.isFinite(account.lat) ||
+        !Number.isFinite(account.lng),
+    )
+
+  if (invalidVulnerableEntries.length > 0) {
+    throw new Error(
+      'Demo vulnerable account configuration contains an invalid or incomplete entry.',
+    )
+  }
 
   for (const account of ADMIN_ACCOUNTS) {
     await prisma.user.upsert({
