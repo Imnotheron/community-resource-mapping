@@ -244,11 +244,11 @@ function markdownToSpeech(
 ) {
   return value
     .replace(
-      /^#{1,6}\\s+/gm,
+      /^#{1,6}\s+/gm,
       '',
     )
     .replace(
-      /\\*\\*([^*]+)\\*\\*/g,
+      /\*\*([^*]+)\*\*/g,
       '$1',
     )
     .replace(
@@ -256,7 +256,7 @@ function markdownToSpeech(
       '$1',
     )
     .replace(
-      /\\*([^*]+)\\*/g,
+      /\*([^*]+)\*/g,
       '$1',
     )
     .replace(
@@ -264,35 +264,36 @@ function markdownToSpeech(
       '$1',
     )
     .replace(
-      /^\\s*[-*+]\\s+/gm,
+      /^\s*[-*+]\s+/gm,
       '',
     )
     .replace(
-      /^\\s*\\d+[.)]\\s+/gm,
+      /^\s*\d+[.)]\s+/gm,
       '',
     )
     .replace(
-      /\\x60([^\\x60]+)\\x60/g,
+      /\x60([^\x60]+)\x60/g,
       '$1',
     )
     .replace(
-      /\\[(.*?)\\]\\([^)]*\\)/g,
+      /\[(.*?)\]\([^)]*\)/g,
       '$1',
     )
     .replace(
-      /\\n{2,}/g,
+      /\n{2,}/g,
       '. ',
     )
     .replace(
-      /\\n/g,
+      /\n/g,
       ' ',
     )
     .replace(
-      /\\s+/g,
+      /\s+/g,
       ' ',
     )
     .trim()
 }
+
 function appendTranscript(
   current: string,
   next: string,
