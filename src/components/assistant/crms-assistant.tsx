@@ -1358,7 +1358,7 @@ export function CrmsAssistant({
       'Requesting microphone permission…',
     )
     setProviderLabel(
-      'Connecting Gemini Live…',
+      'Starting Voice Chat…',
     )
 
     try {
@@ -1379,7 +1379,7 @@ export function CrmsAssistant({
         stream
 
       setVoiceStatus(
-        'Getting secure Gemini Live access…',
+        'Checking available voice mode…',
       )
 
       const token =
