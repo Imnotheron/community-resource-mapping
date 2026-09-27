@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -470,16 +471,24 @@ export default function VulnerableRegistration() {
 
             <div>
               <Label htmlFor="barangay" className="text-slate-700">Barangay *</Label>
-              <Select value={formData.barangay} onValueChange={(value) => setFormData({ ...formData, barangay: value })}>
-                <SelectTrigger className="mt-1 bg-white border-slate-300 text-slate-900">
-                  <SelectValue placeholder="Select barangay" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-300">
-                  {barangays.map((barangay) => (
-                    <SelectItem key={barangay} value={barangay} className="text-slate-900">{barangay}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.barangay}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    barangay: value,
+                  })
+                }
+                placeholder="Select barangay"
+                searchPlaceholder="Type a barangay..."
+                className="mt-1 bg-white border-slate-300 text-slate-900"
+                options={barangays.map(
+                  (barangay) => ({
+                    value: barangay,
+                    label: barangay,
+                  }),
+                )}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
