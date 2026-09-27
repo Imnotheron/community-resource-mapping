@@ -103,7 +103,6 @@ function SelectContent({
   children,
   position = "popper",
   onPointerDownOutside,
-  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   const dismiss =
@@ -128,15 +127,6 @@ function SelectContent({
           onPointerDownOutside?.(
             event,
           )
-
-          if (
-            !event.defaultPrevented
-          ) {
-            dismiss?.()
-          }
-        }}
-        onFocusOutside={(event) => {
-          onFocusOutside?.(event)
 
           if (
             !event.defaultPrevented
