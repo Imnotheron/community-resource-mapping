@@ -11,6 +11,7 @@ import {
   AudioLines,
   Bot,
   Loader2,
+  MessageSquarePlus,
   PhoneOff,
   Send,
   Sparkles,
@@ -188,6 +189,8 @@ export function CrmsAssistant({
     )
   const silenceTimerRef =
     useRef<number | null>(null)
+  const voiceSubmitTimerRef =
+    useRef<number | null>(null)
   const voiceTranscriptRef =
     useRef('')
   const voiceTurnSubmittedRef =
@@ -262,6 +265,14 @@ export function CrmsAssistant({
           silenceTimerRef.current,
         )
       }
+
+      if (
+        voiceSubmitTimerRef.current !== null
+      ) {
+        window.clearTimeout(
+          voiceSubmitTimerRef.current,
+        )
+      }
     }
   }, [])
 
@@ -306,16 +317,50 @@ export function CrmsAssistant({
     }
   }
 
+  function clearVoiceSubmitTimer() {
+    if (
+      voiceSubmitTimerRef.current !== null
+    ) {
+      window.clearTimeout(
+        voiceSubmitTimerRef.current,
+      )
+      voiceSubmitTimerRef.current = null
+    }
+  }
+
+  function startNewChat() {
+    stopVoiceMode()
+    clearVoiceSubmitTimer()
+    messagesRef.current = []
+    setMessages([])
+    setInput('')
+    setProviderLabel(
+      'AI connection not verified',
+    )
+    setVoiceStatus('Voice chat ready')
+    toast.success('New CRMS chat started')
+  }
+
   function stopRecognition() {
     clearSilenceTimer()
+    clearVoiceSubmitTimer()
 
-    try {
-      recognitionRef.current?.abort()
-    } catch {
-      // It may already be stopped.
+    const recognition =
+      recognitionRef.current
+    recognitionRef.current = null
+
+    if (recognition) {
+      recognition.onresult = null
+      recognition.onerror = null
+      recognition.onend = null
+
+      try {
+        recognition.abort()
+      } catch {
+        // It may already be stopped.
+      }
     }
 
-    recognitionRef.current = null
     setListening(false)
   }
 
@@ -515,6 +560,7 @@ export function CrmsAssistant({
 
     voiceTurnSubmittedRef.current = true
     clearSilenceTimer()
+    clearVoiceSubmitTimer()
 
     try {
       recognitionRef.current?.stop()
@@ -635,9 +681,26 @@ export function CrmsAssistant({
         `Heard: "${transcript}"`,
       )
 
+      clearVoiceSubmitTimer()
+
       if (hasFinalResult) {
         submitVoiceTranscript()
+        return
       }
+
+      // Some Chromium/Web Speech implementations keep returning interim
+      // text without marking a final result. Submit after a short pause so
+      // Voice Chat never listens forever after the user has already spoken.
+      voiceSubmitTimerRef.current =
+        window.setTimeout(() => {
+          if (
+            voiceModeRef.current &&
+            voiceTranscriptRef.current.trim() &&
+            !voiceTurnSubmittedRef.current
+          ) {
+            submitVoiceTranscript()
+          }
+        }, 1_400)
     }
 
     recognition.onerror = (
@@ -934,19 +997,33 @@ export function CrmsAssistant({
           }}
         >
           <SheetHeader className="border-b bg-emerald-50/70 pr-12">
-            <div className="flex items-center gap-2">
-              <div className="grid h-9 w-9 place-items-center rounded-2xl bg-emerald-700 text-white">
-                <Sparkles className="h-4 w-4" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+
+                <div className="min-w-0">
+                  <SheetTitle>
+                    CRMS Assistant
+                  </SheetTitle>
+                  <SheetDescription>
+                    CRMS-only help with live database lookup.
+                  </SheetDescription>
+                </div>
               </div>
 
-              <div>
-                <SheetTitle>
-                  CRMS Assistant
-                </SheetTitle>
-                <SheetDescription>
-                  CRMS-only help using current system context.
-                </SheetDescription>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={startNewChat}
+                className="shrink-0 gap-1.5 px-2 text-xs"
+                title="Start a new CRMS chat"
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+                New chat
+              </Button>
             </div>
           </SheetHeader>
 
@@ -976,7 +1053,7 @@ export function CrmsAssistant({
                   {providerLabel}
                 </span>
                 <span className="text-slate-500">
-                  Live CRMS context
+                  Live DB lookup
                 </span>
               </div>
 
@@ -1003,7 +1080,7 @@ export function CrmsAssistant({
               ) : null}
 
               <p className="text-xs leading-5 text-muted-foreground">
-                This assistant is limited to CRMS. It uses your role, current page, recent CRMS conversation, and a role-appropriate current system snapshot. Never give it your password, OTP, or API key.
+                This assistant is limited to CRMS. For each question it can look up role-appropriate current records from the CRMS database, including users, registrations, relief history, announcements, feedback, resources, and other system data. Authentication secrets are never included.
               </p>
 
               {messages.map(

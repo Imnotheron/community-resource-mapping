@@ -191,6 +191,800 @@ async function buildLiveSystemContext({
     `Your feedback records: ${feedbackCount}.`,
     `Active announcements visible to Vulnerable Citizens: ${visibleAnnouncements}.`,
   ].join('\n')
+
+}
+
+const QUERY_STOPWORDS = new Set([
+  'about',
+  'after',
+  'again',
+  'anything',
+  'available',
+  'can',
+  'could',
+  'current',
+  'data',
+  'database',
+  'does',
+  'find',
+  'from',
+  'give',
+  'have',
+  'inside',
+  'into',
+  'know',
+  'list',
+  'me',
+  'record',
+  'records',
+  'show',
+  'system',
+  'tell',
+  'that',
+  'the',
+  'their',
+  'there',
+  'these',
+  'this',
+  'what',
+  'where',
+  'which',
+  'with',
+  'would',
+])
+
+function queryTerms(message: string) {
+  return [
+    ...new Set(
+      message
+        .toLowerCase()
+        .replace(/[^a-z0-9@._-]+/g, ' ')
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter(
+          (term) =>
+            term.length >= 3 &&
+            !QUERY_STOPWORDS.has(term),
+        ),
+    ),
+  ].slice(0, 8)
+}
+
+function mentions(
+  message: string,
+  keywords: string[],
+) {
+  const normalized = message.toLowerCase()
+
+  return keywords.some((keyword) =>
+    normalized.includes(keyword),
+  )
+}
+
+function compactJson(value: unknown) {
+  return JSON.stringify(
+    value,
+    (_key, item) =>
+      item instanceof Date
+        ? item.toISOString()
+        : item,
+  )
+}
+
+async function buildQueryAwareContext({
+  role,
+  userId,
+  message,
+}: {
+  role: string
+  userId: string
+  message: string
+}) {
+  const terms = queryTerms(message)
+  const broadDataQuestion = mentions(message, [
+    'what data',
+    'what is inside',
+    'what\'s inside',
+    'everything',
+    'all data',
+    'all records',
+    'database',
+    'system data',
+    'system records',
+    'overview',
+  ])
+
+  if (role === 'ADMIN') {
+    const counts = await Promise.all([
+      db.user.count(),
+      db.vulnerableProfile.count(),
+      db.household.count(),
+      db.reliefDistribution.count(),
+      db.announcement.count(),
+      db.feedback.count(),
+      db.reliefFeedback.count(),
+      db.communityResource.count(),
+      db.fieldNote.count(),
+      db.notification.count(),
+      db.adminSignupRequest.count(),
+      db.vulnerableRegistrationDraft.count(),
+      db.vulnerabilityDocument.count(),
+    ])
+
+    const catalog = {
+      users: counts[0],
+      vulnerableProfiles: counts[1],
+      households: counts[2],
+      reliefDistributions: counts[3],
+      announcements: counts[4],
+      generalFeedback: counts[5],
+      reliefFeedback: counts[6],
+      communityResources: counts[7],
+      fieldNotes: counts[8],
+      notifications: counts[9],
+      adminSignupRequests: counts[10],
+      registrationDrafts: counts[11],
+      vulnerabilityDocuments: counts[12],
+    }
+
+    const wantsUsers =
+      broadDataQuestion ||
+      mentions(message, [
+        'user',
+        'account',
+        'admin',
+        'worker',
+        'email',
+        'phone',
+      ])
+    const wantsProfiles =
+      broadDataQuestion ||
+      mentions(message, [
+        'vulnerable',
+        'citizen',
+        'profile',
+        'registration',
+        'pwd',
+        'senior',
+        'barangay',
+        'assistance',
+      ])
+    const wantsRelief =
+      broadDataQuestion ||
+      mentions(message, [
+        'relief',
+        'distribution',
+        'goods',
+        'history',
+        'operation',
+      ])
+    const wantsAnnouncements =
+      broadDataQuestion ||
+      mentions(message, [
+        'announcement',
+        'event',
+        'activity',
+        'notice',
+      ])
+    const wantsFeedback =
+      broadDataQuestion ||
+      mentions(message, [
+        'feedback',
+        'concern',
+        'complaint',
+      ])
+    const wantsResources =
+      broadDataQuestion ||
+      mentions(message, [
+        'resource',
+        'facility',
+        'center',
+        'map',
+      ])
+    const wantsAdminRequests =
+      broadDataQuestion ||
+      mentions(message, [
+        'signup',
+        'admin request',
+        'approval request',
+      ])
+
+    const userWhere =
+      terms.length > 0
+        ? {
+            OR: terms.flatMap((term) => [
+              { name: { contains: term } },
+              { email: { contains: term } },
+              { phone: { contains: term } },
+              { role: { contains: term.toUpperCase() } },
+            ]),
+          }
+        : undefined
+
+    const profileWhere =
+      terms.length > 0
+        ? {
+            OR: terms.flatMap((term) => [
+              { firstName: { contains: term } },
+              { middleName: { contains: term } },
+              { lastName: { contains: term } },
+              { emailAddress: { contains: term } },
+              { mobileNumber: { contains: term } },
+              { barangay: { contains: term } },
+              { registrationStatus: { contains: term.toUpperCase() } },
+              { vulnerabilityTypes: { contains: term.toUpperCase() } },
+              { assistanceType: { contains: term } },
+            ]),
+          }
+        : undefined
+
+    const reliefWhere =
+      terms.length > 0
+        ? {
+            OR: terms.flatMap((term) => [
+              { distributionType: { contains: term } },
+              { itemsProvided: { contains: term } },
+              { notes: { contains: term } },
+              { status: { contains: term.toUpperCase() } },
+              {
+                worker: {
+                  name: { contains: term },
+                },
+              },
+              {
+                vulnerableProfile: {
+                  OR: [
+                    { firstName: { contains: term } },
+                    { lastName: { contains: term } },
+                    { barangay: { contains: term } },
+                  ],
+                },
+              },
+            ]),
+          }
+        : undefined
+
+    const announcementWhere =
+      terms.length > 0
+        ? {
+            OR: terms.flatMap((term) => [
+              { title: { contains: term } },
+              { content: { contains: term } },
+              { type: { contains: term } },
+              { location: { contains: term } },
+              { priority: { contains: term.toUpperCase() } },
+            ]),
+          }
+        : undefined
+
+    const feedbackWhere =
+      terms.length > 0
+        ? {
+            OR: terms.flatMap((term) => [
+              { subject: { contains: term } },
+              { message: { contains: term } },
+              { status: { contains: term.toUpperCase() } },
+              {
+                user: {
+                  OR: [
+                    { name: { contains: term } },
+                    { email: { contains: term } },
+                  ],
+                },
+              },
+            ]),
+          }
+        : undefined
+
+    const resourceWhere =
+      terms.length > 0
+        ? {
+            OR: terms.flatMap((term) => [
+              { name: { contains: term } },
+              { type: { contains: term } },
+              { address: { contains: term } },
+              { barangay: { contains: term } },
+            ]),
+          }
+        : undefined
+
+    const sections: string[] = [
+      'ADMIN DATABASE CATALOG: ' +
+        compactJson(catalog),
+    ]
+
+    const tasks: Promise<void>[] = []
+
+    if (wantsUsers) {
+      tasks.push(
+        db.user
+          .findMany({
+            where: userWhere,
+            orderBy: { updatedAt: 'desc' },
+            take: broadDataQuestion ? 20 : 30,
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              phone: true,
+              isOnline: true,
+              lastSeenAt: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          })
+          .then((rows) => {
+            sections.push(
+              'USER LOOKUP (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsProfiles) {
+      tasks.push(
+        db.vulnerableProfile
+          .findMany({
+            where: profileWhere,
+            orderBy: { updatedAt: 'desc' },
+            take: broadDataQuestion ? 20 : 30,
+            select: {
+              id: true,
+              firstName: true,
+              middleName: true,
+              lastName: true,
+              suffix: true,
+              gender: true,
+              civilStatus: true,
+              mobileNumber: true,
+              emailAddress: true,
+              barangay: true,
+              municipality: true,
+              province: true,
+              registrationStatus: true,
+              vulnerabilityTypes: true,
+              needsAssistance: true,
+              assistanceType: true,
+              latitude: true,
+              longitude: true,
+              createdAt: true,
+              updatedAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+          })
+          .then((rows) => {
+            sections.push(
+              'VULNERABLE PROFILE LOOKUP (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsRelief) {
+      tasks.push(
+        db.reliefDistribution
+          .findMany({
+            where: reliefWhere,
+            orderBy: {
+              distributionDate: 'desc',
+            },
+            take: broadDataQuestion ? 20 : 30,
+            select: {
+              id: true,
+              distributionDate: true,
+              distributionType: true,
+              itemsProvided: true,
+              quantity: true,
+              notes: true,
+              status: true,
+              rejectionReason: true,
+              createdAt: true,
+              worker: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              vulnerableProfile: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  barangay: true,
+                },
+              },
+            },
+          })
+          .then((rows) => {
+            sections.push(
+              'RELIEF LOOKUP (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsAnnouncements) {
+      tasks.push(
+        db.announcement
+          .findMany({
+            where: announcementWhere,
+            orderBy: { createdAt: 'desc' },
+            take: broadDataQuestion ? 15 : 25,
+            select: {
+              id: true,
+              title: true,
+              content: true,
+              type: true,
+              targetRole: true,
+              eventDate: true,
+              eventTime: true,
+              location: true,
+              isActive: true,
+              priority: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          })
+          .then((rows) => {
+            sections.push(
+              'ANNOUNCEMENT / EVENT LOOKUP (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsFeedback) {
+      tasks.push(
+        Promise.all([
+          db.feedback.findMany({
+            where: feedbackWhere,
+            orderBy: { createdAt: 'desc' },
+            take: broadDataQuestion ? 15 : 25,
+            select: {
+              id: true,
+              type: true,
+              subject: true,
+              message: true,
+              status: true,
+              adminResponse: true,
+              adminResponseDate: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          }),
+          db.reliefFeedback.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: broadDataQuestion ? 10 : 20,
+            select: {
+              id: true,
+              feedbackType: true,
+              message: true,
+              status: true,
+              adminResponse: true,
+              adminResponseDate: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              reliefDistribution: {
+                select: {
+                  id: true,
+                  distributionDate: true,
+                  distributionType: true,
+                  status: true,
+                },
+              },
+            },
+          }),
+        ]).then(([general, relief]) => {
+          sections.push(
+            'GENERAL FEEDBACK LOOKUP (' +
+              general.length +
+              ' rows): ' +
+              compactJson(general),
+          )
+          sections.push(
+            'RELIEF FEEDBACK LOOKUP (' +
+              relief.length +
+              ' rows): ' +
+              compactJson(relief),
+          )
+        }),
+      )
+    }
+
+    if (wantsResources) {
+      tasks.push(
+        db.communityResource
+          .findMany({
+            where: resourceWhere,
+            orderBy: { updatedAt: 'desc' },
+            take: broadDataQuestion ? 20 : 30,
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              address: true,
+              barangay: true,
+              latitude: true,
+              longitude: true,
+              capacity: true,
+              contactInfo: true,
+              isActive: true,
+              updatedAt: true,
+            },
+          })
+          .then((rows) => {
+            sections.push(
+              'COMMUNITY RESOURCE LOOKUP (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    if (wantsAdminRequests) {
+      tasks.push(
+        db.adminSignupRequest
+          .findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              position: true,
+              reason: true,
+              status: true,
+              rejectionReason: true,
+              reviewedAt: true,
+              createdAt: true,
+            },
+          })
+          .then((rows) => {
+            sections.push(
+              'ADMIN SIGNUP REQUEST LOOKUP (' +
+                rows.length +
+                ' rows): ' +
+                compactJson(rows),
+            )
+          }),
+      )
+    }
+
+    await Promise.all(tasks)
+
+    return sections.join('\n')
+  }
+
+  if (role === 'WORKER') {
+    const [
+      reliefRows,
+      fieldNotes,
+      profiles,
+      announcements,
+    ] = await Promise.all([
+      db.reliefDistribution.findMany({
+        where: { workerId: userId },
+        orderBy: {
+          distributionDate: 'desc',
+        },
+        take: 25,
+        select: {
+          id: true,
+          distributionDate: true,
+          distributionType: true,
+          itemsProvided: true,
+          quantity: true,
+          notes: true,
+          status: true,
+          rejectionReason: true,
+          vulnerableProfile: {
+            select: {
+              firstName: true,
+              lastName: true,
+              barangay: true,
+            },
+          },
+        },
+      }),
+      db.fieldNote.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          note: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      db.vulnerableProfile.findMany({
+        where: {
+          registrationStatus: 'APPROVED',
+          ...(terms.length > 0
+            ? {
+                OR: terms.flatMap((term) => [
+                  { firstName: { contains: term } },
+                  { lastName: { contains: term } },
+                  { barangay: { contains: term } },
+                  { assistanceType: { contains: term } },
+                ]),
+              }
+            : {}),
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          barangay: true,
+          vulnerabilityTypes: true,
+          needsAssistance: true,
+          assistanceType: true,
+          registrationStatus: true,
+        },
+      }),
+      db.announcement.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { targetRole: null },
+            { targetRole: 'ALL' },
+            { targetRole: 'WORKER' },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          type: true,
+          eventDate: true,
+          eventTime: true,
+          location: true,
+          priority: true,
+          createdAt: true,
+        },
+      }),
+    ])
+
+    return [
+      'WORKER-ACCESSIBLE RELIEF RECORDS: ' +
+        compactJson(reliefRows),
+      'WORKER FIELD NOTES: ' +
+        compactJson(fieldNotes),
+      'MATCHING APPROVED VULNERABLE PROFILES: ' +
+        compactJson(profiles),
+      'WORKER-VISIBLE ANNOUNCEMENTS: ' +
+        compactJson(announcements),
+    ].join('\n')
+  }
+
+  const profile =
+    await db.vulnerableProfile.findUnique({
+      where: { userId },
+      include: {
+        household: true,
+        reliefDistributions: {
+          orderBy: {
+            distributionDate: 'desc',
+          },
+          take: 25,
+          select: {
+            id: true,
+            distributionDate: true,
+            distributionType: true,
+            itemsProvided: true,
+            quantity: true,
+            status: true,
+            notes: true,
+          },
+        },
+      },
+    })
+
+  const [feedback, reliefFeedback, announcements] =
+    await Promise.all([
+      db.feedback.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          type: true,
+          subject: true,
+          message: true,
+          status: true,
+          adminResponse: true,
+          adminResponseDate: true,
+          createdAt: true,
+        },
+      }),
+      db.reliefFeedback.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          feedbackType: true,
+          message: true,
+          status: true,
+          adminResponse: true,
+          adminResponseDate: true,
+          createdAt: true,
+        },
+      }),
+      db.announcement.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { targetRole: null },
+            { targetRole: 'ALL' },
+            { targetRole: 'VULNERABLE' },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          type: true,
+          eventDate: true,
+          eventTime: true,
+          location: true,
+          priority: true,
+          createdAt: true,
+        },
+      }),
+    ])
+
+  return [
+    'SIGNED-IN VULNERABLE PROFILE: ' +
+      compactJson(profile),
+    'YOUR GENERAL FEEDBACK: ' +
+      compactJson(feedback),
+    'YOUR RELIEF FEEDBACK: ' +
+      compactJson(reliefFeedback),
+    'ANNOUNCEMENTS VISIBLE TO YOU: ' +
+      compactJson(announcements),
+  ].join('\n')
 }
 
 export async function POST(request: NextRequest) {
@@ -264,14 +1058,21 @@ export async function POST(request: NextRequest) {
         activeViewLabel,
       })
 
+    const queryAwareContext =
+      await buildQueryAwareContext({
+        role: auth.role,
+        userId: auth.userId,
+        message,
+      })
+
     const systemInstruction = [
       'You are CRMS Assistant, the dedicated in-app assistant for the Community Resource Mapping System (CRMS) of San Policarpo, Eastern Samar.',
       `The signed-in role is ${auth.role}.`,
       'STRICT SCOPE: Answer only questions about this CRMS system, its current data snapshot supplied below, its screens, workflows, roles, registration, relief distribution, Operations/Activity History, announcements, feedback, analytics, maps, reports, authentication, account setup, or how to perform an action inside CRMS.',
       'If the user asks about unrelated topics such as general trivia, entertainment, homework unrelated to CRMS, politics, shopping, coding outside this CRMS project, or other subjects, politely say that you are limited to CRMS and ask them to phrase a CRMS-related question. Do not answer the unrelated question.',
-      'Use the live system context below to answer questions such as what is pending, what is currently recorded, what page the user is on, or what they should do next.',
+      'Use BOTH the live system snapshot and the query-aware database lookup below. The backend searches CRMS records for every relevant question so you can answer from actual current data instead of saying you cannot see the system.',
       'Treat the live context as a current snapshot from CRMS, not as permanent truth. Say "currently" or "in the current CRMS snapshot" when quoting live totals.',
-      'Never invent records, people, totals, dates, approvals, locations, statuses, or actions that are not present in the supplied context or conversation.',
+      'Never invent records, people, totals, dates, approvals, locations, statuses, or actions. If a lookup section explicitly has 0 rows, say no matching record was found in that current lookup. If matching rows are supplied, use them directly and accurately.',
       'Do not claim that an action was completed unless CRMS actually completed it.',
       'Never ask for passwords, OTP codes, API keys, or unnecessary sensitive personal information.',
       'Respect role boundaries. Administrators can discuss municipality-wide operational totals. Workers should only receive their own worker-level operational context. Vulnerable Citizens should only receive their own profile-level context.',
@@ -279,10 +1080,15 @@ export async function POST(request: NextRequest) {
       'Worker areas include Dashboard, My Relief Records, Activity History, Record Relief, Register Citizen, Field Notes, Community Updates, Daily Reports, and Help Guide.',
       'Vulnerable Citizen areas include Home, My Information, My Relief History, Send Feedback, Community Updates, and Help Guide.',
       'When the user asks what to do, give short numbered steps that match the signed-in role and current page when possible.',
+      'When an Administrator asks what data exists, summarize the database catalog and then describe the relevant current records. When they ask for a person, account, barangay, relief entry, announcement, feedback item, resource, or request, use the query-aware lookup instead of giving a generic navigation answer.',
+      'Do not expose password hashes, OTP state, API keys, or other authentication secrets. Those fields are intentionally never supplied.',
       'Keep answers concise and operational unless the user asks for detail.',
       '',
       'CURRENT LIVE CRMS CONTEXT:',
       liveContext,
+      '',
+      'QUERY-AWARE CRMS DATABASE LOOKUP:',
+      queryAwareContext,
     ].join('\n')
 
     const response = await fetch(
