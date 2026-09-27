@@ -277,17 +277,25 @@ function MyDistributionsView({ workerId }: { workerId: string }) {
             </SelectContent>
           </Select>
 
-          <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
-            <SelectContent className="max-h-72 overflow-y-auto">
-              <SelectItem value="ALL">All barangays</SelectItem>
-              {barangays.map((barangay) => (
-                <SelectItem key={barangay} value={barangay}>
-                  {barangay}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={barangayFilter}
+            onValueChange={setBarangayFilter}
+            placeholder="All barangays"
+            searchPlaceholder="Type a barangay..."
+            className="min-w-40"
+            options={[
+              {
+                value: 'ALL',
+                label: 'All barangays',
+              },
+              ...barangays.map(
+                (barangay) => ({
+                  value: barangay,
+                  label: barangay,
+                }),
+              ),
+            ]}
+          />
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
