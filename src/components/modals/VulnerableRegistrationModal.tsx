@@ -1388,12 +1388,28 @@ export default function VulnerableRegistrationModal({
                 <SelectValue placeholder="Select civil status" />
               </SelectTrigger>
               <SelectContent>
+                {form.civilStatus &&
+                !['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(
+                  form.civilStatus,
+                ) ? (
+                  <SelectItem value={form.civilStatus}>
+                    {form.civilStatus} (custom)
+                  </SelectItem>
+                ) : null}
                 <SelectItem value="SINGLE">Single</SelectItem>
                 <SelectItem value="MARRIED">Married</SelectItem>
                 <SelectItem value="WIDOWED">Widowed</SelectItem>
                 <SelectItem value="SEPARATED">Separated</SelectItem>
               </SelectContent>
             </Select>
+            <Input
+              value={form.civilStatus}
+              onChange={(event) =>
+                updateField('civilStatus', event.target.value)
+              }
+              placeholder="Or type a civil status manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="Mobile Number" field="mobileNumber" required error={errors.mobileNumber}>
@@ -1982,6 +1998,17 @@ export default function VulnerableRegistrationModal({
                 )}
               </SelectContent>
             </Select>
+            <Input
+              value={form.educationalAttainment}
+              onChange={(event) =>
+                updateField(
+                  'educationalAttainment',
+                  event.target.value,
+                )
+              }
+              placeholder="Or type educational attainment manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="School Name">
@@ -2018,6 +2045,17 @@ export default function VulnerableRegistrationModal({
                 ))}
               </SelectContent>
             </Select>
+            <Input
+              value={form.employmentStatus}
+              onChange={(event) =>
+                updateField(
+                  'employmentStatus',
+                  event.target.value,
+                )
+              }
+              placeholder="Or type employment status manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="Employment Details">
@@ -2072,6 +2110,17 @@ export default function VulnerableRegistrationModal({
                 )}
               </SelectContent>
             </Select>
+            <Input
+              value={form.guardianRelationship}
+              onChange={(event) =>
+                updateField(
+                  'guardianRelationship',
+                  event.target.value,
+                )
+              }
+              placeholder="Or type relationship manually"
+              className="mt-2"
+            />
           </InputBlock>
 
           <InputBlock label="Guardian Contact">
