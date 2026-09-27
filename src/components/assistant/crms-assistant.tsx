@@ -279,6 +279,8 @@ export function CrmsAssistant({
     useState(false)
   const [voiceStatus, setVoiceStatus] =
     useState('Voice Chat ready')
+  const [voiceError, setVoiceError] =
+    useState<string | null>(null)
   const [
     launcherPosition,
     setLauncherPosition,
@@ -306,6 +308,11 @@ export function CrmsAssistant({
   const silentGainRef =
     useRef<GainNode | null>(null)
   const liveReadyRef = useRef(false)
+  const voiceModeRef = useRef(false)
+  const preflightRef = useRef(false)
+  const preflightAudioRef = useRef(false)
+  const preflightTimeoutRef =
+    useRef<number | null>(null)
   const setupTimeoutRef =
     useRef<number | null>(null)
   const stoppingVoiceRef =
@@ -316,6 +323,10 @@ export function CrmsAssistant({
     useRef('')
   const outputTranscriptRef =
     useRef('')
+  const playbackSourcesRef =
+    useRef<Set<AudioBufferSourceNode>>(
+      new Set(),
+    )
   const dragRef = useRef<{
     pointerId: number
     grabX: number
@@ -502,6 +513,7 @@ export function CrmsAssistant({
 
   function playLiveAudio(
     base64: string,
+    mimeType = 'audio/pcm;rate=24000',
   ) {
     const context =
       outputContextRef.current
@@ -513,11 +525,19 @@ export function CrmsAssistant({
 
     if (pcm.length === 0) return
 
+    const rateMatch =
+      /rate=(\d+)/i.exec(
+        mimeType,
+      )
+    const sampleRate =
+      Number(rateMatch?.[1]) ||
+      24_000
+
     const buffer =
       context.createBuffer(
         1,
         pcm.length,
-        24_000,
+        sampleRate,
       )
     const channel =
       buffer.getChannelData(0)
@@ -543,6 +563,15 @@ export function CrmsAssistant({
       context.currentTime + 0.02,
       nextPlaybackTimeRef.current,
     )
+
+    playbackSourcesRef.current.add(
+      source,
+    )
+    source.onended = () => {
+      playbackSourcesRef.current.delete(
+        source,
+      )
+    }
 
     source.start(startAt)
     nextPlaybackTimeRef.current =
@@ -673,11 +702,42 @@ export function CrmsAssistant({
     inputTranscriptRef.current = ''
     outputTranscriptRef.current = ''
 
-    if (voiceMode) {
+    if (
+      voiceModeRef.current &&
+      !preflightRef.current
+    ) {
       setVoiceStatus(
         'Listening — speak naturally',
       )
     }
+  }
+
+  function clearPreflightTimeout() {
+    if (
+      preflightTimeoutRef.current !== null
+    ) {
+      window.clearTimeout(
+        preflightTimeoutRef.current,
+      )
+      preflightTimeoutRef.current = null
+    }
+  }
+
+  function stopQueuedPlayback() {
+    for (
+      const source of playbackSourcesRef.current
+    ) {
+      try {
+        source.stop()
+      } catch {
+        // Source may already have ended.
+      }
+    }
+
+    playbackSourcesRef.current.clear()
+    nextPlaybackTimeRef.current =
+      outputContextRef.current
+        ?.currentTime || 0
   }
 
   function clearSetupTimeout() {
@@ -709,6 +769,11 @@ export function CrmsAssistant({
 
     stoppingVoiceRef.current = false
     liveReadyRef.current = false
+    voiceModeRef.current = true
+    preflightRef.current = false
+    preflightAudioRef.current = false
+    clearPreflightTimeout()
+    setVoiceError(null)
     inputTranscriptRef.current = ''
     outputTranscriptRef.current = ''
     nextPlaybackTimeRef.current = 0
@@ -786,8 +851,12 @@ export function CrmsAssistant({
             return
           }
 
+          const message =
+            'Gemini Live did not complete the WebSocket setup within 12 seconds.'
+
+          setVoiceError(message)
           setVoiceStatus(
-            'Gemini Live connection timed out',
+            'Voice Chat connection failed',
           )
 
           try {
@@ -799,22 +868,25 @@ export function CrmsAssistant({
             // Socket may already be closed.
           }
 
+          void stopVoiceChat(false)
+
           toast.error(
-            'Gemini Live did not finish connecting',
+            'Gemini Live setup timed out',
             {
-              description:
-                'The secure WebSocket opened too slowly or was blocked. Retry once; if you use Brave, allow localhost microphone access and temporarily disable Shields for localhost while testing.',
+              description: message,
             },
           )
-        }, 10_000)
+        }, 12_000)
 
       socket.onopen = () => {
         setVoiceStatus(
           'Configuring Gemini Live…',
         )
 
-        // Match Google's raw WebSocket setup shape. In particular,
-        // responseModalities belongs directly in the Live setup message.
+        // Keep the first setup message intentionally minimal and
+        // aligned with Google's raw-WebSocket Live API example. Optional
+        // transcription/VAD fields are omitted here so provider setup is
+        // validated before microphone streaming begins.
         socket.send(
           JSON.stringify({
             setup: {
@@ -824,22 +896,6 @@ export function CrmsAssistant({
               responseModalities: [
                 'AUDIO',
               ],
-              inputAudioTranscription:
-                {},
-              outputAudioTranscription:
-                {},
-              realtimeInputConfig: {
-                automaticActivityDetection:
-                  {
-                    disabled: false,
-                    startOfSpeechSensitivity:
-                      'START_SENSITIVITY_HIGH',
-                    endOfSpeechSensitivity:
-                      'END_SENSITIVITY_HIGH',
-                    prefixPaddingMs: 120,
-                    silenceDurationMs: 650,
-                  },
-              },
               systemInstruction: {
                 parts: [
                   {
@@ -872,36 +928,86 @@ export function CrmsAssistant({
           clearSetupTimeout()
           liveReadyRef.current =
             true
+          preflightRef.current =
+            true
+          preflightAudioRef.current =
+            false
+
           setProviderLabel(
             'Gemini Live · ' +
               token.model,
           )
           setVoiceStatus(
-            'Listening — speak naturally',
+            'Testing Live audio response…',
           )
-          startMicrophoneStreaming(
-            stream,
+
+          // Verify the provider can actually generate an audio turn before
+          // enabling the microphone. This prevents the UI from claiming
+          // "Listening" when only the socket handshake succeeded.
+          socket.send(
+            JSON.stringify({
+              realtimeInput: {
+                text:
+                  'CRMS connectivity test. Reply only with: Voice ready.',
+              },
+            }),
           )
+
+          clearPreflightTimeout()
+          preflightTimeoutRef.current =
+            window.setTimeout(() => {
+              if (
+                !preflightRef.current ||
+                stoppingVoiceRef.current
+              ) {
+                return
+              }
+
+              const message =
+                'Gemini Live connected, but no audio response arrived during the provider self-test.'
+
+              setVoiceError(message)
+              setVoiceStatus(
+                'Voice Chat self-test failed',
+              )
+              void stopVoiceChat(false)
+
+              toast.error(
+                'Gemini Live self-test failed',
+                {
+                  description:
+                    message,
+                },
+              )
+            }, 12_000)
+
           return
         }
 
         if (payload.error) {
           clearSetupTimeout()
+          clearPreflightTimeout()
           console.error(
             'Gemini Live server error:',
             payload.error,
           )
+
+          const message =
+            String(
+              payload.error?.message ||
+                payload.error,
+            )
+
+          setVoiceError(message)
           setVoiceStatus(
             'Gemini Live rejected the session',
           )
+          void stopVoiceChat(false)
+
           toast.error(
             'Gemini Live rejected the session',
             {
-              description:
-                String(
-                  payload.error?.message ||
-                    payload.error,
-                ),
+              description: message,
             },
           )
           return
@@ -967,8 +1073,19 @@ export function CrmsAssistant({
                 'audio/',
               )
             ) {
+              if (
+                preflightRef.current
+              ) {
+                preflightAudioRef.current =
+                  true
+              }
+
               playLiveAudio(
                 inline.data,
+                String(
+                  inline.mimeType ||
+                    'audio/pcm;rate=24000',
+                ),
               )
             }
           }
@@ -977,17 +1094,56 @@ export function CrmsAssistant({
         if (
           serverContent.interrupted
         ) {
-          nextPlaybackTimeRef.current =
-            outputContextRef.current
-              ?.currentTime || 0
-          setVoiceStatus(
-            'Listening — speak naturally',
-          )
+          stopQueuedPlayback()
+
+          if (
+            !preflightRef.current
+          ) {
+            setVoiceStatus(
+              'Listening — speak naturally',
+            )
+          }
         }
 
         if (
           serverContent.turnComplete
         ) {
+          if (
+            preflightRef.current
+          ) {
+            clearPreflightTimeout()
+
+            if (
+              !preflightAudioRef.current
+            ) {
+              const message =
+                'Gemini Live completed the self-test turn without returning playable audio.'
+
+              setVoiceError(message)
+              setVoiceStatus(
+                'Voice Chat self-test failed',
+              )
+              void stopVoiceChat(false)
+              return
+            }
+
+            preflightRef.current =
+              false
+            inputTranscriptRef.current =
+              ''
+            outputTranscriptRef.current =
+              ''
+
+            setVoiceStatus(
+              'Listening — speak naturally',
+            )
+
+            startMicrophoneStreaming(
+              stream,
+            )
+            return
+          }
+
           finishLiveTurn()
         }
       }
@@ -1000,6 +1156,12 @@ export function CrmsAssistant({
         }
 
         clearSetupTimeout()
+        clearPreflightTimeout()
+
+        const message =
+          'The browser could not establish the secure Gemini Live WebSocket.'
+
+        setVoiceError(message)
         setVoiceStatus(
           'Gemini Live connection error',
         )
@@ -1007,8 +1169,7 @@ export function CrmsAssistant({
         toast.error(
           'Gemini Live connection error',
           {
-            description:
-              'The browser could not establish the secure Live WebSocket connection.',
+            description: message,
           },
         )
       }
@@ -1032,6 +1193,16 @@ export function CrmsAssistant({
           reason ||
           `WebSocket closed with code ${event.code}.`
 
+        setVoiceError(
+          (current) =>
+            current || detail,
+        )
+        setVoiceStatus(
+          wasReady
+            ? 'Voice Chat disconnected'
+            : 'Gemini Live could not start',
+        )
+
         void stopVoiceChat(
           false,
         )
@@ -1046,23 +1217,31 @@ export function CrmsAssistant({
         )
       }
     } catch (error: any) {
-      await stopVoiceChat(false)
-
       const denied =
         error?.name ===
           'NotAllowedError' ||
         error?.name ===
           'PermissionDeniedError'
+      const message = denied
+        ? 'Microphone permission was denied. Allow microphone access for localhost/CRMS and try again.'
+        : error?.message ||
+          'Voice Chat could not start.'
+
+      setVoiceError(message)
+      setVoiceStatus(
+        denied
+          ? 'Microphone permission denied'
+          : 'Voice Chat could not start',
+      )
+
+      await stopVoiceChat(false)
 
       toast.error(
         denied
           ? 'Microphone permission denied'
           : 'Voice Chat could not start',
         {
-          description: denied
-            ? 'Allow microphone access for localhost/CRMS in your browser, then try again.'
-            : error?.message ||
-              'Check Gemini Live configuration and try again.',
+          description: message,
         },
       )
     }
@@ -1072,12 +1251,35 @@ export function CrmsAssistant({
     userInitiated: boolean,
   ) {
     stoppingVoiceRef.current = true
-    liveReadyRef.current = false
     clearSetupTimeout()
+
+    clearPreflightTimeout()
+    preflightRef.current = false
+    preflightAudioRef.current = false
+    voiceModeRef.current = false
+    stopQueuedPlayback()
 
     const socket =
       socketRef.current
     socketRef.current = null
+
+    if (
+      socket?.readyState ===
+        WebSocket.OPEN &&
+      liveReadyRef.current
+    ) {
+      try {
+        socket.send(
+          JSON.stringify({
+            realtimeInput: {
+              audioStreamEnd: true,
+            },
+          }),
+        )
+      } catch {
+        // Ignore a stream already ending.
+      }
+    }
 
     if (
       socket &&
@@ -1095,6 +1297,8 @@ export function CrmsAssistant({
         // Ignore a socket already closing.
       }
     }
+
+    liveReadyRef.current = false
 
     inputProcessorRef.current?.disconnect()
     inputSourceRef.current?.disconnect()
@@ -1156,6 +1360,7 @@ export function CrmsAssistant({
     setProviderLabel(
       'AI connection not verified',
     )
+    setVoiceError(null)
     toast.success(
       'New CRMS chat started',
     )
@@ -1401,6 +1606,17 @@ export function CrmsAssistant({
                 </span>
               </div>
 
+              {voiceError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                  <p className="font-semibold">
+                    Voice Chat diagnostic
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5">
+                    {voiceError}
+                  </p>
+                </div>
+              ) : null}
+
               {voiceMode ? (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-center gap-3">
@@ -1520,7 +1736,7 @@ export function CrmsAssistant({
               </div>
 
               <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
-                One button starts/stops Gemini Live. During startup you will now see whether CRMS is getting secure access, opening the WebSocket, configuring the session, or actively listening.
+                One button controls Voice Chat. CRMS now performs a provider audio self-test before enabling the microphone; if any stage fails, the exact diagnostic stays visible in this panel.
               </p>
             </div>
           </div>

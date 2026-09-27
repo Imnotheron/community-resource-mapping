@@ -395,6 +395,12 @@ export async function POST(request: NextRequest) {
             uses: 1,
             expireTime,
             newSessionExpireTime,
+            liveConnectConstraints: {
+              model: `models/${model}`,
+              config: {
+                responseModalities: ['AUDIO'],
+              },
+            },
           }),
           cache: 'no-store',
           signal: tokenController.signal,
@@ -445,8 +451,14 @@ export async function POST(request: NextRequest) {
       success: true,
       token: tokenData.name,
       model,
-      systemInstruction,
+      systemInstruction:
+        systemInstruction.slice(0, 28_000),
       expiresAt: expireTime,
+      diagnostics: {
+        model,
+        contextCharacters:
+          systemInstruction.length,
+      },
     })
   } catch (error) {
     console.error(
