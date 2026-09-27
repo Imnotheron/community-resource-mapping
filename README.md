@@ -302,9 +302,13 @@ NEXT_PUBLIC_APP_URL=
 BREVO_FROM_EMAIL=
 BREVO_SMTP_LOGIN=
 BREVO_SMTP_KEY=
+
+# Optional AI assistant
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-> Email-related values are required only for flows that send email, such as login OTP and notification delivery.
+> Email-related values are required only for flows that send email, such as login OTP and notification delivery. The CRMS Assistant works in local-help mode without an AI key; setting `GEMINI_API_KEY` enables the optional Gemini-backed answers.
 
 ### 4. Generate Prisma Client
 
