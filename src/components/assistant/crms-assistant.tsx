@@ -452,7 +452,7 @@ export function CrmsAssistant({
   >(null)
   const [voiceStatus, setVoiceStatus] =
     useState('Voice Chat ready')
-  const [voiceError, setVoiceError] =
+  const [, setVoiceError] =
     useState<string | null>(null)
   const [language, setLanguage] =
     useState<AssistantLanguageCode>(
@@ -1984,6 +1984,17 @@ export function CrmsAssistant({
       const elapsed =
         now -
         turnStartedAtRef.current
+
+      // The ready cue is very short. Keep recording its audio so the user's
+      // first words are never clipped, but ignore level detection briefly so
+      // speaker-to-microphone echo cannot be mistaken for user speech.
+      if (elapsed < 180) {
+        turnFrameRef.current =
+          window.requestAnimationFrame(
+            monitor,
+          )
+        return
+      }
 
       const speechStartThreshold =
         Math.max(
