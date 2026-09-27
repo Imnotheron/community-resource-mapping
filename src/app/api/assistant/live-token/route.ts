@@ -8,6 +8,7 @@ import {
 } from '@/lib/assistant-language'
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { getGeminiApiKey } from '@/lib/gemini-api-key'
 
 function clean(value: unknown, max = 2000) {
   return String(value || '').trim().slice(0, max)
@@ -643,17 +644,14 @@ export async function POST(request: NextRequest) {
     const auth = await requireRequestUser(request)
     if ('error' in auth) return auth.error
 
-    const apiKey = clean(
-      process.env.GEMINI_API_KEY,
-      500,
-    )
+    const apiKey = clean(getGeminiApiKey(), 500)
 
     if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
           error:
-            'Gemini API is not configured. Add GEMINI_API_KEY and restart CRMS.',
+            'Gemini API is not configured for this deployment. Add GEMINI_API_KEY (or GOOGLE_API_KEY) to the server environment and redeploy/restart CRMS.',
         },
         { status: 503 },
       )
