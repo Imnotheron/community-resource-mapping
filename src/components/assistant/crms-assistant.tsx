@@ -1865,6 +1865,10 @@ export function CrmsAssistant({
     let noiseFloor = 0.003
     let speechFrames = 0
 
+    const END_OF_SPEECH_SILENCE_MS = 650
+    const NO_SPEECH_TIMEOUT_MS = 8_000
+    const MAX_TURN_MS = 16_000
+
     const monitor = () => {
       if (
         !voiceModeRef.current ||
@@ -1898,58 +1902,69 @@ export function CrmsAssistant({
         now -
         turnStartedAtRef.current
 
-      if (
-        !turnSpeechSeenRef.current &&
-        elapsed < 700 &&
-        rms < 0.02
-      ) {
-        noiseFloor =
-          noiseFloor * 0.85 +
-          rms * 0.15
-      }
-
-      const threshold =
+      const speechStartThreshold =
         Math.max(
-          0.007,
+          0.009,
           Math.min(
-            0.03,
-            noiseFloor * 2.4 +
-              0.0025,
+            0.04,
+            noiseFloor * 2.8 +
+              0.003,
+          ),
+        )
+      const speechContinueThreshold =
+        Math.max(
+          0.006,
+          Math.min(
+            0.028,
+            noiseFloor * 1.8 +
+              0.002,
           ),
         )
 
-      if (rms >= threshold) {
-        speechFrames += 1
+      if (!turnSpeechSeenRef.current) {
+        if (rms >= speechStartThreshold) {
+          speechFrames += 1
 
-        if (speechFrames >= 2) {
-          turnSpeechSeenRef.current =
-            true
-          turnLastSpeechAtRef.current =
-            now
-          setVoiceStatus(
-            'Listening — speak naturally',
-          )
-        }
-      } else {
-        speechFrames = 0
+          if (speechFrames >= 3) {
+            turnSpeechSeenRef.current =
+              true
+            turnLastSpeechAtRef.current =
+              now
+            setVoiceStatus(
+              'Listening — speak naturally',
+            )
+          }
+        } else {
+          speechFrames = 0
 
-        if (
-          turnSpeechSeenRef.current &&
-          now -
-            turnLastSpeechAtRef.current >=
-            950
-        ) {
-          setVoiceStatus(
-            'Processing your voice…',
-          )
-          recorder.stop()
-          return
+          // Keep learning the room/fan noise while waiting for speech.
+          // This prevents steady background noise from extending the turn.
+          if (rms < 0.05) {
+            noiseFloor =
+              noiseFloor * 0.92 +
+              rms * 0.08
+          }
         }
+      } else if (
+        rms >= speechContinueThreshold
+      ) {
+        turnLastSpeechAtRef.current =
+          now
+      } else if (
+        now -
+          turnLastSpeechAtRef.current >=
+          END_OF_SPEECH_SILENCE_MS
+      ) {
+        setVoiceStatus(
+          'Got it — processing…',
+        )
+        recorder.stop()
+        return
       }
 
       if (
         !turnSpeechSeenRef.current &&
-        elapsed >= 12_000
+        elapsed >= NO_SPEECH_TIMEOUT_MS
       ) {
         recorder.stop()
         return
@@ -1957,7 +1972,7 @@ export function CrmsAssistant({
 
       if (
         turnSpeechSeenRef.current &&
-        elapsed >= 20_000
+        elapsed >= MAX_TURN_MS
       ) {
         recorder.stop()
         return
@@ -2182,10 +2197,8 @@ export function CrmsAssistant({
           'Configuring Gemini Live…',
         )
 
-        // Keep the first setup message intentionally minimal and
-        // aligned with Google's raw-WebSocket Live API example. Optional
-        // transcription/VAD fields are omitted here so provider setup is
-        // validated before microphone streaming begins.
+        // Use Gemini's server-side VAD with a short, natural silence
+        // window so the user's turn ends promptly after they stop talking.
         socket.send(
           JSON.stringify({
             setup: {
@@ -2195,6 +2208,17 @@ export function CrmsAssistant({
               responseModalities: [
                 'AUDIO',
               ],
+              realtimeInputConfig: {
+                automaticActivityDetection: {
+                  disabled: false,
+                  startOfSpeechSensitivity:
+                    'START_SENSITIVITY_HIGH',
+                  endOfSpeechSensitivity:
+                    'END_SENSITIVITY_HIGH',
+                  prefixPaddingMs: 120,
+                  silenceDurationMs: 650,
+                },
+              },
               systemInstruction: {
                 parts: [
                   {
