@@ -522,6 +522,12 @@ export function CrmsAssistant({
     useRef<AudioContext | null>(null)
   const outputContextRef =
     useRef<AudioContext | null>(null)
+  const generatedSpeechRef =
+    useRef<HTMLAudioElement | null>(
+      null,
+    )
+  const generatedSpeechUrlRef =
+    useRef<string | null>(null)
   const inputProcessorRef =
     useRef<ScriptProcessorNode | null>(null)
   const inputSourceRef =
@@ -1381,7 +1387,31 @@ export function CrmsAssistant({
     }
   }
 
-  function speakCompatibleReply(
+  function stopGeneratedSpeech() {
+    const audio =
+      generatedSpeechRef.current
+    generatedSpeechRef.current =
+      null
+
+    if (audio) {
+      audio.onended = null
+      audio.onerror = null
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+    }
+
+    const url =
+      generatedSpeechUrlRef.current
+    generatedSpeechUrlRef.current =
+      null
+
+    if (url) {
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  async function speakCompatibleReply(
     text: string,
   ) {
     if (
@@ -1390,6 +1420,138 @@ export function CrmsAssistant({
         'turn'
     ) {
       return
+    }
+
+    const spokenText =
+      markdownToSpeech(text)
+
+    if (!spokenText) {
+      return
+    }
+
+    const continueListening = () => {
+      clearSpeechWatchdog()
+
+      if (
+        voiceModeRef.current &&
+        voiceTransportRef.current ===
+          'turn' &&
+        mediaStreamRef.current
+      ) {
+        window.setTimeout(() => {
+          if (
+            voiceModeRef.current &&
+            mediaStreamRef.current
+          ) {
+            startCompatibleVoiceTurn(
+              mediaStreamRef.current,
+            )
+          }
+        }, 250)
+      }
+    }
+
+    window.speechSynthesis?.cancel()
+    stopGeneratedSpeech()
+
+    if (
+      languageRef.current === 'tl' ||
+      languageRef.current === 'war'
+    ) {
+      try {
+        setVoiceStatus(
+          languageRef.current ===
+            'war'
+            ? 'Preparing Eastern Samar Waray voice…'
+            : 'Preparing natural Tagalog voice…',
+        )
+
+        const response =
+          await fetch(
+            '/api/assistant/speak',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type':
+                  'application/json',
+              },
+              body: JSON.stringify({
+                text: spokenText,
+                language:
+                  languageRef.current,
+              }),
+            },
+          )
+
+        if (!response.ok) {
+          const payload =
+            await response
+              .json()
+              .catch(() => null)
+
+          throw new Error(
+            String(
+              payload?.error ||
+                'High-quality voice generation failed.',
+            ),
+          )
+        }
+
+        const blob =
+          await response.blob()
+
+        if (
+          !voiceModeRef.current ||
+          voiceTransportRef.current !==
+            'turn' ||
+          stoppingVoiceRef.current
+        ) {
+          return
+        }
+
+        const url =
+          URL.createObjectURL(blob)
+        const audio =
+          new Audio(url)
+
+        generatedSpeechUrlRef.current =
+          url
+        generatedSpeechRef.current =
+          audio
+
+        setVoiceError(null)
+        setVoiceStatus(
+          'CRMS Assistant is speaking…',
+        )
+
+        audio.onended = () => {
+          stopGeneratedSpeech()
+          continueListening()
+        }
+
+        audio.onerror = () => {
+          stopGeneratedSpeech()
+          setVoiceError(
+            'The high-quality voice was generated but could not be played.',
+          )
+          void stopVoiceChat(false)
+        }
+
+        await audio.play()
+        return
+      } catch (error: any) {
+        console.warn(
+          'CRMS high-quality TTS fallback:',
+          error,
+        )
+
+        setVoiceError(
+          languageRef.current ===
+            'war'
+            ? 'High-quality Eastern Samar Waray voice is temporarily unavailable. CRMS is using the device voice as a fallback, which may pronounce Waray less accurately.'
+            : 'High-quality Tagalog voice is temporarily unavailable. CRMS is using the device voice as a fallback, which may sound less natural.',
+        )
+      }
     }
 
     if (
@@ -1401,11 +1563,6 @@ export function CrmsAssistant({
       void stopVoiceChat(false)
       return
     }
-
-    window.speechSynthesis.cancel()
-
-    const spokenText =
-      markdownToSpeech(text)
 
     const utterance =
       new SpeechSynthesisUtterance(
@@ -1439,28 +1596,6 @@ export function CrmsAssistant({
     setVoiceStatus(
       'CRMS Assistant is speaking…',
     )
-
-    const continueListening = () => {
-      clearSpeechWatchdog()
-
-      if (
-        voiceModeRef.current &&
-        voiceTransportRef.current ===
-          'turn' &&
-        mediaStreamRef.current
-      ) {
-        window.setTimeout(() => {
-          if (
-            voiceModeRef.current &&
-            mediaStreamRef.current
-          ) {
-            startCompatibleVoiceTurn(
-              mediaStreamRef.current,
-            )
-          }
-        }, 300)
-      }
-    }
 
     utterance.onend =
       continueListening
@@ -1563,7 +1698,7 @@ export function CrmsAssistant({
         'Preparing spoken reply…',
       )
 
-      speakCompatibleReply(
+      await speakCompatibleReply(
         result.reply,
       )
     } catch (error: any) {
@@ -2418,6 +2553,7 @@ export function CrmsAssistant({
     clearSpeechWatchdog()
 
     window.speechSynthesis?.cancel()
+    stopGeneratedSpeech()
 
     const recorder =
       turnRecorderRef.current
