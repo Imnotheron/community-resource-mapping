@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { WowLoader } from '@/components/ui/wow-loader'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 function todayInputValue() {
   const now = new Date()
@@ -1127,72 +1128,100 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           <>
             <div className="space-y-2">
               <Label>Barangay</Label>
-              <Select value={barangay} onValueChange={setBarangay}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-72 overflow-y-auto">
-                  <SelectItem value="ALL">All barangays</SelectItem>
-                  {barangays.map((name: string) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={barangay}
+                onValueChange={setBarangay}
+                placeholder="All barangays"
+                searchPlaceholder="Type a barangay..."
+                options={[
+                  {
+                    value: 'ALL',
+                    label: 'All barangays',
+                  },
+                  ...barangays.map(
+                    (name: string) => ({
+                      value: name,
+                      label: name,
+                    }),
+                  ),
+                ]}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Last name</Label>
-              <Select value={lastName} onValueChange={setLastName}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-72 overflow-y-auto">
-                  <SelectItem value="ALL">All last names</SelectItem>
-                  {lastNames.map((name: string) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={lastName}
+                onValueChange={setLastName}
+                placeholder="All last names"
+                searchPlaceholder="Type a last name..."
+                options={[
+                  {
+                    value: 'ALL',
+                    label: 'All last names',
+                  },
+                  ...lastNames.map(
+                    (name: string) => ({
+                      value: name,
+                      label: name,
+                    }),
+                  ),
+                ]}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Person</Label>
-              <Select value={personId} onValueChange={setPersonId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-72 overflow-y-auto">
-                  <SelectItem value="ALL">All people</SelectItem>
-                  {peopleForSelection.map((person: any) => (
-                    <SelectItem key={person.id} value={person.id}>
-                      {person.lastName}, {person.firstName}
-                      {person.barangay ? ' — ' + person.barangay : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={personId}
+                onValueChange={setPersonId}
+                placeholder="All people"
+                searchPlaceholder="Type a person's name..."
+                options={[
+                  {
+                    value: 'ALL',
+                    label: 'All people',
+                  },
+                  ...peopleForSelection.map(
+                    (person: any) => ({
+                      value: person.id,
+                      label:
+                        `${person.lastName}, ${person.firstName}${person.barangay ? ' — ' + person.barangay : ''}`,
+                      keywords:
+                        [
+                          person.firstName,
+                          person.lastName,
+                          person.barangay,
+                        ]
+                          .filter(Boolean)
+                          .join(' '),
+                    }),
+                  ),
+                ]}
+              />
             </div>
 
             {isAdmin && (
               <div className="space-y-2">
                 <Label>Worker</Label>
-                <Select value={workerId} onValueChange={setWorkerId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72 overflow-y-auto">
-                    <SelectItem value="ALL">All workers</SelectItem>
-                    {(report?.workers || []).map((worker: any) => (
-                      <SelectItem key={worker.id} value={worker.id}>
-                        {worker.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={workerId}
+                  onValueChange={setWorkerId}
+                  placeholder="All workers"
+                  searchPlaceholder="Type a worker's name..."
+                  options={[
+                    {
+                      value: 'ALL',
+                      label: 'All workers',
+                    },
+                    ...(report?.workers || []).map(
+                      (worker: any) => ({
+                        value: worker.id,
+                        label: worker.name,
+                      }),
+                    ),
+                  ]}
+                />
               </div>
             )}
           </>
