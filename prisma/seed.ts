@@ -58,7 +58,7 @@ async function fetchResidentialBuildingCandidates() {
     'node["building"~"' + RESIDENTIAL_BUILDING_TAG + '"](12.165,125.405,12.278,125.555);',
     ');',
     'out center tags;',
-  ].join('\\n')
+  ].join('\n')
 
   let lastError: unknown = null
 
