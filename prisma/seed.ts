@@ -7,7 +7,229 @@ import {
 } from '../src/lib/san-policarpo-geography'
 
 const RESIDENTIAL_BUILDING_TAG =
-  '^(house|residential|detached|semidetached_house|terrace|bungalow|apartments)
+  '^(house|residential|detached|semidetached_house|terrace|bungalow|apartments)$'
+
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+]
+
+type DemoHousePoint = {
+  lat: number
+  lng: number
+  osmType: string
+  osmId: number
+  buildingType: string
+}
+
+function distanceMeters(
+  left: { lat: number; lng: number },
+  right: { lat: number; lng: number },
+) {
+  const earthRadius = 6_371_000
+  const toRadians = (value: number) =>
+    (value * Math.PI) / 180
+  const dLat = toRadians(right.lat - left.lat)
+  const dLng = toRadians(right.lng - left.lng)
+  const lat1 = toRadians(left.lat)
+  const lat2 = toRadians(right.lat)
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(dLng / 2) ** 2
+
+  return (
+    2 *
+    earthRadius *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a),
+    )
+  )
+}
+
+async function fetchResidentialBuildingCandidates() {
+  const query = [
+    '[out:json][timeout:35];',
+    '(',
+    'way["building"~"' + RESIDENTIAL_BUILDING_TAG + '"](12.165,125.405,12.278,125.555);',
+    'node["building"~"' + RESIDENTIAL_BUILDING_TAG + '"](12.165,125.405,12.278,125.555);',
+    ');',
+    'out center tags;',
+  ].join('\\n')
+
+  let lastError: unknown = null
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () => controller.abort(),
+      40_000,
+    )
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/x-www-form-urlencoded;charset=UTF-8',
+          'User-Agent':
+            'CRMS-Capstone-Demo-Seeder/1.0',
+        },
+        body: 'data=' + encodeURIComponent(query),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(
+          'Overpass returned HTTP ' + response.status,
+        )
+      }
+
+      const payload = await response.json()
+      const elements = Array.isArray(payload?.elements)
+        ? payload.elements
+        : []
+
+      const candidates: DemoHousePoint[] =
+        elements
+          .map((element: any) => {
+            const lat =
+              Number(element?.lat) ||
+              Number(element?.center?.lat)
+            const lng =
+              Number(element?.lon) ||
+              Number(element?.center?.lon)
+
+            if (
+              !Number.isFinite(lat) ||
+              !Number.isFinite(lng)
+            ) {
+              return null
+            }
+
+            return {
+              lat,
+              lng,
+              osmType: String(
+                element?.type || 'way',
+              ),
+              osmId: Number(element?.id),
+              buildingType: String(
+                element?.tags?.building ||
+                  'residential',
+              ),
+            }
+          })
+          .filter(Boolean) as DemoHousePoint[]
+
+      if (candidates.length === 0) {
+        throw new Error(
+          'No mapped residential buildings were returned.',
+        )
+      }
+
+      console.log(
+        '🏠 Loaded ' + candidates.length +
+          ' mapped residential buildings from OpenStreetMap.',
+      )
+
+      return candidates
+    } catch (error) {
+      lastError = error
+      console.warn(
+        '⚠️ Could not load residential buildings from ' +
+          endpoint +
+          ':',
+        error instanceof Error
+          ? error.message
+          : String(error),
+      )
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  throw new Error(
+    'Could not verify demo house locations from OpenStreetMap. The seed stops instead of placing demo markers on roads, water, forest, or arbitrary coordinates. Check your internet connection and run the seed again.' +
+      (lastError
+        ? ' Last error: ' + String(lastError)
+        : ''),
+  )
+}
+
+function assignDemoHousePoints(
+  candidates: DemoHousePoint[],
+) {
+  const used = new Set<string>()
+  const assigned = new Map<
+    SanPolicarpoBarangay,
+    DemoHousePoint
+  >()
+
+  for (const barangay of Object.keys(
+    SAN_POLICARPO_BARANGAY_REFERENCE_POINTS,
+  ) as SanPolicarpoBarangay[]) {
+    const reference =
+      SAN_POLICARPO_BARANGAY_REFERENCE_POINTS[barangay]
+
+    const maximumDistance =
+      barangay.includes('(Poblacion)')
+        ? 350
+        : 1_500
+
+    const ranked = candidates
+      .map((candidate) => ({
+        candidate,
+        distance: distanceMeters(
+          reference,
+          candidate,
+        ),
+      }))
+      .filter(
+        ({ candidate, distance }) =>
+          distance <= maximumDistance &&
+          !used.has(
+            candidate.osmType + ':' + candidate.osmId,
+          ),
+      )
+      .sort(
+        (left, right) =>
+          left.distance - right.distance,
+      )
+
+    const selected = ranked[0]?.candidate
+
+    if (!selected) {
+      throw new Error(
+        'No OpenStreetMap residential-building footprint was found close enough to the ' +
+          barangay +
+          ' reference point. CRMS will not invent a demo-house coordinate. Add/verify a residential building in OpenStreetMap or adjust the verified demo location before seeding.',
+      )
+    }
+
+    used.add(
+      selected.osmType + ':' + selected.osmId,
+    )
+    assigned.set(barangay, selected)
+
+    console.log(
+      '   🏠 ' +
+        barangay +
+        ': OSM ' +
+        selected.osmType +
+        ' ' +
+        selected.osmId +
+        ' (' +
+        selected.buildingType +
+        ')',
+    )
+  }
+
+  return assigned
+}
 const ADMIN_ACCOUNTS = [
   { email: 'admin@crms.gov.ph', name: 'Admin User', phone: '09123456789' },
   { email: 'admin.operations@crms.gov.ph', name: 'Elena Ramos', phone: '09170000001' },
