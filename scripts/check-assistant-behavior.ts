@@ -180,6 +180,45 @@ check(
   ),
 )
 
+const projectWithoutLive =
+  new Set([
+    'models/gemini-3.5-flash-lite',
+  ])
+const selectedLive =
+  liveCandidates.find((model) =>
+    projectWithoutLive.has(
+      `models/${model}`,
+    ),
+  )
+const selectedFallback =
+  fallbackCandidates.find((model) =>
+    projectWithoutLive.has(
+      `models/${model}`,
+    ),
+  )
+
+check(
+  'Project with no Live access selects compatible voice mode',
+  !selectedLive &&
+    selectedFallback ===
+      'gemini-3.5-flash-lite',
+)
+
+const projectWithLive =
+  new Set([
+    'models/gemini-3.8-live',
+    'models/gemini-3.5-flash-lite',
+  ])
+
+check(
+  'Project with Live access keeps real-time Live mode',
+  liveCandidates.find((model) =>
+    projectWithLive.has(
+      `models/${model}`,
+    ),
+  ) === 'gemini-3.8-live',
+)
+
 for (const result of results) {
   console.log(
     `${result.ok ? 'PASS' : 'FAIL'}  ${result.name}`,
