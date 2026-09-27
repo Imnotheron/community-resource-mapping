@@ -67,9 +67,12 @@ declare global {
 }
 
 const POSITION_KEY =
-  'crms-assistant-launcher-position-v2'
+  'crms-assistant-launcher-position-v3'
 const LAUNCHER_SIZE = 54
-const SILENCE_TIMEOUT_MS = 15_000
+const LAUNCHER_VISIBLE_EDGE = 18
+const SILENCE_TIMEOUT_MS = 12_000
+const VOICE_PAUSE_SUBMIT_MS = 1_250
+const VOICE_TURN_MAX_MS = 8_000
 
 function greeting(role: string) {
   const normalized =
@@ -88,57 +91,88 @@ function greeting(role: string) {
 
 function viewportSize() {
   if (typeof window === 'undefined') {
-    return { width: 0, height: 0 }
+    return {
+      width: 0,
+      height: 0,
+      offsetLeft: 0,
+      offsetTop: 0,
+    }
   }
+
+  const visual = window.visualViewport
 
   return {
     width: Math.max(
       1,
-      document.documentElement.clientWidth ||
-        window.innerWidth,
+      visual?.width || window.innerWidth,
     ),
     height: Math.max(
       1,
-      document.documentElement.clientHeight ||
-        window.innerHeight,
+      visual?.height || window.innerHeight,
     ),
+    offsetLeft: visual?.offsetLeft || 0,
+    offsetTop: visual?.offsetTop || 0,
   }
 }
 
 function clampLauncher(
   position: { x: number; y: number },
 ) {
-  const { width, height } = viewportSize()
+  const {
+    width,
+    height,
+    offsetLeft,
+    offsetTop,
+  } = viewportSize()
+
+  const minX =
+    offsetLeft - LAUNCHER_VISIBLE_EDGE
+  const maxX =
+    offsetLeft +
+    width -
+    LAUNCHER_SIZE +
+    LAUNCHER_VISIBLE_EDGE
+  const minY = offsetTop
+  const maxY =
+    offsetTop +
+    height -
+    LAUNCHER_SIZE
 
   return {
     x: Math.min(
-      Math.max(0, position.x),
-      Math.max(0, width - LAUNCHER_SIZE),
+      Math.max(minX, position.x),
+      Math.max(minX, maxX),
     ),
     y: Math.min(
-      Math.max(0, position.y),
-      Math.max(0, height - LAUNCHER_SIZE),
+      Math.max(minY, position.y),
+      Math.max(minY, maxY),
     ),
   }
 }
 
-function snapToSide(
-  position: { x: number; y: number },
-) {
-  const { width } = viewportSize()
-  const clamped = clampLauncher(position)
+function defaultLauncherPosition() {
+  const {
+    width,
+    height,
+    offsetLeft,
+    offsetTop,
+  } = viewportSize()
 
-  return {
+  return clampLauncher({
     x:
-      clamped.x + LAUNCHER_SIZE / 2 <
-      width / 2
-        ? 0
-        : Math.max(
-            0,
-            width - LAUNCHER_SIZE,
-          ),
-    y: clamped.y,
-  }
+      offsetLeft +
+      width -
+      LAUNCHER_SIZE -
+      12,
+    y:
+      offsetTop +
+      Math.max(
+        12,
+        height -
+          LAUNCHER_SIZE -
+          92,
+      ),
+  })
 }
 
 export function CrmsAssistant({
@@ -191,6 +225,8 @@ export function CrmsAssistant({
     useRef<number | null>(null)
   const voiceSubmitTimerRef =
     useRef<number | null>(null)
+  const voiceMaxTimerRef =
+    useRef<number | null>(null)
   const voiceTranscriptRef =
     useRef('')
   const voiceTurnSubmittedRef =
@@ -229,30 +265,53 @@ export function CrmsAssistant({
           Number.isFinite(parsed?.y)
         ) {
           setLauncherPosition(
-            snapToSide({
+            clampLauncher({
               x: Number(parsed.x),
               y: Number(parsed.y),
             }),
           )
         }
+      } else {
+        setLauncherPosition(
+          defaultLauncherPosition(),
+        )
       }
     } catch {
-      // Position persistence is optional.
+      setLauncherPosition(
+        defaultLauncherPosition(),
+      )
     }
 
     const onResize = () => {
       setLauncherPosition((current) =>
-        current
-          ? snapToSide(current)
-          : current,
+        clampLauncher(
+          current ||
+            defaultLauncherPosition(),
+        ),
       )
     }
 
     window.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener(
+      'resize',
+      onResize,
+    )
+    window.visualViewport?.addEventListener(
+      'scroll',
+      onResize,
+    )
 
     return () => {
       window.removeEventListener(
         'resize',
+        onResize,
+      )
+      window.visualViewport?.removeEventListener(
+        'resize',
+        onResize,
+      )
+      window.visualViewport?.removeEventListener(
+        'scroll',
         onResize,
       )
       recognitionRef.current?.abort()
@@ -271,6 +330,14 @@ export function CrmsAssistant({
       ) {
         window.clearTimeout(
           voiceSubmitTimerRef.current,
+        )
+      }
+
+      if (
+        voiceMaxTimerRef.current !== null
+      ) {
+        window.clearTimeout(
+          voiceMaxTimerRef.current,
         )
       }
     }
@@ -293,7 +360,8 @@ export function CrmsAssistant({
   function saveLauncherPosition(
     position: { x: number; y: number },
   ) {
-    const safe = snapToSide(position)
+    const safe =
+      clampLauncher(position)
     setLauncherPosition(safe)
 
     try {
@@ -328,6 +396,17 @@ export function CrmsAssistant({
     }
   }
 
+  function clearVoiceMaxTimer() {
+    if (
+      voiceMaxTimerRef.current !== null
+    ) {
+      window.clearTimeout(
+        voiceMaxTimerRef.current,
+      )
+      voiceMaxTimerRef.current = null
+    }
+  }
+
   function startNewChat() {
     stopVoiceMode()
     clearVoiceSubmitTimer()
@@ -344,6 +423,7 @@ export function CrmsAssistant({
   function stopRecognition() {
     clearSilenceTimer()
     clearVoiceSubmitTimer()
+    clearVoiceMaxTimer()
 
     const recognition =
       recognitionRef.current
@@ -561,6 +641,7 @@ export function CrmsAssistant({
     voiceTurnSubmittedRef.current = true
     clearSilenceTimer()
     clearVoiceSubmitTimer()
+    clearVoiceMaxTimer()
 
     try {
       recognitionRef.current?.stop()
@@ -627,6 +708,8 @@ export function CrmsAssistant({
       )
 
       clearSilenceTimer()
+      clearVoiceMaxTimer()
+
       silenceTimerRef.current =
         window.setTimeout(() => {
           if (
@@ -641,6 +724,27 @@ export function CrmsAssistant({
             )
           }
         }, SILENCE_TIMEOUT_MS)
+
+      voiceMaxTimerRef.current =
+        window.setTimeout(() => {
+          if (
+            !voiceModeRef.current ||
+            voiceTurnSubmittedRef.current
+          ) {
+            return
+          }
+
+          if (
+            voiceTranscriptRef.current.trim()
+          ) {
+            submitVoiceTranscript()
+            return
+          }
+
+          stopVoiceMode(
+            'No speech detected. Tap Voice Chat to try again.',
+          )
+        }, VOICE_TURN_MAX_MS)
     }
 
     recognition.onresult = (
@@ -700,7 +804,7 @@ export function CrmsAssistant({
           ) {
             submitVoiceTranscript()
           }
-        }, 1_400)
+        }, VOICE_PAUSE_SUBMIT_MS)
     }
 
     recognition.onerror = (
@@ -936,8 +1040,8 @@ export function CrmsAssistant({
           setOpen(true)
         }
       }}
-      aria-label="CRMS Assistant. Drag to either side of the screen or click to open."
-      title="CRMS Assistant — drag anywhere, release to dock to the nearest screen edge"
+      aria-label="CRMS Assistant. Drag anywhere on the visible screen or click to open."
+      title="CRMS Assistant — drag anywhere on the visible screen"
       className="fixed z-[2147483000] grid h-[54px] w-[54px] touch-none select-none place-items-center rounded-full bg-emerald-700 text-white shadow-2xl ring-4 ring-emerald-200/80 transition-[box-shadow,background-color] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
       style={
         launcherPosition
@@ -950,7 +1054,7 @@ export function CrmsAssistant({
               bottom: 'auto',
             }
           : {
-              right: 0,
+              right: 12,
               bottom: 88,
             }
       }
@@ -1193,7 +1297,7 @@ export function CrmsAssistant({
 
               <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
                 {voiceInputSupported
-                  ? 'One voice control only: tap Voice Chat, speak a CRMS question, hear the response, then continue speaking. Silence stops the session instead of listening forever.'
+                  ? 'One voice control only: tap Voice Chat, speak normally, then pause. CRMS submits after the pause (or by the 8-second turn limit), speaks the reply, and listens again. Silence stops the session instead of listening forever.'
                   : 'Voice recognition is unavailable in this browser. Typed CRMS chat still works.'}
               </p>
             </div>
