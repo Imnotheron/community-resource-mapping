@@ -2410,7 +2410,7 @@ export function CrmsAssistant({
   }
 
   async function stopVoiceChat(
-    userInitiated: boolean,
+    _userInitiated: boolean,
   ) {
     stoppingVoiceRef.current = true
     clearSetupTimeout()
