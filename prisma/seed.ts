@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
-const prisma = new PrismaClient()
+import { db as prisma } from '../src/lib/db'
 
 const ADMIN_ACCOUNTS = [
   { email: 'admin@crms.gov.ph', name: 'Admin User', phone: '09123456789' },
@@ -401,6 +400,66 @@ async function main() {
   console.log('   admin@crms.gov.ph / admin123')
   console.log('   worker@sampolicarpo.gov / worker123')
   console.log('   maria.garcia@email.com / vulnerable123')
+
+  const expectedDemoEmails = [
+    'admin@crms.gov.ph',
+    'admin.operations@crms.gov.ph',
+    'admin.records@crms.gov.ph',
+    'admin.reports@crms.gov.ph',
+    'worker@sampolicarpo.gov',
+    'worker.alugan@sampolicarpo.gov',
+    'worker.bahai@sampolicarpo.gov',
+    'worker.bangon@sampolicarpo.gov',
+    'worker.binogawan@sampolicarpo.gov',
+    'worker.poblacion@sampolicarpo.gov',
+    'maria.garcia@email.com',
+    'jose.dela.cruz@email.com',
+    'ana.bautista@email.com',
+    'pedro.mercado@email.com',
+    'rosa.navarro@email.com',
+    'manuel.gonzales@email.com',
+    'teresa.aquino@email.com',
+    'ricardo.fernandez@email.com',
+    'elena.morales@email.com',
+    'antonio.soriano@email.com',
+    'carmen.rivera@email.com',
+    'benjamin.torres@email.com',
+    'lucia.martinez@email.com',
+    'ernesto.villanueva@email.com',
+  ]
+
+  const recordedDemoUsers = await prisma.user.findMany({
+    where: {
+      email: {
+        in: expectedDemoEmails,
+      },
+    },
+    select: {
+      email: true,
+      role: true,
+    },
+  })
+
+  const recordedEmails = new Set(
+    recordedDemoUsers.map((user) =>
+      user.email.toLowerCase(),
+    ),
+  )
+  const missingDemoUsers =
+    expectedDemoEmails.filter(
+      (email) => !recordedEmails.has(email),
+    )
+
+  if (missingDemoUsers.length > 0) {
+    throw new Error(
+      `Demo-user verification failed. Missing: ${missingDemoUsers.join(', ')}`,
+    )
+  }
+
+  console.log('')
+  console.log(
+    `✅ Verified ${recordedDemoUsers.length}/${expectedDemoEmails.length} demo users in the same database used by CRMS.`,
+  )
 }
 
 main()
