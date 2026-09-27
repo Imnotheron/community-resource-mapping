@@ -72,6 +72,11 @@ function queryTerms(message: string) {
   return [
     ...new Set(
       message
+        .normalize('NFD')
+        .replace(
+          /[\u0300-\u036f]/g,
+          '',
+        )
         .toLowerCase()
         .replace(
           /[^a-z0-9@._-]+/g,
@@ -154,6 +159,13 @@ check(
 check(
   'Accent-safe user matcher finds Jhun David Tejero Labeña',
   score(storedUser, terms) >= 2,
+)
+
+check(
+  'Accent-safe query keeps Labeña searchable',
+  queryTerms(
+    'find Jhun David Tejero Labeña',
+  ).includes('labena'),
 )
 
 const liveCandidates = [
