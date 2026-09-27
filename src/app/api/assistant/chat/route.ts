@@ -1424,6 +1424,152 @@ async function buildQueryAwareContext({
   ].join('\n')
 }
 
+async function directAdminUserLookup({
+  message,
+  retrievalMessage,
+}: {
+  message: string
+  retrievalMessage: string
+}) {
+  const normalized =
+    normalizeLookupText(message)
+
+  const lookupIntent =
+    mentions(normalized, [
+      'do we have',
+      'is there',
+      'is this user',
+      'is that user',
+      'find user',
+      'find account',
+      'look up',
+      'lookup',
+      'users list',
+      'user list',
+      'check the user',
+      'check users',
+    ])
+
+  if (!lookupIntent) return null
+
+  const terms =
+    queryTerms(retrievalMessage)
+
+  if (
+    terms.length === 0 ||
+    terms.length > 6
+  ) {
+    return null
+  }
+
+  const allUsers =
+    await db.user.findMany({
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      take: 300,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        isOnline: true,
+        lastSeenAt: true,
+        createdAt: true,
+        updatedAt: true,
+        vulnerableProfile: {
+          select: {
+            barangay: true,
+            registrationStatus: true,
+            vulnerabilityTypes: true,
+            needsAssistance: true,
+            assistanceType: true,
+          },
+        },
+      },
+    })
+
+  const matches =
+    rankMatches(
+      allUsers,
+      terms,
+      (row) =>
+        [
+          row.name,
+          row.email,
+          row.phone,
+          row.role,
+          row.vulnerableProfile
+            ?.barangay,
+          row.vulnerableProfile
+            ?.registrationStatus,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      5,
+    )
+
+  if (matches.length === 0) {
+    return {
+      provider: 'crms-db',
+      reply: [
+        '### No matching user found',
+        '',
+        `I searched the current **CRMS Users** records for **${terms.join(' ')}** and found no matching account.`,
+      ].join('\n'),
+    }
+  }
+
+  if (matches.length === 1) {
+    const user = matches[0]
+    const profile =
+      user.vulnerableProfile
+
+    return {
+      provider: 'crms-db',
+      reply: [
+        '### User found',
+        '',
+        `- **Full name:** ${user.name}`,
+        `- **Role:** ${user.role}`,
+        `- **Email:** ${user.email}`,
+        `- **Phone:** ${user.phone || 'Not recorded'}`,
+        ...(profile
+          ? [
+              `- **Barangay:** ${profile.barangay || 'Not recorded'}`,
+              `- **Registration status:** ${profile.registrationStatus || 'Not recorded'}`,
+              `- **Vulnerability type:** ${profile.vulnerabilityTypes || 'Not recorded'}`,
+              `- **Needs assistance:** ${profile.needsAssistance ? 'Yes' : 'No'}`,
+              `- **Assistance type:** ${profile.assistanceType || 'Not recorded'}`,
+            ]
+          : []),
+      ].join('\n'),
+    }
+  }
+
+  return {
+    provider: 'crms-db',
+    reply: [
+      `### ${matches.length} matching users found`,
+      '',
+      ...matches.flatMap(
+        (user, index) => [
+          `${index + 1}. **${user.name}** — ${user.role}`,
+          `   - Email: ${user.email}`,
+          `   - Phone: ${user.phone || 'Not recorded'}`,
+          ...(user.vulnerableProfile
+            ? [
+                `   - Barangay: ${user.vulnerableProfile.barangay || 'Not recorded'}`,
+                `   - Registration: ${user.vulnerableProfile.registrationStatus || 'Not recorded'}`,
+              ]
+            : []),
+        ],
+      ),
+    ].join('\n'),
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireRequestUser(request)
@@ -1502,6 +1648,27 @@ export async function POST(request: NextRequest) {
             .join('\n')
         : message
 
+    if (auth.role === 'ADMIN') {
+      const directLookup =
+        await directAdminUserLookup({
+          message,
+          retrievalMessage,
+        })
+
+      if (directLookup) {
+        return NextResponse.json({
+          success: true,
+          provider:
+            directLookup.provider,
+          model: 'CRMS database',
+          contextUpdatedAt:
+            new Date().toISOString(),
+          reply:
+            directLookup.reply,
+        })
+      }
+    }
+
     const apiKey = cleanText(
       process.env.GEMINI_API_KEY,
       500,
@@ -1559,7 +1726,8 @@ export async function POST(request: NextRequest) {
       'When an Administrator asks what data exists, summarize the database catalog and then describe the relevant current records. When they ask for a person, account, barangay, household, relief entry, announcement, feedback item, resource, field note, notification, registration draft, document metadata, or request, use the query-aware lookup instead of giving a generic navigation answer.',
       'AUTHORITATIVE MATCH RULE: If AUTHORITATIVE USER MATCHES or AUTHORITATIVE VULNERABLE PROFILE MATCHES contains a row, that record exists in CRMS. Never say the record was not found. When the user asks whether a named person exists, answer from those rows first and include the matched full name and role. A zero-row match is the only basis for saying no matching record was found.',
       'Do not expose password hashes, OTP state, API keys, or other authentication secrets. Those fields are intentionally never supplied.',
-      'Keep answers concise and operational unless the user asks for detail.',
+      'FORMAT RESPONSES AS CLEAN MARKDOWN. Prefer a short heading when useful, bullet points for record details, numbered steps for procedures, and **bold labels** for important fields. Never place several labeled fields in one run-on paragraph. Never show raw Markdown markers as plain text.',
+      'For a single person or record, use one short heading followed by one bullet per important field. For multiple records, use a numbered list with nested bullets. Keep answers concise and operational unless the user asks for detail.',
       '',
       'CURRENT LIVE CRMS CONTEXT:',
       liveContext,
