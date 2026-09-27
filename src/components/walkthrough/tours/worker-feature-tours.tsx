@@ -892,7 +892,7 @@ function markReportsAnchors() {
   ], 3)
   const template =
     root.querySelector<HTMLElement>(
-      REPORTS_TARGETS.template,
+      '[data-report-template-settings="true"]',
     )
   const dateInput = root.querySelector<HTMLInputElement>('#report-date')
   const date = dateInput ? ancestorContaining(dateInput, ['Report date'], 3) : null

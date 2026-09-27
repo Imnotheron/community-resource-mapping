@@ -168,7 +168,7 @@ function markDailyReportAnchors() {
 
   const templateSettings =
     root.querySelector<HTMLElement>(
-      TARGETS.templateSettings,
+      '[data-report-template-settings="true"]',
     )
 
   const dateInput = root.querySelector<HTMLInputElement>('#report-date')

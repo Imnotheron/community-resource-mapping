@@ -969,7 +969,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
       </div>
 
       <Card
-        data-tour="daily-reports-template-settings"
+        data-report-template-settings="true"
         className="no-print border-slate-200"
       >
         <CardHeader className="pb-3">
