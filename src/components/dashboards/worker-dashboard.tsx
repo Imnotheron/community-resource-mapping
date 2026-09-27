@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WowLoader } from '@/components/ui/wow-loader'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -604,28 +605,50 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Barangay</Label>
-                  <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent className="max-h-64 overflow-y-auto">
-                      <SelectItem value="ALL">All barangays</SelectItem>
-                      {barangays.map((barangay) => (
-                        <SelectItem key={barangay} value={barangay}>{barangay}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={barangayFilter}
+                    onValueChange={setBarangayFilter}
+                    placeholder="All barangays"
+                    searchPlaceholder="Type a barangay..."
+                    options={[
+                      {
+                        value: 'ALL',
+                        label: 'All barangays',
+                      },
+                      ...barangays.map(
+                        (barangay) => ({
+                          value: barangay,
+                          label: barangay,
+                        }),
+                      ),
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Sector</Label>
-                  <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent className="max-h-64 overflow-y-auto">
-                      <SelectItem value="ALL">All sectors</SelectItem>
-                      {sectors.map((sector) => (
-                        <SelectItem key={sector} value={sector}>{sectorLabel(sector)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={sectorFilter}
+                    onValueChange={setSectorFilter}
+                    placeholder="All sectors"
+                    searchPlaceholder="Type a sector..."
+                    options={[
+                      {
+                        value: 'ALL',
+                        label: 'All sectors',
+                      },
+                      ...sectors.map(
+                        (sector) => ({
+                          value: sector,
+                          label:
+                            sectorLabel(
+                              sector,
+                            ),
+                          keywords: sector,
+                        }),
+                      ),
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -643,19 +666,37 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
 
               <div className="space-y-2">
                 <Label>Beneficiary (approved citizens)</Label>
-                <Select
-                  value={form.vulnerableProfileId}
-                  onValueChange={(v) => setForm({ ...form, vulnerableProfileId: v })}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select a citizen..." /></SelectTrigger>
-                  <SelectContent className="max-h-72 overflow-y-auto">
-                    {visibleProfiles.map((profile) => (
-                      <SelectItem key={profile.id} value={profile.id}>
-                        {profile.firstName} {profile.lastName} — {profile.barangay} · {sectorLabel(getProfileSectors(profile)[0])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={
+                    form.vulnerableProfileId
+                  }
+                  onValueChange={(value) =>
+                    setForm({
+                      ...form,
+                      vulnerableProfileId:
+                        value,
+                    })
+                  }
+                  placeholder="Select a citizen..."
+                  searchPlaceholder="Type a citizen name, barangay, or sector..."
+                  options={visibleProfiles.map(
+                    (profile) => ({
+                      value: profile.id,
+                      label:
+                        `${profile.firstName} ${profile.lastName} — ${profile.barangay} · ${sectorLabel(getProfileSectors(profile)[0])}`,
+                      keywords: [
+                        profile.firstName,
+                        profile.lastName,
+                        profile.barangay,
+                        ...getProfileSectors(
+                          profile,
+                        ),
+                      ]
+                        .filter(Boolean)
+                        .join(' '),
+                    }),
+                  )}
+                />
 
                 <p className="text-xs text-muted-foreground">
                   Showing {visibleProfiles.length} of {profiles.length} approved citizens.
