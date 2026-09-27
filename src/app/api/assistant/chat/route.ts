@@ -231,6 +231,21 @@ const QUERY_STOPWORDS = new Set([
   'which',
   'with',
   'would',
+  'any',
+  'are',
+  'check',
+  'do',
+  'does',
+  'in',
+  'is',
+  'it',
+  'look',
+  'lookup',
+  'please',
+  'search',
+  'user',
+  'users',
+  'we',
 ])
 
 function queryTerms(message: string) {
@@ -269,6 +284,63 @@ function compactJson(value: unknown) {
         ? item.toISOString()
         : item,
   )
+}
+
+function normalizeLookupText(value: unknown) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9@._+-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function matchScore(
+  searchable: string,
+  terms: string[],
+) {
+  if (terms.length === 0) return 0
+
+  const normalized =
+    normalizeLookupText(searchable)
+
+  return terms.reduce(
+    (score, term) =>
+      normalized.includes(
+        normalizeLookupText(term),
+      )
+        ? score + 1
+        : score,
+    0,
+  )
+}
+
+function rankMatches<T>(
+  rows: T[],
+  terms: string[],
+  searchable: (row: T) => string,
+  limit = 30,
+) {
+  if (terms.length === 0) {
+    return rows.slice(0, limit)
+  }
+
+  return rows
+    .map((row) => ({
+      row,
+      score: matchScore(
+        searchable(row),
+        terms,
+      ),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score,
+    )
+    .slice(0, limit)
+    .map(({ row }) => row)
 }
 
 async function buildQueryAwareContext({
@@ -329,6 +401,7 @@ async function buildQueryAwareContext({
 
     const wantsUsers =
       broadDataQuestion ||
+      terms.length > 0 ||
       mentions(message, [
         'user',
         'account',
@@ -339,6 +412,7 @@ async function buildQueryAwareContext({
       ])
     const wantsProfiles =
       broadDataQuestion ||
+      terms.length > 0 ||
       mentions(message, [
         'vulnerable',
         'citizen',
@@ -388,35 +462,6 @@ async function buildQueryAwareContext({
         'admin request',
         'approval request',
       ])
-
-    const userWhere =
-      terms.length > 0
-        ? {
-            OR: terms.flatMap((term) => [
-              { name: { contains: term } },
-              { email: { contains: term } },
-              { phone: { contains: term } },
-              { role: { contains: term.toUpperCase() } },
-            ]),
-          }
-        : undefined
-
-    const profileWhere =
-      terms.length > 0
-        ? {
-            OR: terms.flatMap((term) => [
-              { firstName: { contains: term } },
-              { middleName: { contains: term } },
-              { lastName: { contains: term } },
-              { emailAddress: { contains: term } },
-              { mobileNumber: { contains: term } },
-              { barangay: { contains: term } },
-              { registrationStatus: { contains: term.toUpperCase() } },
-              { vulnerabilityTypes: { contains: term.toUpperCase() } },
-              { assistanceType: { contains: term } },
-            ]),
-          }
-        : undefined
 
     const reliefWhere =
       terms.length > 0
@@ -499,9 +544,10 @@ async function buildQueryAwareContext({
       tasks.push(
         db.user
           .findMany({
-            where: userWhere,
-            orderBy: { updatedAt: 'desc' },
-            take: broadDataQuestion ? 20 : 30,
+            orderBy: {
+              updatedAt: 'desc',
+            },
+            take: 250,
             select: {
               id: true,
               name: true,
@@ -514,9 +560,27 @@ async function buildQueryAwareContext({
               updatedAt: true,
             },
           })
-          .then((rows) => {
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows.slice(0, 50)
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.name,
+                        row.email,
+                        row.phone,
+                        row.role,
+                      ]
+                        .filter(Boolean)
+                        .join(' '),
+                    40,
+                  )
+
             sections.push(
-              'USER LOOKUP (' +
+              'AUTHORITATIVE USER MATCHES (' +
                 rows.length +
                 ' rows): ' +
                 compactJson(rows),
@@ -529,9 +593,10 @@ async function buildQueryAwareContext({
       tasks.push(
         db.vulnerableProfile
           .findMany({
-            where: profileWhere,
-            orderBy: { updatedAt: 'desc' },
-            take: broadDataQuestion ? 20 : 30,
+            orderBy: {
+              updatedAt: 'desc',
+            },
+            take: 250,
             select: {
               id: true,
               firstName: true,
@@ -558,13 +623,42 @@ async function buildQueryAwareContext({
                   id: true,
                   name: true,
                   role: true,
+                  email: true,
+                  phone: true,
                 },
               },
             },
           })
-          .then((rows) => {
+          .then((allRows) => {
+            const rows =
+              broadDataQuestion
+                ? allRows.slice(0, 50)
+                : rankMatches(
+                    allRows,
+                    terms,
+                    (row) =>
+                      [
+                        row.firstName,
+                        row.middleName,
+                        row.lastName,
+                        row.suffix,
+                        row.emailAddress,
+                        row.mobileNumber,
+                        row.barangay,
+                        row.registrationStatus,
+                        row.vulnerabilityTypes,
+                        row.assistanceType,
+                        row.user?.name,
+                        row.user?.email,
+                        row.user?.phone,
+                      ]
+                        .filter(Boolean)
+                        .join(' '),
+                    40,
+                  )
+
             sections.push(
-              'VULNERABLE PROFILE LOOKUP (' +
+              'AUTHORITATIVE VULNERABLE PROFILE MATCHES (' +
                 rows.length +
                 ' rows): ' +
                 compactJson(rows),
@@ -1007,10 +1101,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const history = Array.isArray(body.history)
+    const rawHistory = Array.isArray(body.history)
       ? (body.history as ChatMessage[])
           .slice(-12)
-          .map((item) => ({
+      : []
+
+    const history = rawHistory
+      .map((item) => ({
             role:
               item.role === 'assistant'
                 ? 'model'
@@ -1025,7 +1122,24 @@ export async function POST(request: NextRequest) {
             (item) =>
               item.parts[0].text.length > 0,
           )
-      : []
+
+    const retrievalMessage = [
+      ...rawHistory
+        .filter(
+          (item) =>
+            item.role !== 'assistant',
+        )
+        .slice(-4)
+        .map((item) =>
+          cleanText(
+            item.content,
+            600,
+          ),
+        ),
+      message,
+    ]
+      .filter(Boolean)
+      .join('\n')
 
     const apiKey = cleanText(
       process.env.GEMINI_API_KEY,
@@ -1062,7 +1176,8 @@ export async function POST(request: NextRequest) {
       await buildQueryAwareContext({
         role: auth.role,
         userId: auth.userId,
-        message,
+        message:
+          retrievalMessage,
       })
 
     const systemInstruction = [
@@ -1081,6 +1196,7 @@ export async function POST(request: NextRequest) {
       'Vulnerable Citizen areas include Home, My Information, My Relief History, Send Feedback, Community Updates, and Help Guide.',
       'When the user asks what to do, give short numbered steps that match the signed-in role and current page when possible.',
       'When an Administrator asks what data exists, summarize the database catalog and then describe the relevant current records. When they ask for a person, account, barangay, relief entry, announcement, feedback item, resource, or request, use the query-aware lookup instead of giving a generic navigation answer.',
+      'AUTHORITATIVE MATCH RULE: If AUTHORITATIVE USER MATCHES or AUTHORITATIVE VULNERABLE PROFILE MATCHES contains a row, that record exists in CRMS. Never say the record was not found. When the user asks whether a named person exists, answer from those rows first and include the matched full name and role. A zero-row match is the only basis for saying no matching record was found.',
       'Do not expose password hashes, OTP state, API keys, or other authentication secrets. Those fields are intentionally never supplied.',
       'Keep answers concise and operational unless the user asks for detail.',
       '',
