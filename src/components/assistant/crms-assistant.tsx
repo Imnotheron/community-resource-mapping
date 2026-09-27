@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
+import ReactMarkdown from 'react-markdown'
 import {
   AudioLines,
   Bot,
@@ -334,6 +335,10 @@ export function CrmsAssistant({
   } | null>(null)
   const [portalReady, setPortalReady] =
     useState(false)
+  const [
+    launcherBottom,
+    setLauncherBottom,
+  ] = useState(96)
 
   const messagesRef =
     useRef<Message[]>([])
@@ -489,6 +494,139 @@ export function CrmsAssistant({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    if (
+      typeof window === 'undefined'
+    ) {
+      return
+    }
+
+    const updateLauncherBottom = () => {
+      const viewportHeight =
+        window.visualViewport?.height ||
+        window.innerHeight
+
+      const guideButtons =
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            'button[aria-label]',
+          ),
+        )
+          .filter((button) => {
+            const label =
+              button
+                .getAttribute(
+                  'aria-label',
+                )
+                ?.toLowerCase() || ''
+
+            if (
+              !label.includes('guide')
+            ) {
+              return false
+            }
+
+            const rect =
+              button.getBoundingClientRect()
+            const style =
+              window.getComputedStyle(
+                button,
+              )
+
+            return (
+              style.position === 'fixed' &&
+              style.display !== 'none' &&
+              style.visibility !==
+                'hidden' &&
+              rect.width > 0 &&
+              rect.height > 0 &&
+              rect.bottom > 0 &&
+              rect.top < viewportHeight
+            )
+          })
+          .map((button) =>
+            button.getBoundingClientRect(),
+          )
+
+      if (
+        guideButtons.length === 0
+      ) {
+        setLauncherBottom(
+          window.innerWidth < 768
+            ? 96
+            : 88,
+        )
+        return
+      }
+
+      const topMostGuide =
+        Math.min(
+          ...guideButtons.map(
+            (rect) => rect.top,
+          ),
+        )
+
+      // Keep a 12px visual gap directly above the highest visible
+      // walkthrough/guide launcher.
+      const nextBottom =
+        viewportHeight -
+        topMostGuide +
+        12
+
+      setLauncherBottom(
+        Math.max(
+          88,
+          Math.min(
+            viewportHeight - 70,
+            nextBottom,
+          ),
+        ),
+      )
+    }
+
+    updateLauncherBottom()
+
+    const observer =
+      new MutationObserver(
+        updateLauncherBottom,
+      )
+
+    observer.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: [
+          'class',
+          'style',
+          'aria-label',
+        ],
+      },
+    )
+
+    window.addEventListener(
+      'resize',
+      updateLauncherBottom,
+    )
+    window.visualViewport?.addEventListener(
+      'resize',
+      updateLauncherBottom,
+    )
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener(
+        'resize',
+        updateLauncherBottom,
+      )
+      window.visualViewport?.removeEventListener(
+        'resize',
+        updateLauncherBottom,
+      )
+    }
+  }, [activeView, open])
+
   function persistLauncher(
     position: { x: number; y: number },
   ) {
@@ -560,7 +698,9 @@ export function CrmsAssistant({
     setProviderLabel(
       data.provider === 'gemini'
         ? `Gemini · ${data.model || 'connected model'}`
-        : 'AI connected',
+        : data.provider === 'crms-db'
+          ? 'CRMS Database · verified'
+          : 'AI connected',
     )
 
     return {
@@ -2114,34 +2254,16 @@ export function CrmsAssistant({
   const launcher = (
     <button
       type="button"
-      onPointerDown={
-        onLauncherPointerDown
+      onClick={() =>
+        setOpen(true)
       }
-      onKeyDown={(event) => {
-        if (
-          event.key === 'Enter' ||
-          event.key === ' '
-        ) {
-          event.preventDefault()
-          setOpen(true)
-        }
+      aria-label="Open CRMS Assistant"
+      title="Open CRMS Assistant"
+      className="fixed right-4 z-[2147483000] grid h-[54px] w-[54px] place-items-center rounded-full bg-emerald-700 text-white shadow-2xl ring-4 ring-emerald-200/80 transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 md:right-6"
+      style={{
+        bottom:
+          launcherBottom,
       }}
-      aria-label="CRMS Assistant. Drag anywhere on the visible screen or click to open."
-      title="CRMS Assistant — drag anywhere on the visible screen"
-      className="fixed z-[2147483000] grid h-[54px] w-[54px] touch-none select-none place-items-center rounded-full bg-emerald-700 text-white shadow-2xl ring-4 ring-emerald-200/80 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
-      style={
-        launcherPosition
-          ? {
-              left:
-                launcherPosition.x,
-              top:
-                launcherPosition.y,
-            }
-          : {
-              right: 12,
-              bottom: 88,
-            }
-      }
     >
       <Bot className="h-6 w-6" />
     </button>
@@ -2285,9 +2407,82 @@ export function CrmsAssistant({
                         : 'mr-8 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800'
                     }
                   >
-                    {
+                    {message.role ===
+                    'assistant' ? (
+                      <ReactMarkdown
+                        components={{
+                          h1: ({
+                            children,
+                          }) => (
+                            <h3 className="mb-2 mt-1 text-base font-bold text-slate-950">
+                              {children}
+                            </h3>
+                          ),
+                          h2: ({
+                            children,
+                          }) => (
+                            <h3 className="mb-2 mt-1 text-base font-bold text-slate-950">
+                              {children}
+                            </h3>
+                          ),
+                          h3: ({
+                            children,
+                          }) => (
+                            <h3 className="mb-2 mt-1 text-sm font-bold text-slate-950">
+                              {children}
+                            </h3>
+                          ),
+                          p: ({
+                            children,
+                          }) => (
+                            <p className="my-1.5 first:mt-0 last:mb-0">
+                              {children}
+                            </p>
+                          ),
+                          strong: ({
+                            children,
+                          }) => (
+                            <strong className="font-semibold text-emerald-800">
+                              {children}
+                            </strong>
+                          ),
+                          ul: ({
+                            children,
+                          }) => (
+                            <ul className="my-2 list-disc space-y-1 pl-5 marker:text-emerald-600">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({
+                            children,
+                          }) => (
+                            <ol className="my-2 list-decimal space-y-1.5 pl-5 marker:font-semibold marker:text-emerald-700">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({
+                            children,
+                          }) => (
+                            <li className="pl-1">
+                              {children}
+                            </li>
+                          ),
+                          code: ({
+                            children,
+                          }) => (
+                            <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.8rem] text-slate-900">
+                              {children}
+                            </code>
+                          ),
+                        }}
+                      >
+                        {
+                          message.content
+                        }
+                      </ReactMarkdown>
+                    ) : (
                       message.content
-                    }
+                    )}
                   </div>
                 ),
               )}
