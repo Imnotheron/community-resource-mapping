@@ -1466,23 +1466,41 @@ export async function POST(request: NextRequest) {
               item.parts[0].text.length > 0,
           )
 
-    const retrievalMessage = [
-      ...rawHistory
-        .filter(
-          (item) =>
-            item.role !== 'assistant',
-        )
-        .slice(-4)
-        .map((item) =>
-          cleanText(
-            item.content,
-            600,
-          ),
-        ),
-      message,
-    ]
-      .filter(Boolean)
-      .join('\n')
+    const currentLookupTerms =
+      queryTerms(message)
+    const needsPriorLookupContext =
+      currentLookupTerms.length === 0 ||
+      mentions(message, [
+        'that user',
+        'that person',
+        'them',
+        'look up',
+        'lookup',
+        'check again',
+        'users list',
+      ])
+
+    const retrievalMessage =
+      needsPriorLookupContext
+        ? [
+            ...rawHistory
+              .filter(
+                (item) =>
+                  item.role !==
+                  'assistant',
+              )
+              .slice(-4)
+              .map((item) =>
+                cleanText(
+                  item.content,
+                  600,
+                ),
+              ),
+            message,
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : message
 
     const apiKey = cleanText(
       process.env.GEMINI_API_KEY,
