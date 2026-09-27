@@ -6,10 +6,58 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+const DropdownMenuDismissContext =
+  React.createContext<(() => void) | null>(
+    null,
+  )
+
 function DropdownMenu({
+  open: controlledOpen,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+  const [internalOpen, setInternalOpen] =
+    React.useState(defaultOpen ?? false)
+  const open =
+    controlledOpen ?? internalOpen
+
+  const handleOpenChange =
+    React.useCallback(
+      (nextOpen: boolean) => {
+        if (
+          controlledOpen === undefined
+        ) {
+          setInternalOpen(nextOpen)
+        }
+
+        onOpenChange?.(nextOpen)
+      },
+      [
+        controlledOpen,
+        onOpenChange,
+      ],
+    )
+
+  const dismiss = React.useCallback(
+    () => handleOpenChange(false),
+    [handleOpenChange],
+  )
+
+  return (
+    <DropdownMenuDismissContext.Provider
+      value={dismiss}
+    >
+      <DropdownMenuPrimitive.Root
+        data-slot="dropdown-menu"
+        open={open}
+        onOpenChange={
+          handleOpenChange
+        }
+        {...props}
+      />
+    </DropdownMenuDismissContext.Provider>
+  )
 }
 
 function DropdownMenuPortal({
@@ -34,8 +82,15 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const dismiss =
+    React.useContext(
+      DropdownMenuDismissContext,
+    )
+
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
@@ -45,6 +100,28 @@ function DropdownMenuContent({
           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
           className
         )}
+        onPointerDownOutside={(
+          event,
+        ) => {
+          onPointerDownOutside?.(
+            event,
+          )
+
+          if (
+            !event.defaultPrevented
+          ) {
+            dismiss?.()
+          }
+        }}
+        onFocusOutside={(event) => {
+          onFocusOutside?.(event)
+
+          if (
+            !event.defaultPrevented
+          ) {
+            dismiss?.()
+          }
+        }}
         {...props}
       />
     </DropdownMenuPrimitive.Portal>
