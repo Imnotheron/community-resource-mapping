@@ -359,6 +359,8 @@ export function CrmsAssistant({
     )
   const turnFrameRef =
     useRef<number | null>(null)
+  const turnSpeechWatchdogRef =
+    useRef<number | null>(null)
   const turnSpeechSeenRef =
     useRef(false)
   const turnLastSpeechAtRef =
@@ -811,6 +813,17 @@ export function CrmsAssistant({
     turnAnalyserRef.current = null
   }
 
+  function clearSpeechWatchdog() {
+    if (
+      turnSpeechWatchdogRef.current !== null
+    ) {
+      window.clearTimeout(
+        turnSpeechWatchdogRef.current,
+      )
+      turnSpeechWatchdogRef.current = null
+    }
+  }
+
   function closeCompatibleInputGraph() {
     clearTurnMonitor()
 
@@ -863,7 +876,9 @@ export function CrmsAssistant({
       'CRMS Assistant is speaking…',
     )
 
-    utterance.onend = () => {
+    const continueListening = () => {
+      clearSpeechWatchdog()
+
       if (
         voiceModeRef.current &&
         voiceTransportRef.current ===
@@ -883,12 +898,35 @@ export function CrmsAssistant({
       }
     }
 
+    utterance.onend =
+      continueListening
+
     utterance.onerror = () => {
+      clearSpeechWatchdog()
       setVoiceError(
         'The browser could not play the spoken reply.',
       )
       void stopVoiceChat(false)
     }
+
+    clearSpeechWatchdog()
+    turnSpeechWatchdogRef.current =
+      window.setTimeout(() => {
+        if (
+          voiceModeRef.current &&
+          voiceTransportRef.current ===
+            'turn'
+        ) {
+          window.speechSynthesis.cancel()
+          continueListening()
+        }
+      }, Math.min(
+        45_000,
+        Math.max(
+          8_000,
+          text.length * 65,
+        ),
+      ))
 
     window.speechSynthesis.speak(
       utterance,
@@ -1127,6 +1165,9 @@ export function CrmsAssistant({
         analyser.fftSize,
       )
 
+    let noiseFloor = 0.003
+    let speechFrames = 0
+
     const monitor = () => {
       if (
         !voiceModeRef.current ||
@@ -1156,39 +1197,70 @@ export function CrmsAssistant({
       )
       const now =
         performance.now()
+      const elapsed =
+        now -
+        turnStartedAtRef.current
 
-      if (rms >= 0.018) {
-        turnSpeechSeenRef.current =
-          true
-        turnLastSpeechAtRef.current =
-          now
-        setVoiceStatus(
-          'Listening — speak naturally',
-        )
-      } else if (
-        turnSpeechSeenRef.current &&
-        now -
-          turnLastSpeechAtRef.current >=
-          950
-      ) {
-        setVoiceStatus(
-          'Processing your voice…',
-        )
-        recorder.stop()
-        return
-      } else if (
+      if (
         !turnSpeechSeenRef.current &&
-        now -
-          turnStartedAtRef.current >=
-          12_000
+        elapsed < 700 &&
+        rms < 0.02
+      ) {
+        noiseFloor =
+          noiseFloor * 0.85 +
+          rms * 0.15
+      }
+
+      const threshold =
+        Math.max(
+          0.007,
+          Math.min(
+            0.03,
+            noiseFloor * 2.4 +
+              0.0025,
+          ),
+        )
+
+      if (rms >= threshold) {
+        speechFrames += 1
+
+        if (speechFrames >= 2) {
+          turnSpeechSeenRef.current =
+            true
+          turnLastSpeechAtRef.current =
+            now
+          setVoiceStatus(
+            'Listening — speak naturally',
+          )
+        }
+      } else {
+        speechFrames = 0
+
+        if (
+          turnSpeechSeenRef.current &&
+          now -
+            turnLastSpeechAtRef.current >=
+            950
+        ) {
+          setVoiceStatus(
+            'Processing your voice…',
+          )
+          recorder.stop()
+          return
+        }
+      }
+
+      if (
+        !turnSpeechSeenRef.current &&
+        elapsed >= 12_000
       ) {
         recorder.stop()
         return
-      } else if (
+      }
+
+      if (
         turnSpeechSeenRef.current &&
-        now -
-          turnStartedAtRef.current >=
-          20_000
+        elapsed >= 20_000
       ) {
         recorder.stop()
         return
@@ -1789,6 +1861,7 @@ export function CrmsAssistant({
     stoppingVoiceRef.current = true
     clearSetupTimeout()
     closeCompatibleInputGraph()
+    clearSpeechWatchdog()
 
     window.speechSynthesis?.cancel()
 
