@@ -9,6 +9,7 @@ import {
 } from '@/lib/assistant-language'
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { getGeminiApiKey } from '@/lib/gemini-api-key'
 
 type ChatMessage = {
   role?: string
@@ -1808,10 +1809,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const apiKey = cleanText(
-      process.env.GEMINI_API_KEY,
-      500,
-    )
+    const apiKey = cleanText(getGeminiApiKey(), 500)
     const model =
       cleanText(
         process.env.GEMINI_TEXT_MODEL ||
@@ -1825,7 +1823,7 @@ export async function POST(request: NextRequest) {
           success: false,
           code: 'AI_NOT_CONFIGURED',
           error:
-            'Real AI chat is not configured. Add GEMINI_API_KEY to the server environment and restart the app.',
+            'Real AI chat is not configured for this deployment. Add GEMINI_API_KEY (or GOOGLE_API_KEY) to the server environment and redeploy/restart CRMS.',
         },
         { status: 503 },
       )
