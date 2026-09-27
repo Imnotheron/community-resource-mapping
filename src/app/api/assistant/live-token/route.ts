@@ -81,9 +81,8 @@ function formatGoogleApiError(
   return `${label}: ${status} — ${error.message}`
 }
 
-async function probeGeminiAccess(
+async function listAccessibleGeminiModels(
   apiKey: string,
-  model: string,
 ) {
   const controller =
     new AbortController()
@@ -116,19 +115,19 @@ async function probeGeminiAccess(
 
     const payload =
       await response.json()
-    const modelName =
-      `models/${model}`
-    const available =
-      Array.isArray(payload?.models) &&
-      payload.models.some(
-        (item: any) =>
-          item?.name === modelName,
-      )
+    const names = new Set<string>(
+      Array.isArray(payload?.models)
+        ? payload.models
+            .map((item: any) =>
+              String(item?.name || ''),
+            )
+            .filter(Boolean)
+        : [],
+    )
 
     return {
       ok: true as const,
-      available,
-      modelName,
+      names,
     }
   } catch (error: any) {
     return {
@@ -150,6 +149,34 @@ async function probeGeminiAccess(
     }
   } finally {
     clearTimeout(timeout)
+  }
+}
+
+function chooseLiveModel(
+  accessibleNames: Set<string>,
+  configuredModel: string,
+) {
+  const candidates = [
+    configuredModel,
+    'gemini-3.8-live',
+    'gemini-3.1-flash-live-preview',
+    'gemini-2.5-flash-native-audio-preview-12-2025',
+  ].filter(
+    (model, index, all) =>
+      Boolean(model) &&
+      all.indexOf(model) === index,
+  )
+
+  const selected = candidates.find(
+    (model) =>
+      accessibleNames.has(
+        `models/${model}`,
+      ),
+  )
+
+  return {
+    selected: selected || null,
+    candidates,
   }
 }
 
@@ -546,23 +573,22 @@ export async function POST(request: NextRequest) {
       body.activeViewLabel,
       160,
     )
-    const model =
+    const configuredModel =
       clean(
         process.env.GEMINI_LIVE_MODEL,
         100,
       ) || 'gemini-3.8-live'
 
-    const accessProbe =
-      await probeGeminiAccess(
+    const modelAccess =
+      await listAccessibleGeminiModels(
         apiKey,
-        model,
       )
 
-    if (!accessProbe.ok) {
+    if (!modelAccess.ok) {
       const detail =
         formatGoogleApiError(
           'Gemini API access check failed',
-          accessProbe.error,
+          modelAccess.error,
         )
 
       console.error(detail)
@@ -575,7 +601,7 @@ export async function POST(request: NextRequest) {
           error: detail,
           diagnostics: {
             stage: 'models',
-            model,
+            configuredModel,
             keyType:
               apiKey.startsWith('AQ.')
                 ? 'AQ auth key'
@@ -588,28 +614,52 @@ export async function POST(request: NextRequest) {
         },
         {
           status:
-            accessProbe.error
+            modelAccess.error
               .httpStatus || 502,
         },
       )
     }
 
-    if (!accessProbe.available) {
+    const modelChoice =
+      chooseLiveModel(
+        modelAccess.names,
+        configuredModel,
+      )
+    const model =
+      modelChoice.selected
+
+    if (!model) {
+      const accessibleLiveModels =
+        [...modelAccess.names]
+          .filter((name) =>
+            /live|native-audio/i.test(
+              name,
+            ),
+          )
+          .slice(0, 20)
+
       return NextResponse.json(
         {
           success: false,
           code:
-            'GEMINI_LIVE_MODEL_UNAVAILABLE',
+            'NO_SUPPORTED_LIVE_MODEL',
           error:
-            `The configured Gemini project can authenticate, but ${model} is not available to this project/key. Check AI Studio → Rate limits / model availability or choose a Live model that the project can access.`,
+            'This Gemini project can authenticate, but none of the CRMS-supported Live models are available to it. CRMS checked Gemini 3.8 Live, Gemini 3.1 Flash Live Preview, and Gemini 2.5 Flash Native Audio.',
           diagnostics: {
             stage: 'models',
-            model,
-            modelName:
-              accessProbe.modelName,
+            configuredModel,
+            triedModels:
+              modelChoice.candidates,
+            accessibleLiveModels,
           },
         },
         { status: 409 },
+      )
+    }
+
+    if (model !== configuredModel) {
+      console.warn(
+        `Configured Live model ${configuredModel} is unavailable; CRMS automatically selected ${model} for this Gemini project.`,
       )
     }
 
@@ -687,6 +737,9 @@ export async function POST(request: NextRequest) {
         diagnostics: {
           stage: 'ready',
           model,
+          configuredModel,
+          automaticFallback:
+            model !== configuredModel,
           tokenMode:
             'constrained',
           contextCharacters:
@@ -729,6 +782,9 @@ export async function POST(request: NextRequest) {
         diagnostics: {
           stage: 'ready',
           model,
+          configuredModel,
+          automaticFallback:
+            model !== configuredModel,
           tokenMode: 'minimal',
           constrainedTokenError:
             formatGoogleApiError(
