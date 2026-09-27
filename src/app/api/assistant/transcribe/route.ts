@@ -2,6 +2,10 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
+import {
+  assistantTranscriptionInstruction,
+  normalizeAssistantLanguage,
+} from '@/lib/assistant-language'
 import { requireRequestUser } from '@/lib/request-user-session'
 
 function clean(
@@ -85,6 +89,10 @@ export async function POST(
       body.model,
       100,
     )
+    const language =
+      normalizeAssistantLanguage(
+        body.language,
+      )
     const model =
       requestedModel ||
       clean(
@@ -162,7 +170,9 @@ export async function POST(
                 parts: [
                   {
                     text:
-                      'Transcribe exactly what the speaker says. Return only the spoken words, with normal punctuation. Do not answer the request and do not add commentary. The speech may be English, Filipino/Tagalog, Waray, or a natural mix of those languages.',
+                      assistantTranscriptionInstruction(
+                        language,
+                      ),
                   },
                   {
                     inlineData: {
@@ -269,6 +279,7 @@ export async function POST(
       success: true,
       transcript,
       model,
+      language,
     })
   } catch (error) {
     console.error(
