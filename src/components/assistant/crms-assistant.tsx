@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -34,60 +33,17 @@ type Message = {
   content: string
 }
 
-type RecognitionResultEvent = {
-  resultIndex?: number
-  results: ArrayLike<{
-    0: { transcript: string }
-    isFinal?: boolean
-    length?: number
-  }>
-}
-
-type SpeechRecognitionConstructor = new () => {
-  lang: string
-  interimResults: boolean
-  continuous: boolean
-  maxAlternatives: number
-  start: () => void
-  stop: () => void
-  abort: () => void
-  onstart: (() => void) | null
-  onend: (() => void) | null
-  onerror: ((event: { error?: string }) => void) | null
-  onresult:
-    | ((event: RecognitionResultEvent) => void)
-    | null
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor
-    webkitSpeechRecognition?: SpeechRecognitionConstructor
-  }
+type LiveTokenResponse = {
+  token: string
+  model: string
+  systemInstruction: string
+  expiresAt: string
 }
 
 const POSITION_KEY =
-  'crms-assistant-launcher-position-v3'
+  'crms-assistant-launcher-position-v4'
 const LAUNCHER_SIZE = 54
 const LAUNCHER_VISIBLE_EDGE = 18
-const SILENCE_TIMEOUT_MS = 12_000
-const VOICE_PAUSE_SUBMIT_MS = 1_250
-const VOICE_TURN_MAX_MS = 8_000
-
-function greeting(role: string) {
-  const normalized =
-    String(role || '').toUpperCase()
-
-  if (normalized === 'ADMIN') {
-    return 'I only handle CRMS. Ask what is currently recorded, what is pending, what this page does, or what you should do next.'
-  }
-
-  if (normalized === 'WORKER') {
-    return 'I only handle CRMS. Ask about your relief records, registrations, Activity History, field notes, reports, or your next CRMS step.'
-  }
-
-  return 'I only handle CRMS. Ask about your profile, relief history, announcements, feedback, or what you should do next.'
-}
 
 function viewportSize() {
   if (typeof window === 'undefined') {
@@ -132,11 +88,6 @@ function clampLauncher(
     width -
     LAUNCHER_SIZE +
     LAUNCHER_VISIBLE_EDGE
-  const minY = offsetTop
-  const maxY =
-    offsetTop +
-    height -
-    LAUNCHER_SIZE
 
   return {
     x: Math.min(
@@ -144,8 +95,13 @@ function clampLauncher(
       Math.max(minX, maxX),
     ),
     y: Math.min(
-      Math.max(minY, position.y),
-      Math.max(minY, maxY),
+      Math.max(offsetTop, position.y),
+      Math.max(
+        offsetTop,
+        offsetTop +
+          height -
+          LAUNCHER_SIZE,
+      ),
     ),
   }
 }
@@ -166,13 +122,138 @@ function defaultLauncherPosition() {
       12,
     y:
       offsetTop +
-      Math.max(
-        12,
-        height -
-          LAUNCHER_SIZE -
-          92,
-      ),
+      height -
+      LAUNCHER_SIZE -
+      92,
   })
+}
+
+function floatToPcm16(
+  input: Float32Array,
+  inputRate: number,
+  outputRate = 16_000,
+) {
+  const ratio =
+    inputRate / outputRate
+  const outputLength =
+    Math.max(
+      1,
+      Math.floor(
+        input.length / ratio,
+      ),
+    )
+  const output =
+    new Int16Array(outputLength)
+
+  for (
+    let index = 0;
+    index < outputLength;
+    index += 1
+  ) {
+    const sourceIndex =
+      index * ratio
+    const left =
+      Math.floor(sourceIndex)
+    const right =
+      Math.min(
+        input.length - 1,
+        left + 1,
+      )
+    const fraction =
+      sourceIndex - left
+    const sample =
+      input[left] +
+      (input[right] - input[left]) *
+        fraction
+
+    output[index] =
+      Math.max(
+        -1,
+        Math.min(1, sample),
+      ) < 0
+        ? Math.round(
+            Math.max(
+              -1,
+              Math.min(1, sample),
+            ) * 0x8000,
+          )
+        : Math.round(
+            Math.max(
+              -1,
+              Math.min(1, sample),
+            ) * 0x7fff,
+          )
+  }
+
+  return new Uint8Array(
+    output.buffer,
+  )
+}
+
+function bytesToBase64(
+  bytes: Uint8Array,
+) {
+  let binary = ''
+  const chunk = 0x8000
+
+  for (
+    let index = 0;
+    index < bytes.length;
+    index += chunk
+  ) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(
+        index,
+        Math.min(
+          bytes.length,
+          index + chunk,
+        ),
+      ),
+    )
+  }
+
+  return btoa(binary)
+}
+
+function base64ToPcm16(
+  value: string,
+) {
+  const binary = atob(value)
+  const bytes =
+    new Uint8Array(binary.length)
+
+  for (
+    let index = 0;
+    index < binary.length;
+    index += 1
+  ) {
+    bytes[index] =
+      binary.charCodeAt(index)
+  }
+
+  return new Int16Array(
+    bytes.buffer,
+  )
+}
+
+function appendTranscript(
+  current: string,
+  next: string,
+) {
+  const incoming = next.trim()
+  if (!incoming) return current
+
+  if (!current) return incoming
+  if (incoming === current) return current
+  if (incoming.startsWith(current)) {
+    return incoming
+  }
+
+  return (
+    current +
+    (current.endsWith(' ') ? '' : ' ') +
+    incoming
+  ).trim()
 }
 
 export function CrmsAssistant({
@@ -192,14 +273,12 @@ export function CrmsAssistant({
     useState<Message[]>([])
   const [sending, setSending] =
     useState(false)
-  const [listening, setListening] =
-    useState(false)
+  const [providerLabel, setProviderLabel] =
+    useState('AI connection not verified')
   const [voiceMode, setVoiceMode] =
     useState(false)
   const [voiceStatus, setVoiceStatus] =
-    useState('Voice chat ready')
-  const [providerLabel, setProviderLabel] =
-    useState('AI connection not verified')
+    useState('Voice Chat ready')
   const [
     launcherPosition,
     setLauncherPosition,
@@ -209,44 +288,44 @@ export function CrmsAssistant({
   } | null>(null)
   const [portalReady, setPortalReady] =
     useState(false)
-  const [dragging, setDragging] =
-    useState(false)
 
   const messagesRef =
     useRef<Message[]>([])
-  const sendingRef = useRef(false)
-  const voiceModeRef = useRef(false)
-  const speakingRef = useRef(false)
-  const recognitionRef =
-    useRef<InstanceType<SpeechRecognitionConstructor> | null>(
-      null,
-    )
-  const silenceTimerRef =
-    useRef<number | null>(null)
-  const voiceSubmitTimerRef =
-    useRef<number | null>(null)
-  const voiceMaxTimerRef =
-    useRef<number | null>(null)
-  const voiceTranscriptRef =
-    useRef('')
-  const voiceTurnSubmittedRef =
+  const socketRef =
+    useRef<WebSocket | null>(null)
+  const mediaStreamRef =
+    useRef<MediaStream | null>(null)
+  const inputContextRef =
+    useRef<AudioContext | null>(null)
+  const outputContextRef =
+    useRef<AudioContext | null>(null)
+  const inputProcessorRef =
+    useRef<ScriptProcessorNode | null>(null)
+  const inputSourceRef =
+    useRef<MediaStreamAudioSourceNode | null>(null)
+  const silentGainRef =
+    useRef<GainNode | null>(null)
+  const liveReadyRef = useRef(false)
+  const stoppingVoiceRef =
     useRef(false)
+  const nextPlaybackTimeRef =
+    useRef(0)
+  const inputTranscriptRef =
+    useRef('')
+  const outputTranscriptRef =
+    useRef('')
   const dragRef = useRef<{
     pointerId: number
     grabX: number
     grabY: number
-    lastX: number
-    lastY: number
+    x: number
+    y: number
     moved: boolean
   } | null>(null)
 
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
-
-  useEffect(() => {
-    voiceModeRef.current = voiceMode
-  }, [voiceMode])
 
   useEffect(() => {
     setPortalReady(true)
@@ -270,6 +349,10 @@ export function CrmsAssistant({
               y: Number(parsed.y),
             }),
           )
+        } else {
+          setLauncherPosition(
+            defaultLauncherPosition(),
+          )
         }
       } else {
         setLauncherPosition(
@@ -282,7 +365,7 @@ export function CrmsAssistant({
       )
     }
 
-    const onResize = () => {
+    const resize = () => {
       setLauncherPosition((current) =>
         clampLauncher(
           current ||
@@ -291,77 +374,44 @@ export function CrmsAssistant({
       )
     }
 
-    window.addEventListener('resize', onResize)
+    window.addEventListener(
+      'resize',
+      resize,
+    )
     window.visualViewport?.addEventListener(
       'resize',
-      onResize,
+      resize,
     )
     window.visualViewport?.addEventListener(
       'scroll',
-      onResize,
+      resize,
     )
 
     return () => {
       window.removeEventListener(
         'resize',
-        onResize,
+        resize,
       )
       window.visualViewport?.removeEventListener(
         'resize',
-        onResize,
+        resize,
       )
       window.visualViewport?.removeEventListener(
         'scroll',
-        onResize,
+        resize,
       )
-      recognitionRef.current?.abort()
-      window.speechSynthesis?.cancel()
 
-      if (
-        silenceTimerRef.current !== null
-      ) {
-        window.clearTimeout(
-          silenceTimerRef.current,
-        )
-      }
-
-      if (
-        voiceSubmitTimerRef.current !== null
-      ) {
-        window.clearTimeout(
-          voiceSubmitTimerRef.current,
-        )
-      }
-
-      if (
-        voiceMaxTimerRef.current !== null
-      ) {
-        window.clearTimeout(
-          voiceMaxTimerRef.current,
-        )
-      }
+      void stopVoiceChat(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const voiceInputSupported =
-    useMemo(() => {
-      if (
-        typeof window === 'undefined'
-      ) {
-        return false
-      }
-
-      return Boolean(
-        window.SpeechRecognition ||
-          window.webkitSpeechRecognition,
-      )
-    }, [])
-
-  function saveLauncherPosition(
+  function persistLauncher(
     position: { x: number; y: number },
   ) {
     const safe =
       clampLauncher(position)
+
     setLauncherPosition(safe)
 
     try {
@@ -370,544 +420,653 @@ export function CrmsAssistant({
         JSON.stringify(safe),
       )
     } catch {
-      // Ignore storage failures.
+      // Position storage is optional.
     }
   }
 
-  function clearSilenceTimer() {
-    if (
-      silenceTimerRef.current !== null
-    ) {
-      window.clearTimeout(
-        silenceTimerRef.current,
-      )
-      silenceTimerRef.current = null
-    }
-  }
-
-  function clearVoiceSubmitTimer() {
-    if (
-      voiceSubmitTimerRef.current !== null
-    ) {
-      window.clearTimeout(
-        voiceSubmitTimerRef.current,
-      )
-      voiceSubmitTimerRef.current = null
-    }
-  }
-
-  function clearVoiceMaxTimer() {
-    if (
-      voiceMaxTimerRef.current !== null
-    ) {
-      window.clearTimeout(
-        voiceMaxTimerRef.current,
-      )
-      voiceMaxTimerRef.current = null
-    }
-  }
-
-  function startNewChat() {
-    stopVoiceMode()
-    clearVoiceSubmitTimer()
-    messagesRef.current = []
-    setMessages([])
-    setInput('')
-    setProviderLabel(
-      'AI connection not verified',
-    )
-    setVoiceStatus('Voice chat ready')
-    toast.success('New CRMS chat started')
-  }
-
-  function stopRecognition() {
-    clearSilenceTimer()
-    clearVoiceSubmitTimer()
-    clearVoiceMaxTimer()
-
-    const recognition =
-      recognitionRef.current
-    recognitionRef.current = null
-
-    if (recognition) {
-      recognition.onresult = null
-      recognition.onerror = null
-      recognition.onend = null
-
-      try {
-        recognition.abort()
-      } catch {
-        // It may already be stopped.
-      }
-    }
-
-    setListening(false)
-  }
-
-  function stopVoiceMode(
-    status = 'Voice chat ready',
+  function addMessage(
+    message: Message,
   ) {
-    voiceModeRef.current = false
-    setVoiceMode(false)
-    setVoiceStatus(status)
-    stopRecognition()
-
-    if (
-      typeof window !== 'undefined'
-    ) {
-      window.speechSynthesis?.cancel()
-    }
-
-    speakingRef.current = false
-  }
-
-  function speakVoiceReply(text: string) {
-    if (
-      typeof window === 'undefined' ||
-      !('speechSynthesis' in window)
-    ) {
-      stopVoiceMode(
-        'Spoken replies are unavailable in this browser.',
-      )
-      toast.info(
-        'Spoken replies are unavailable',
-      )
-      return
-    }
-
-    window.speechSynthesis.cancel()
-
-    const utterance =
-      new SpeechSynthesisUtterance(text)
-
-    utterance.lang = 'en-PH'
-    utterance.rate = 1
-    speakingRef.current = true
-    setVoiceStatus(
-      'CRMS Assistant is speaking…',
-    )
-
-    utterance.onend = () => {
-      speakingRef.current = false
-
-      if (voiceModeRef.current) {
-        window.setTimeout(
-          () => beginVoiceTurn(),
-          350,
-        )
-      }
-    }
-
-    utterance.onerror = () => {
-      speakingRef.current = false
-      stopVoiceMode(
-        'Voice playback failed. Tap Voice Chat to try again.',
-      )
-    }
-
-    window.speechSynthesis.speak(
-      utterance,
-    )
-  }
-
-  async function submitMessage(
-    rawContent: string,
-    fromVoice: boolean,
-  ) {
-    const content = rawContent.trim()
-
-    if (
-      !content ||
-      sendingRef.current
-    ) {
-      return
-    }
-
-    const nextMessages: Message[] = [
+    const next = [
       ...messagesRef.current,
-      { role: 'user', content },
+      message,
+    ].slice(-40)
+
+    messagesRef.current = next
+    setMessages(next)
+  }
+
+  async function sendTypedMessage() {
+    const content = input.trim()
+    if (!content || sending) return
+
+    const history = [
+      ...messagesRef.current,
     ].slice(-14)
 
-    messagesRef.current = nextMessages
-    setMessages(nextMessages)
+    addMessage({
+      role: 'user',
+      content,
+    })
     setInput('')
-    sendingRef.current = true
     setSending(true)
 
-    if (fromVoice) {
-      setVoiceStatus(
-        'Checking CRMS…',
-      )
-    }
-
     try {
-      const data = await apiFetch<{
-        reply: string
-        provider?: string
-        model?: string
-      }>('/api/assistant/chat', {
-        method: 'POST',
-        body: JSON.stringify({
-          message: content,
-          history:
-            nextMessages.slice(0, -1),
-          activeView,
-          activeViewLabel,
-        }),
-      })
+      const data =
+        await apiFetch<{
+          reply: string
+          provider?: string
+          model?: string
+        }>('/api/assistant/chat', {
+          method: 'POST',
+          body: JSON.stringify({
+            message: content,
+            history,
+            activeView,
+            activeViewLabel,
+          }),
+        })
 
-      const reply =
-        String(
-          data.reply || '',
-        ).trim() ||
-        'The assistant returned an empty response.'
+      addMessage({
+        role: 'assistant',
+        content:
+          String(
+            data.reply || '',
+          ).trim() ||
+          'The assistant returned an empty response.',
+      })
 
       setProviderLabel(
         data.provider === 'gemini'
           ? `Gemini · ${data.model || 'connected model'}`
           : 'AI connected',
       )
-
-      const withReply: Message[] = [
-        ...nextMessages,
-        {
-          role: 'assistant',
-          content: reply,
-        },
-      ]
-
-      messagesRef.current = withReply
-      setMessages(withReply)
-
-      if (
-        fromVoice &&
-        voiceModeRef.current
-      ) {
-        speakVoiceReply(reply)
-      }
     } catch (error: any) {
       setProviderLabel(
         'AI offline / not configured',
       )
-
-      const errorMessage =
-        error?.message ||
-        'The CRMS AI connection is unavailable.'
-
-      const failure: Message = {
-        role: 'assistant',
-        content:
-          'The CRMS AI connection is unavailable right now. Check the Gemini configuration and try again.',
-      }
-
-      const withFailure = [
-        ...nextMessages,
-        failure,
-      ]
-
-      messagesRef.current = withFailure
-      setMessages(withFailure)
-
       toast.error(
         'CRMS Assistant unavailable',
         {
-          description: errorMessage,
+          description:
+            error?.message ||
+            'Please try again.',
         },
       )
-
-      if (fromVoice) {
-        stopVoiceMode(
-          'AI unavailable. Tap Voice Chat after the connection is fixed.',
-        )
-      }
     } finally {
-      sendingRef.current = false
       setSending(false)
     }
   }
 
-  function submitVoiceTranscript() {
-    const transcript =
-      voiceTranscriptRef.current
-        .trim()
+  function playLiveAudio(
+    base64: string,
+  ) {
+    const context =
+      outputContextRef.current
+
+    if (!context) return
+
+    const pcm =
+      base64ToPcm16(base64)
+
+    if (pcm.length === 0) return
+
+    const buffer =
+      context.createBuffer(
+        1,
+        pcm.length,
+        24_000,
+      )
+    const channel =
+      buffer.getChannelData(0)
+
+    for (
+      let index = 0;
+      index < pcm.length;
+      index += 1
+    ) {
+      channel[index] =
+        pcm[index] / 32768
+    }
+
+    const source =
+      context.createBufferSource()
+
+    source.buffer = buffer
+    source.connect(
+      context.destination,
+    )
+
+    const startAt = Math.max(
+      context.currentTime + 0.02,
+      nextPlaybackTimeRef.current,
+    )
+
+    source.start(startAt)
+    nextPlaybackTimeRef.current =
+      startAt + buffer.duration
+  }
+
+  function startMicrophoneStreaming(
+    stream: MediaStream,
+  ) {
+    const socket =
+      socketRef.current
 
     if (
-      !transcript ||
-      voiceTurnSubmittedRef.current
+      !socket ||
+      socket.readyState !==
+        WebSocket.OPEN
     ) {
       return
     }
 
-    voiceTurnSubmittedRef.current = true
-    clearSilenceTimer()
-    clearVoiceSubmitTimer()
-    clearVoiceMaxTimer()
+    const context =
+      new AudioContext({
+        latencyHint: 'interactive',
+      })
 
-    try {
-      recognitionRef.current?.stop()
-    } catch {
-      // Recognition may already be ending.
+    inputContextRef.current = context
+
+    const source =
+      context.createMediaStreamSource(
+        stream,
+      )
+    const processor =
+      context.createScriptProcessor(
+        4096,
+        1,
+        1,
+      )
+    const silentGain =
+      context.createGain()
+
+    silentGain.gain.value = 0
+
+    processor.onaudioprocess = (
+      event,
+    ) => {
+      const currentSocket =
+        socketRef.current
+
+      if (
+        !liveReadyRef.current ||
+        !currentSocket ||
+        currentSocket.readyState !==
+          WebSocket.OPEN
+      ) {
+        return
+      }
+
+      const inputChannel =
+        event.inputBuffer.getChannelData(
+          0,
+        )
+
+      const pcm =
+        floatToPcm16(
+          inputChannel,
+          context.sampleRate,
+          16_000,
+        )
+
+      currentSocket.send(
+        JSON.stringify({
+          realtimeInput: {
+            audio: {
+              data:
+                bytesToBase64(
+                  pcm,
+                ),
+              mimeType:
+                'audio/pcm;rate=16000',
+            },
+          },
+        }),
+      )
     }
 
-    setListening(false)
-    setInput(transcript)
-    void submitMessage(
-      transcript,
-      true,
+    source.connect(processor)
+    processor.connect(silentGain)
+    silentGain.connect(
+      context.destination,
+    )
+
+    inputSourceRef.current =
+      source
+    inputProcessorRef.current =
+      processor
+    silentGainRef.current =
+      silentGain
+
+    void context.resume()
+
+    setVoiceStatus(
+      'Listening — speak naturally',
     )
   }
 
-  function beginVoiceTurn() {
-    if (
-      !voiceModeRef.current ||
-      sendingRef.current ||
-      speakingRef.current
-    ) {
-      return
+  function finishLiveTurn() {
+    const userText =
+      inputTranscriptRef.current.trim()
+    const assistantText =
+      outputTranscriptRef.current.trim()
+
+    if (userText) {
+      addMessage({
+        role: 'user',
+        content:
+          '🎙 ' + userText,
+      })
     }
 
-    if (!voiceInputSupported) {
-      stopVoiceMode(
-        'Voice recognition is not supported in this browser.',
-      )
-      toast.info(
-        'Voice chat is unavailable',
-        {
-          description:
-            'Use a Chromium-based browser and allow microphone access.',
-        },
-      )
-      return
+    if (assistantText) {
+      addMessage({
+        role: 'assistant',
+        content:
+          '🔊 ' + assistantText,
+      })
     }
 
-    stopRecognition()
+    inputTranscriptRef.current = ''
+    outputTranscriptRef.current = ''
 
-    const Recognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition
-
-    if (!Recognition) return
-
-    const recognition =
-      new Recognition()
-
-    recognition.lang = 'en-PH'
-    recognition.interimResults = true
-    recognition.continuous = false
-    recognition.maxAlternatives = 1
-
-    voiceTranscriptRef.current = ''
-    voiceTurnSubmittedRef.current =
-      false
-
-    recognition.onstart = () => {
-      setOpen(true)
-      setListening(true)
+    if (voiceMode) {
       setVoiceStatus(
-        'Listening — speak now…',
-      )
-
-      clearSilenceTimer()
-      clearVoiceMaxTimer()
-
-      silenceTimerRef.current =
-        window.setTimeout(() => {
-          if (
-            voiceModeRef.current &&
-            !voiceTranscriptRef.current.trim()
-          ) {
-            stopVoiceMode(
-              'No speech detected. Tap Voice Chat to try again.',
-            )
-            toast.info(
-              'No speech detected',
-            )
-          }
-        }, SILENCE_TIMEOUT_MS)
-
-      voiceMaxTimerRef.current =
-        window.setTimeout(() => {
-          if (
-            !voiceModeRef.current ||
-            voiceTurnSubmittedRef.current
-          ) {
-            return
-          }
-
-          if (
-            voiceTranscriptRef.current.trim()
-          ) {
-            submitVoiceTranscript()
-            return
-          }
-
-          stopVoiceMode(
-            'No speech detected. Tap Voice Chat to try again.',
-          )
-        }, VOICE_TURN_MAX_MS)
-    }
-
-    recognition.onresult = (
-      event,
-    ) => {
-      let transcript = ''
-      let hasFinalResult = false
-
-      for (
-        let index = 0;
-        index < event.results.length;
-        index += 1
-      ) {
-        const result =
-          event.results[index]
-        const part =
-          result?.[0]?.transcript ||
-          ''
-
-        transcript +=
-          (transcript ? ' ' : '') +
-          part.trim()
-
-        if (result?.isFinal) {
-          hasFinalResult = true
-        }
-      }
-
-      transcript =
-        transcript.trim()
-
-      if (!transcript) return
-
-      voiceTranscriptRef.current =
-        transcript
-      setInput(transcript)
-      setVoiceStatus(
-        `Heard: "${transcript}"`,
-      )
-
-      clearVoiceSubmitTimer()
-
-      if (hasFinalResult) {
-        submitVoiceTranscript()
-        return
-      }
-
-      // Some Chromium/Web Speech implementations keep returning interim
-      // text without marking a final result. Submit after a short pause so
-      // Voice Chat never listens forever after the user has already spoken.
-      voiceSubmitTimerRef.current =
-        window.setTimeout(() => {
-          if (
-            voiceModeRef.current &&
-            voiceTranscriptRef.current.trim() &&
-            !voiceTurnSubmittedRef.current
-          ) {
-            submitVoiceTranscript()
-          }
-        }, VOICE_PAUSE_SUBMIT_MS)
-    }
-
-    recognition.onerror = (
-      event,
-    ) => {
-      const reason =
-        event.error || 'unknown'
-
-      if (
-        reason === 'aborted' &&
-        voiceTurnSubmittedRef.current
-      ) {
-        return
-      }
-
-      stopVoiceMode(
-        reason === 'not-allowed' ||
-          reason === 'service-not-allowed'
-          ? 'Microphone permission was denied.'
-          : reason === 'no-speech'
-            ? 'No speech detected. Tap Voice Chat to try again.'
-            : 'Voice recognition stopped. Tap Voice Chat to try again.',
-      )
-
-      if (
-        reason !== 'aborted'
-      ) {
-        toast.error(
-          'Voice chat stopped',
-          {
-            description: reason,
-          },
-        )
-      }
-    }
-
-    recognition.onend = () => {
-      setListening(false)
-      clearSilenceTimer()
-
-      if (
-        !voiceModeRef.current ||
-        sendingRef.current ||
-        speakingRef.current ||
-        voiceTurnSubmittedRef.current
-      ) {
-        return
-      }
-
-      if (
-        voiceTranscriptRef.current.trim()
-      ) {
-        submitVoiceTranscript()
-        return
-      }
-
-      stopVoiceMode(
-        'No speech detected. Tap Voice Chat to try again.',
-      )
-    }
-
-    recognitionRef.current =
-      recognition
-
-    try {
-      recognition.start()
-    } catch (error) {
-      stopVoiceMode(
-        'Voice chat could not start. Tap Voice Chat to try again.',
-      )
-      toast.error(
-        'Voice chat could not start',
+        'Listening — speak naturally',
       )
     }
   }
 
-  function toggleVoiceChat() {
-    if (voiceModeRef.current) {
-      stopVoiceMode()
+  async function startVoiceChat() {
+    if (voiceMode) {
+      await stopVoiceChat(true)
       return
     }
 
-    if (!voiceInputSupported) {
-      toast.info(
-        'Voice chat is unavailable',
-        {
-          description:
-            'Use Chrome or another Chromium-based browser and allow microphone access.',
-        },
+    if (
+      !navigator.mediaDevices
+        ?.getUserMedia
+    ) {
+      toast.error(
+        'Microphone access is unavailable in this browser.',
       )
       return
     }
 
-    voiceModeRef.current = true
+    stoppingVoiceRef.current = false
+    liveReadyRef.current = false
+    inputTranscriptRef.current = ''
+    outputTranscriptRef.current = ''
+    nextPlaybackTimeRef.current = 0
     setVoiceMode(true)
     setOpen(true)
     setVoiceStatus(
-      'Starting microphone…',
+      'Requesting microphone permission…',
+    )
+    setProviderLabel(
+      'Connecting Gemini Live…',
     )
 
-    window.setTimeout(
-      () => beginVoiceTurn(),
-      150,
+    try {
+      const stream =
+        await navigator.mediaDevices.getUserMedia(
+          {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+            },
+            video: false,
+          },
+        )
+
+      mediaStreamRef.current =
+        stream
+
+      const outputContext =
+        new AudioContext({
+          sampleRate: 24_000,
+          latencyHint: 'interactive',
+        })
+      outputContextRef.current =
+        outputContext
+      await outputContext.resume()
+
+      setVoiceStatus(
+        'Connecting to Gemini Live…',
+      )
+
+      const token =
+        await apiFetch<LiveTokenResponse>(
+          '/api/assistant/live-token',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              activeView,
+              activeViewLabel,
+            }),
+          },
+        )
+
+      const socket = new WebSocket(
+        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=' +
+          encodeURIComponent(
+            token.token,
+          ),
+      )
+
+      socketRef.current = socket
+
+      socket.onopen = () => {
+        socket.send(
+          JSON.stringify({
+            setup: {
+              model:
+                'models/' +
+                token.model,
+              generationConfig: {
+                responseModalities: [
+                  'AUDIO',
+                ],
+                temperature: 0.2,
+              },
+              inputAudioTranscription:
+                {},
+              outputAudioTranscription:
+                {},
+              realtimeInputConfig: {
+                automaticActivityDetection:
+                  {
+                    disabled: false,
+                    startOfSpeechSensitivity:
+                      'START_SENSITIVITY_HIGH',
+                    endOfSpeechSensitivity:
+                      'END_SENSITIVITY_HIGH',
+                    prefixPaddingMs: 120,
+                    silenceDurationMs: 650,
+                  },
+              },
+              systemInstruction: {
+                parts: [
+                  {
+                    text:
+                      token.systemInstruction,
+                  },
+                ],
+              },
+            },
+          }),
+        )
+      }
+
+      socket.onmessage = (
+        event,
+      ) => {
+        let payload: any
+
+        try {
+          payload = JSON.parse(
+            event.data,
+          )
+        } catch {
+          return
+        }
+
+        if (
+          payload.setupComplete
+        ) {
+          liveReadyRef.current =
+            true
+          setProviderLabel(
+            'Gemini Live · ' +
+              token.model,
+          )
+          setVoiceStatus(
+            'Listening — speak naturally',
+          )
+          startMicrophoneStreaming(
+            stream,
+          )
+          return
+        }
+
+        const serverContent =
+          payload.serverContent
+
+        if (!serverContent) return
+
+        if (
+          serverContent
+            .inputTranscription?.text
+        ) {
+          inputTranscriptRef.current =
+            appendTranscript(
+              inputTranscriptRef.current,
+              String(
+                serverContent
+                  .inputTranscription
+                  .text,
+              ),
+            )
+          setVoiceStatus(
+            'Heard: ' +
+              inputTranscriptRef.current,
+          )
+        }
+
+        if (
+          serverContent
+            .outputTranscription?.text
+        ) {
+          outputTranscriptRef.current =
+            appendTranscript(
+              outputTranscriptRef.current,
+              String(
+                serverContent
+                  .outputTranscription
+                  .text,
+              ),
+            )
+          setVoiceStatus(
+            'CRMS Assistant is responding…',
+          )
+        }
+
+        const parts =
+          serverContent.modelTurn
+            ?.parts
+
+        if (Array.isArray(parts)) {
+          for (const part of parts) {
+            const inline =
+              part?.inlineData
+
+            if (
+              inline?.data &&
+              String(
+                inline.mimeType ||
+                  '',
+              ).startsWith(
+                'audio/',
+              )
+            ) {
+              playLiveAudio(
+                inline.data,
+              )
+            }
+          }
+        }
+
+        if (
+          serverContent.interrupted
+        ) {
+          nextPlaybackTimeRef.current =
+            outputContextRef.current
+              ?.currentTime || 0
+          setVoiceStatus(
+            'Listening — speak naturally',
+          )
+        }
+
+        if (
+          serverContent.turnComplete
+        ) {
+          finishLiveTurn()
+        }
+      }
+
+      socket.onerror = () => {
+        if (
+          stoppingVoiceRef.current
+        ) {
+          return
+        }
+
+        toast.error(
+          'Gemini Live connection error',
+          {
+            description:
+              'The live voice connection could not continue.',
+          },
+        )
+      }
+
+      socket.onclose = (
+        event,
+      ) => {
+        if (
+          stoppingVoiceRef.current
+        ) {
+          return
+        }
+
+        void stopVoiceChat(
+          false,
+        )
+
+        toast.error(
+          'Voice Chat disconnected',
+          {
+            description:
+              event.reason ||
+              'The live connection closed. Tap Voice Chat to reconnect.',
+          },
+        )
+      }
+    } catch (error: any) {
+      await stopVoiceChat(false)
+
+      const denied =
+        error?.name ===
+          'NotAllowedError' ||
+        error?.name ===
+          'PermissionDeniedError'
+
+      toast.error(
+        denied
+          ? 'Microphone permission denied'
+          : 'Voice Chat could not start',
+        {
+          description: denied
+            ? 'Allow microphone access for localhost/CRMS in your browser, then try again.'
+            : error?.message ||
+              'Check Gemini Live configuration and try again.',
+        },
+      )
+    }
+  }
+
+  async function stopVoiceChat(
+    userInitiated: boolean,
+  ) {
+    stoppingVoiceRef.current = true
+    liveReadyRef.current = false
+
+    const socket =
+      socketRef.current
+    socketRef.current = null
+
+    if (
+      socket &&
+      (socket.readyState ===
+        WebSocket.OPEN ||
+        socket.readyState ===
+          WebSocket.CONNECTING)
+    ) {
+      try {
+        socket.close(
+          1000,
+          'CRMS voice chat ended',
+        )
+      } catch {
+        // Ignore a socket already closing.
+      }
+    }
+
+    inputProcessorRef.current?.disconnect()
+    inputSourceRef.current?.disconnect()
+    silentGainRef.current?.disconnect()
+
+    inputProcessorRef.current = null
+    inputSourceRef.current = null
+    silentGainRef.current = null
+
+    mediaStreamRef.current
+      ?.getTracks()
+      .forEach((track) =>
+        track.stop(),
+      )
+    mediaStreamRef.current = null
+
+    const inputContext =
+      inputContextRef.current
+    inputContextRef.current = null
+
+    if (inputContext) {
+      await inputContext
+        .close()
+        .catch(() => undefined)
+    }
+
+    const outputContext =
+      outputContextRef.current
+    outputContextRef.current = null
+
+    if (outputContext) {
+      await outputContext
+        .close()
+        .catch(() => undefined)
+    }
+
+    setVoiceMode(false)
+    setVoiceStatus(
+      'Voice Chat ready',
+    )
+
+    if (userInitiated) {
+      setProviderLabel(
+        'Gemini Live ended',
+      )
+    }
+
+    window.setTimeout(() => {
+      stoppingVoiceRef.current =
+        false
+    }, 50)
+  }
+
+  async function newChat() {
+    await stopVoiceChat(false)
+    messagesRef.current = []
+    setMessages([])
+    setInput('')
+    setProviderLabel(
+      'AI connection not verified',
+    )
+    toast.success(
+      'New CRMS chat started',
     )
   }
 
@@ -919,16 +1078,16 @@ export function CrmsAssistant({
 
     dragRef.current = {
       pointerId: event.pointerId,
-      grabX: event.clientX - rect.left,
-      grabY: event.clientY - rect.top,
-      lastX: rect.left,
-      lastY: rect.top,
+      grabX:
+        event.clientX - rect.left,
+      grabY:
+        event.clientY - rect.top,
+      x: rect.left,
+      y: rect.top,
       moved: false,
     }
 
-    setDragging(true)
-
-    const onMove = (
+    const move = (
       moveEvent: PointerEvent,
     ) => {
       const drag =
@@ -956,21 +1115,21 @@ export function CrmsAssistant({
 
       if (
         Math.abs(
-          next.x - drag.lastX,
+          next.x - drag.x,
         ) > 3 ||
         Math.abs(
-          next.y - drag.lastY,
+          next.y - drag.y,
         ) > 3
       ) {
         drag.moved = true
       }
 
-      drag.lastX = next.x
-      drag.lastY = next.y
+      drag.x = next.x
+      drag.y = next.y
       setLauncherPosition(next)
     }
 
-    const onUp = (
+    const up = (
       upEvent: PointerEvent,
     ) => {
       const drag =
@@ -986,24 +1145,23 @@ export function CrmsAssistant({
 
       window.removeEventListener(
         'pointermove',
-        onMove,
+        move,
       )
       window.removeEventListener(
         'pointerup',
-        onUp,
+        up,
       )
       window.removeEventListener(
         'pointercancel',
-        onUp,
+        up,
       )
 
       dragRef.current = null
-      setDragging(false)
 
       if (drag.moved) {
-        saveLauncherPosition({
-          x: drag.lastX,
-          y: drag.lastY,
+        persistLauncher({
+          x: drag.x,
+          y: drag.y,
         })
       } else {
         setOpen(true)
@@ -1012,16 +1170,16 @@ export function CrmsAssistant({
 
     window.addEventListener(
       'pointermove',
-      onMove,
+      move,
       { passive: false },
     )
     window.addEventListener(
       'pointerup',
-      onUp,
+      up,
     )
     window.addEventListener(
       'pointercancel',
-      onUp,
+      up,
     )
   }
 
@@ -1042,7 +1200,7 @@ export function CrmsAssistant({
       }}
       aria-label="CRMS Assistant. Drag anywhere on the visible screen or click to open."
       title="CRMS Assistant — drag anywhere on the visible screen"
-      className="fixed z-[2147483000] grid h-[54px] w-[54px] touch-none select-none place-items-center rounded-full bg-emerald-700 text-white shadow-2xl ring-4 ring-emerald-200/80 transition-[box-shadow,background-color] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+      className="fixed z-[2147483000] grid h-[54px] w-[54px] touch-none select-none place-items-center rounded-full bg-emerald-700 text-white shadow-2xl ring-4 ring-emerald-200/80 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
       style={
         launcherPosition
           ? {
@@ -1050,8 +1208,6 @@ export function CrmsAssistant({
                 launcherPosition.x,
               top:
                 launcherPosition.y,
-              right: 'auto',
-              bottom: 'auto',
             }
           : {
               right: 12,
@@ -1060,11 +1216,6 @@ export function CrmsAssistant({
       }
     >
       <Bot className="h-6 w-6" />
-      <span className="sr-only">
-        {dragging
-          ? 'Moving CRMS Assistant'
-          : 'Open CRMS Assistant'}
-      </span>
     </button>
   )
 
@@ -1079,12 +1230,14 @@ export function CrmsAssistant({
 
       <Sheet
         open={open}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            stopVoiceMode()
+        onOpenChange={(next) => {
+          if (!next && voiceMode) {
+            void stopVoiceChat(
+              true,
+            )
           }
 
-          setOpen(nextOpen)
+          setOpen(next)
         }}
       >
         <SheetContent
@@ -1093,9 +1246,7 @@ export function CrmsAssistant({
           onInteractOutside={(
             event,
           ) => {
-            if (
-              voiceModeRef.current
-            ) {
+            if (voiceMode) {
               event.preventDefault()
             }
           }}
@@ -1106,13 +1257,12 @@ export function CrmsAssistant({
                 <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white">
                   <Sparkles className="h-4 w-4" />
                 </div>
-
                 <div className="min-w-0">
                   <SheetTitle>
                     CRMS Assistant
                   </SheetTitle>
                   <SheetDescription>
-                    CRMS-only help with live database lookup.
+                    CRMS-only help with live database context.
                   </SheetDescription>
                 </div>
               </div>
@@ -1121,9 +1271,10 @@ export function CrmsAssistant({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={startNewChat}
+                onClick={() =>
+                  void newChat()
+                }
                 className="shrink-0 gap-1.5 px-2 text-xs"
-                title="Start a new CRMS chat"
               >
                 <MessageSquarePlus className="h-4 w-4" />
                 New chat
@@ -1142,9 +1293,7 @@ export function CrmsAssistant({
                   .
                 </p>
                 <p className="mt-1">
-                  {greeting(
-                    userRole,
-                  )}
+                  I only handle CRMS and use role-appropriate current system data.
                 </p>
                 <p className="mt-2 text-xs text-emerald-800">
                   Current page:{' '}
@@ -1157,7 +1306,7 @@ export function CrmsAssistant({
                   {providerLabel}
                 </span>
                 <span className="text-slate-500">
-                  Live DB lookup
+                  CRMS data access
                 </span>
               </div>
 
@@ -1166,14 +1315,11 @@ export function CrmsAssistant({
                   <div className="flex items-center gap-3">
                     <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-700 text-white">
                       <AudioLines className="h-5 w-5" />
-                      {listening ? (
-                        <span className="absolute inset-0 animate-ping rounded-full border border-emerald-500" />
-                      ) : null}
+                      <span className="absolute inset-0 animate-ping rounded-full border border-emerald-500" />
                     </div>
-
-                    <div className="min-w-0 flex-1">
+                    <div>
                       <p className="text-sm font-semibold text-emerald-950">
-                        Voice Chat
+                        Gemini Live Voice
                       </p>
                       <p className="text-xs text-emerald-800">
                         {voiceStatus}
@@ -1183,14 +1329,14 @@ export function CrmsAssistant({
                 </div>
               ) : null}
 
-              <p className="text-xs leading-5 text-muted-foreground">
-                This assistant is limited to CRMS. For each question it can look up role-appropriate current records from the CRMS database, including users, registrations, relief history, announcements, feedback, resources, and other system data. Authentication secrets are never included.
-              </p>
-
               {messages.map(
                 (message, index) => (
                   <div
-                    key={`${message.role}-${index}`}
+                    key={
+                      message.role +
+                      '-' +
+                      index
+                    }
                     className={
                       message.role ===
                       'user'
@@ -1216,8 +1362,8 @@ export function CrmsAssistant({
             <div className="border-t bg-white p-3">
               <Button
                 type="button"
-                onClick={
-                  toggleVoiceChat
+                onClick={() =>
+                  void startVoiceChat()
                 }
                 variant={
                   voiceMode
@@ -1244,23 +1390,17 @@ export function CrmsAssistant({
                   value={input}
                   onChange={(event) =>
                     setInput(
-                      event.target
-                        .value,
+                      event.target.value,
                     )
                   }
-                  onKeyDown={(
-                    event,
-                  ) => {
+                  onKeyDown={(event) => {
                     if (
                       event.key ===
                         'Enter' &&
                       !event.shiftKey
                     ) {
                       event.preventDefault()
-                      void submitMessage(
-                        input,
-                        false,
-                      )
+                      void sendTypedMessage()
                     }
                   }}
                   placeholder={
@@ -1269,19 +1409,13 @@ export function CrmsAssistant({
                       : 'Ask about CRMS…'
                   }
                   maxLength={2000}
-                  disabled={
-                    voiceMode
-                  }
+                  disabled={voiceMode}
                 />
-
                 <Button
                   type="button"
                   size="icon"
                   onClick={() =>
-                    void submitMessage(
-                      input,
-                      false,
-                    )
+                    void sendTypedMessage()
                   }
                   disabled={
                     !input.trim() ||
@@ -1289,16 +1423,13 @@ export function CrmsAssistant({
                     voiceMode
                   }
                   aria-label="Send CRMS question"
-                  className="shrink-0"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
 
               <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
-                {voiceInputSupported
-                  ? 'One voice control only: tap Voice Chat, speak normally, then pause. CRMS submits after the pause (or by the 8-second turn limit), speaks the reply, and listens again. Silence stops the session instead of listening forever.'
-                  : 'Voice recognition is unavailable in this browser. Typed CRMS chat still works.'}
+                Voice Chat now uses Gemini Live directly instead of browser speech recognition. One button starts/stops the real-time audio session.
               </p>
             </div>
           </div>

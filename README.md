@@ -306,6 +306,7 @@ BREVO_SMTP_KEY=
 # Optional AI assistant
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_LIVE_MODEL=gemini-3.8-live
 ```
 
 > Email-related values are required only for flows that send email, such as login OTP and notification delivery. Real CRMS Assistant responses require `GEMINI_API_KEY`. Without the key, the interface reports that AI is not configured instead of pretending a canned fallback is a live model.
