@@ -374,22 +374,48 @@ export async function POST(request: NextRequest) {
       now + 60 * 1000,
     ).toISOString()
 
-    const tokenResponse = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/auth_tokens',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          uses: 1,
-          expireTime,
-          newSessionExpireTime,
-        }),
-        cache: 'no-store',
-      },
+    const tokenController = new AbortController()
+    const tokenTimeout = setTimeout(
+      () => tokenController.abort(),
+      10_000,
     )
+
+    let tokenResponse: Response
+
+    try {
+      tokenResponse = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/auth_tokens',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            uses: 1,
+            expireTime,
+            newSessionExpireTime,
+          }),
+          cache: 'no-store',
+          signal: tokenController.signal,
+        },
+      )
+    } catch (error: any) {
+      const timedOut =
+        error?.name === 'AbortError'
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: timedOut
+            ? 'Gemini Live token request timed out. Check the internet connection and Gemini API access.'
+            : 'Gemini Live token request failed.',
+        },
+        { status: 502 },
+      )
+    } finally {
+      clearTimeout(tokenTimeout)
+    }
 
     const tokenData = await tokenResponse
       .json()

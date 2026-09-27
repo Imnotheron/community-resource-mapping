@@ -306,6 +306,8 @@ export function CrmsAssistant({
   const silentGainRef =
     useRef<GainNode | null>(null)
   const liveReadyRef = useRef(false)
+  const setupTimeoutRef =
+    useRef<number | null>(null)
   const stoppingVoiceRef =
     useRef(false)
   const nextPlaybackTimeRef =
@@ -678,6 +680,17 @@ export function CrmsAssistant({
     }
   }
 
+  function clearSetupTimeout() {
+    if (
+      setupTimeoutRef.current !== null
+    ) {
+      window.clearTimeout(
+        setupTimeoutRef.current,
+      )
+      setupTimeoutRef.current = null
+    }
+  }
+
   async function startVoiceChat() {
     if (voiceMode) {
       await stopVoiceChat(true)
@@ -735,7 +748,7 @@ export function CrmsAssistant({
       await outputContext.resume()
 
       setVoiceStatus(
-        'Connecting to Gemini Live…',
+        'Getting secure Gemini Live access…',
       )
 
       const token =
@@ -750,6 +763,10 @@ export function CrmsAssistant({
           },
         )
 
+      setVoiceStatus(
+        'Opening secure Gemini Live connection…',
+      )
+
       const socket = new WebSocket(
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=' +
           encodeURIComponent(
@@ -759,19 +776,54 @@ export function CrmsAssistant({
 
       socketRef.current = socket
 
+      clearSetupTimeout()
+      setupTimeoutRef.current =
+        window.setTimeout(() => {
+          if (
+            liveReadyRef.current ||
+            stoppingVoiceRef.current
+          ) {
+            return
+          }
+
+          setVoiceStatus(
+            'Gemini Live connection timed out',
+          )
+
+          try {
+            socket.close(
+              4000,
+              'setup timeout',
+            )
+          } catch {
+            // Socket may already be closed.
+          }
+
+          toast.error(
+            'Gemini Live did not finish connecting',
+            {
+              description:
+                'The secure WebSocket opened too slowly or was blocked. Retry once; if you use Brave, allow localhost microphone access and temporarily disable Shields for localhost while testing.',
+            },
+          )
+        }, 10_000)
+
       socket.onopen = () => {
+        setVoiceStatus(
+          'Configuring Gemini Live…',
+        )
+
+        // Match Google's raw WebSocket setup shape. In particular,
+        // responseModalities belongs directly in the Live setup message.
         socket.send(
           JSON.stringify({
             setup: {
               model:
                 'models/' +
                 token.model,
-              generationConfig: {
-                responseModalities: [
-                  'AUDIO',
-                ],
-                temperature: 0.2,
-              },
+              responseModalities: [
+                'AUDIO',
+              ],
               inputAudioTranscription:
                 {},
               outputAudioTranscription:
@@ -817,6 +869,7 @@ export function CrmsAssistant({
         if (
           payload.setupComplete
         ) {
+          clearSetupTimeout()
           liveReadyRef.current =
             true
           setProviderLabel(
@@ -828,6 +881,28 @@ export function CrmsAssistant({
           )
           startMicrophoneStreaming(
             stream,
+          )
+          return
+        }
+
+        if (payload.error) {
+          clearSetupTimeout()
+          console.error(
+            'Gemini Live server error:',
+            payload.error,
+          )
+          setVoiceStatus(
+            'Gemini Live rejected the session',
+          )
+          toast.error(
+            'Gemini Live rejected the session',
+            {
+              description:
+                String(
+                  payload.error?.message ||
+                    payload.error,
+                ),
+            },
           )
           return
         }
@@ -924,11 +999,16 @@ export function CrmsAssistant({
           return
         }
 
+        clearSetupTimeout()
+        setVoiceStatus(
+          'Gemini Live connection error',
+        )
+
         toast.error(
           'Gemini Live connection error',
           {
             description:
-              'The live voice connection could not continue.',
+              'The browser could not establish the secure Live WebSocket connection.',
           },
         )
       }
@@ -936,22 +1016,32 @@ export function CrmsAssistant({
       socket.onclose = (
         event,
       ) => {
+        clearSetupTimeout()
+
         if (
           stoppingVoiceRef.current
         ) {
           return
         }
 
+        const wasReady =
+          liveReadyRef.current
+        const reason =
+          event.reason?.trim()
+        const detail =
+          reason ||
+          `WebSocket closed with code ${event.code}.`
+
         void stopVoiceChat(
           false,
         )
 
         toast.error(
-          'Voice Chat disconnected',
+          wasReady
+            ? 'Voice Chat disconnected'
+            : 'Gemini Live could not start',
           {
-            description:
-              event.reason ||
-              'The live connection closed. Tap Voice Chat to reconnect.',
+            description: detail,
           },
         )
       }
@@ -983,6 +1073,7 @@ export function CrmsAssistant({
   ) {
     stoppingVoiceRef.current = true
     liveReadyRef.current = false
+    clearSetupTimeout()
 
     const socket =
       socketRef.current
@@ -1429,7 +1520,7 @@ export function CrmsAssistant({
               </div>
 
               <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
-                Voice Chat now uses Gemini Live directly instead of browser speech recognition. One button starts/stops the real-time audio session.
+                One button starts/stops Gemini Live. During startup you will now see whether CRMS is getting secure access, opening the WebSocket, configuring the session, or actively listening.
               </p>
             </div>
           </div>
