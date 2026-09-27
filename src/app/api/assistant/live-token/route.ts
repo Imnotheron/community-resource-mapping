@@ -19,6 +19,219 @@ function safeJson(value: unknown) {
   )
 }
 
+type GoogleApiError = {
+  httpStatus: number
+  code?: number
+  status?: string
+  message: string
+}
+
+async function readGoogleApiError(
+  response: Response,
+): Promise<GoogleApiError> {
+  const payload = await response
+    .json()
+    .catch(async () => {
+      const text = await response
+        .text()
+        .catch(() => '')
+      return {
+        error: {
+          message:
+            text ||
+            response.statusText ||
+            'Unknown Google API error',
+        },
+      }
+    })
+
+  const error =
+    payload?.error || payload || {}
+
+  return {
+    httpStatus: response.status,
+    code:
+      typeof error?.code === 'number'
+        ? error.code
+        : undefined,
+    status:
+      typeof error?.status === 'string'
+        ? error.status
+        : undefined,
+    message:
+      String(
+        error?.message ||
+          response.statusText ||
+          'Unknown Google API error',
+      ).slice(0, 1000),
+  }
+}
+
+function formatGoogleApiError(
+  label: string,
+  error: GoogleApiError,
+) {
+  const status = [
+    `HTTP ${error.httpStatus}`,
+    error.status,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  return `${label}: ${status} — ${error.message}`
+}
+
+async function probeGeminiAccess(
+  apiKey: string,
+  model: string,
+) {
+  const controller =
+    new AbortController()
+  const timeout = setTimeout(
+    () => controller.abort(),
+    10_000,
+  )
+
+  try {
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models',
+      {
+        headers: {
+          'x-goog-api-key': apiKey,
+        },
+        cache: 'no-store',
+        signal: controller.signal,
+      },
+    )
+
+    if (!response.ok) {
+      return {
+        ok: false as const,
+        error:
+          await readGoogleApiError(
+            response,
+          ),
+      }
+    }
+
+    const payload =
+      await response.json()
+    const modelName =
+      `models/${model}`
+    const available =
+      Array.isArray(payload?.models) &&
+      payload.models.some(
+        (item: any) =>
+          item?.name === modelName,
+      )
+
+    return {
+      ok: true as const,
+      available,
+      modelName,
+    }
+  } catch (error: any) {
+    return {
+      ok: false as const,
+      error: {
+        httpStatus: 0,
+        status:
+          error?.name === 'AbortError'
+            ? 'TIMEOUT'
+            : 'NETWORK_ERROR',
+        message:
+          error?.name === 'AbortError'
+            ? 'Gemini model-access check timed out.'
+            : String(
+                error?.message ||
+                  'Gemini model-access check failed.',
+              ),
+      } satisfies GoogleApiError,
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+async function createLiveToken(
+  apiKey: string,
+  body: Record<string, unknown>,
+) {
+  const controller =
+    new AbortController()
+  const timeout = setTimeout(
+    () => controller.abort(),
+    10_000,
+  )
+
+  try {
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/auth_tokens',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        signal: controller.signal,
+      },
+    )
+
+    if (!response.ok) {
+      return {
+        ok: false as const,
+        error:
+          await readGoogleApiError(
+            response,
+          ),
+      }
+    }
+
+    const payload =
+      await response.json()
+
+    if (!payload?.name) {
+      return {
+        ok: false as const,
+        error: {
+          httpStatus: response.status,
+          status: 'INVALID_RESPONSE',
+          message:
+            'Google returned a token response without a token name.',
+        } satisfies GoogleApiError,
+      }
+    }
+
+    return {
+      ok: true as const,
+      token: String(payload.name),
+    }
+  } catch (error: any) {
+    return {
+      ok: false as const,
+      error: {
+        httpStatus: 0,
+        status:
+          error?.name === 'AbortError'
+            ? 'TIMEOUT'
+            : 'NETWORK_ERROR',
+        message:
+          error?.name === 'AbortError'
+            ? 'Gemini Live token request timed out.'
+            : String(
+                error?.message ||
+                  'Gemini Live token request failed.',
+              ),
+      } satisfies GoogleApiError,
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function buildVoiceContext(
   role: string,
   userId: string,
@@ -339,6 +552,67 @@ export async function POST(request: NextRequest) {
         100,
       ) || 'gemini-3.8-live'
 
+    const accessProbe =
+      await probeGeminiAccess(
+        apiKey,
+        model,
+      )
+
+    if (!accessProbe.ok) {
+      const detail =
+        formatGoogleApiError(
+          'Gemini API access check failed',
+          accessProbe.error,
+        )
+
+      console.error(detail)
+
+      return NextResponse.json(
+        {
+          success: false,
+          code:
+            'GEMINI_API_ACCESS_FAILED',
+          error: detail,
+          diagnostics: {
+            stage: 'models',
+            model,
+            keyType:
+              apiKey.startsWith('AQ.')
+                ? 'AQ auth key'
+                : apiKey.startsWith(
+                      'AIza',
+                    )
+                  ? 'legacy API key'
+                  : 'unknown key format',
+          },
+        },
+        {
+          status:
+            accessProbe.error
+              .httpStatus || 502,
+        },
+      )
+    }
+
+    if (!accessProbe.available) {
+      return NextResponse.json(
+        {
+          success: false,
+          code:
+            'GEMINI_LIVE_MODEL_UNAVAILABLE',
+          error:
+            `The configured Gemini project can authenticate, but ${model} is not available to this project/key. Check AI Studio → Rate limits / model availability or choose a Live model that the project can access.`,
+          diagnostics: {
+            stage: 'models',
+            model,
+            modelName:
+              accessProbe.modelName,
+          },
+        },
+        { status: 409 },
+      )
+    }
+
     const liveContext =
       await buildVoiceContext(
         auth.role,
@@ -374,92 +648,145 @@ export async function POST(request: NextRequest) {
       now + 60 * 1000,
     ).toISOString()
 
-    const tokenController = new AbortController()
-    const tokenTimeout = setTimeout(
-      () => tokenController.abort(),
-      10_000,
+    // First use Google's documented constrained-token shape.
+    // sessionResumption is included because it is part of Google's
+    // current constrained Live-token REST example.
+    const constrainedToken =
+      await createLiveToken(
+        apiKey,
+        {
+          uses: 1,
+          expireTime,
+          newSessionExpireTime,
+          liveConnectConstraints: {
+            model:
+              `models/${model}`,
+            config: {
+              sessionResumption: {},
+              responseModalities: [
+                'AUDIO',
+              ],
+            },
+          },
+        },
+      )
+
+    if (constrainedToken.ok) {
+      return NextResponse.json({
+        success: true,
+        token:
+          constrainedToken.token,
+        tokenMode: 'constrained',
+        model,
+        systemInstruction:
+          systemInstruction.slice(
+            0,
+            28_000,
+          ),
+        expiresAt: expireTime,
+        diagnostics: {
+          stage: 'ready',
+          model,
+          tokenMode:
+            'constrained',
+          contextCharacters:
+            systemInstruction.length,
+        },
+      })
+    }
+
+    // Some projects/keys can issue an ephemeral token but reject
+    // liveConnectConstraints. Retry once using Google's minimal
+    // documented token request. The WebSocket setup still locks the
+    // model and AUDIO modality for the actual session.
+    const minimalToken =
+      await createLiveToken(
+        apiKey,
+        {
+          uses: 1,
+          expireTime,
+          newSessionExpireTime,
+        },
+      )
+
+    if (minimalToken.ok) {
+      console.warn(
+        'Gemini constrained token failed; using minimal ephemeral token:',
+        constrainedToken.error,
+      )
+
+      return NextResponse.json({
+        success: true,
+        token: minimalToken.token,
+        tokenMode: 'minimal',
+        model,
+        systemInstruction:
+          systemInstruction.slice(
+            0,
+            28_000,
+          ),
+        expiresAt: expireTime,
+        diagnostics: {
+          stage: 'ready',
+          model,
+          tokenMode: 'minimal',
+          constrainedTokenError:
+            formatGoogleApiError(
+              'Constrained token',
+              constrainedToken.error,
+            ),
+          contextCharacters:
+            systemInstruction.length,
+        },
+      })
+    }
+
+    const constrainedDetail =
+      formatGoogleApiError(
+        'Constrained token',
+        constrainedToken.error,
+      )
+    const minimalDetail =
+      formatGoogleApiError(
+        'Minimal token',
+        minimalToken.error,
+      )
+    const detail =
+      `${constrainedDetail} | ${minimalDetail}`
+
+    console.error(
+      'Gemini Live token creation failed:',
+      detail,
     )
 
-    let tokenResponse: Response
-
-    try {
-      tokenResponse = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/auth_tokens',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify({
-            uses: 1,
-            expireTime,
-            newSessionExpireTime,
-            liveConnectConstraints: {
-              model: `models/${model}`,
-              config: {
-                responseModalities: ['AUDIO'],
-              },
-            },
-          }),
-          cache: 'no-store',
-          signal: tokenController.signal,
+    return NextResponse.json(
+      {
+        success: false,
+        code:
+          'GEMINI_LIVE_AUTH_FAILED',
+        error: detail,
+        diagnostics: {
+          stage: 'auth_tokens',
+          model,
+          keyType:
+            apiKey.startsWith('AQ.')
+              ? 'AQ auth key'
+              : apiKey.startsWith(
+                    'AIza',
+                  )
+                ? 'legacy API key'
+                : 'unknown key format',
         },
-      )
-    } catch (error: any) {
-      const timedOut =
-        error?.name === 'AbortError'
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: timedOut
-            ? 'Gemini Live token request timed out. Check the internet connection and Gemini API access.'
-            : 'Gemini Live token request failed.',
-        },
-        { status: 502 },
-      )
-    } finally {
-      clearTimeout(tokenTimeout)
-    }
-
-    const tokenData = await tokenResponse
-      .json()
-      .catch(() => null)
-
-    if (
-      !tokenResponse.ok ||
-      !tokenData?.name
-    ) {
-      console.error(
-        'Gemini Live token creation failed:',
-        tokenResponse.status,
-        tokenData,
-      )
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Could not start Gemini Live voice authentication. Check Gemini API access and the configured key.',
-        },
-        { status: 502 },
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      token: tokenData.name,
-      model,
-      systemInstruction:
-        systemInstruction.slice(0, 28_000),
-      expiresAt: expireTime,
-      diagnostics: {
-        model,
-        contextCharacters:
-          systemInstruction.length,
       },
-    })
+      {
+        status:
+          minimalToken.error
+            .httpStatus ||
+          constrainedToken.error
+            .httpStatus ||
+          502,
+      },
+    )
   } catch (error) {
     console.error(
       'CRMS Live token error:',
