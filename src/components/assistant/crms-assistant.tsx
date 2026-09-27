@@ -239,6 +239,60 @@ function base64ToPcm16(
   )
 }
 
+function markdownToSpeech(
+  value: string,
+) {
+  return value
+    .replace(
+      /^#{1,6}\\s+/gm,
+      '',
+    )
+    .replace(
+      /\\*\\*([^*]+)\\*\\*/g,
+      '$1',
+    )
+    .replace(
+      /__([^_]+)__/g,
+      '$1',
+    )
+    .replace(
+      /\\*([^*]+)\\*/g,
+      '$1',
+    )
+    .replace(
+      /_([^_]+)_/g,
+      '$1',
+    )
+    .replace(
+      /^\\s*[-*+]\\s+/gm,
+      '',
+    )
+    .replace(
+      /^\\s*\\d+[.)]\\s+/gm,
+      '',
+    )
+    .replace(
+      /\\x60([^\\x60]+)\\x60/g,
+      '$1',
+    )
+    .replace(
+      /\\[(.*?)\\]\\([^)]*\\)/g,
+      '$1',
+    )
+    .replace(
+      /\\n{2,}/g,
+      '. ',
+    )
+    .replace(
+      /\\n/g,
+      ' ',
+    )
+    .replace(
+      /\\s+/g,
+      ' ',
+    )
+    .trim()
+}
 function appendTranscript(
   current: string,
   next: string,
@@ -1005,9 +1059,12 @@ export function CrmsAssistant({
 
     window.speechSynthesis.cancel()
 
+    const spokenText =
+      markdownToSpeech(text)
+
     const utterance =
       new SpeechSynthesisUtterance(
-        text,
+        spokenText,
       )
     utterance.lang = 'en-PH'
     utterance.rate = 1
@@ -1064,7 +1121,7 @@ export function CrmsAssistant({
         45_000,
         Math.max(
           8_000,
-          text.length * 65,
+          spokenText.length * 65,
         ),
       ))
 
