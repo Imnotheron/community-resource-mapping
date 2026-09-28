@@ -29,6 +29,14 @@ import {
   type AssistantLanguageCode,
 } from '@/lib/assistant-language'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import {
   Sheet,
@@ -443,6 +451,10 @@ export function CrmsAssistant({
   ] = useState('')
   const [historyOpen, setHistoryOpen] =
     useState(false)
+  const [
+    deleteChatTarget,
+    setDeleteChatTarget,
+  ] = useState<ChatSession | null>(null)
   const [voiceMode, setVoiceMode] =
     useState(false)
   const [
@@ -1081,15 +1093,6 @@ export function CrmsAssistant({
   async function deleteChatSession(
     session: ChatSession,
   ) {
-    const confirmed =
-      window.confirm(
-        `Delete “${session.title}”? This chat history cannot be restored.`,
-      )
-
-    if (!confirmed) {
-      return
-    }
-
     const remaining =
       chatSessionsRef.current.filter(
         (item) =>
@@ -1104,6 +1107,7 @@ export function CrmsAssistant({
         remaining,
         activeChatIdRef.current,
       )
+      setDeleteChatTarget(null)
       toast.success(
         'Chat deleted',
       )
@@ -1142,6 +1146,7 @@ export function CrmsAssistant({
       )
     }
 
+    setDeleteChatTarget(null)
     toast.success(
       'Chat deleted',
     )
@@ -3290,7 +3295,7 @@ export function CrmsAssistant({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation()
-                            void deleteChatSession(
+                            setDeleteChatTarget(
                               session,
                             )
                           }}
@@ -3307,6 +3312,66 @@ export function CrmsAssistant({
               </div>
             </div>
           ) : null}
+
+          <Dialog
+            open={!!deleteChatTarget}
+            onOpenChange={(open) => {
+              if (!open) {
+                setDeleteChatTarget(null)
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <div className="mb-2 grid h-11 w-11 place-items-center rounded-full bg-red-50 text-red-600">
+                  <Trash2 className="h-5 w-5" />
+                </div>
+                <DialogTitle>
+                  Delete chat?
+                </DialogTitle>
+                <DialogDescription className="leading-6">
+                  {deleteChatTarget ? (
+                    <>
+                      You&apos;re about to delete{' '}
+                      <span className="font-semibold text-slate-800">
+                        &ldquo;{deleteChatTarget.title}&rdquo;
+                      </span>
+                      . This chat history cannot be restored.
+                    </>
+                  ) : (
+                    'This chat history cannot be restored.'
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setDeleteChatTarget(null)
+                  }
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    if (deleteChatTarget) {
+                      void deleteChatSession(
+                        deleteChatTarget,
+                      )
+                    }
+                  }}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete chat
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
