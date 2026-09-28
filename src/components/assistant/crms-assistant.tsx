@@ -15,6 +15,7 @@ import {
   PhoneOff,
   Send,
   Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -1074,6 +1075,75 @@ export function CrmsAssistant({
     persistChatSessions(
       chatSessionsRef.current,
       session.id,
+    )
+  }
+
+  async function deleteChatSession(
+    session: ChatSession,
+  ) {
+    const confirmed =
+      window.confirm(
+        `Delete “${session.title}”? This chat history cannot be restored.`,
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    const remaining =
+      chatSessionsRef.current.filter(
+        (item) =>
+          item.id !== session.id,
+      )
+
+    if (
+      session.id !==
+      activeChatIdRef.current
+    ) {
+      persistChatSessions(
+        remaining,
+        activeChatIdRef.current,
+      )
+      toast.success(
+        'Chat deleted',
+      )
+      return
+    }
+
+    await stopVoiceChat(false)
+
+    const nextSession =
+      remaining[0]
+
+    if (nextSession) {
+      messagesRef.current =
+        nextSession.messages
+      setMessages(
+        nextSession.messages,
+      )
+      setInput('')
+      setVoiceError(null)
+
+      persistChatSessions(
+        remaining,
+        nextSession.id,
+      )
+    } else {
+      const id = createChatId()
+
+      messagesRef.current = []
+      setMessages([])
+      setInput('')
+      setVoiceError(null)
+
+      persistChatSessions(
+        [],
+        id,
+      )
+    }
+
+    toast.success(
+      'Chat deleted',
     )
   }
 
@@ -3188,30 +3258,49 @@ export function CrmsAssistant({
                 ) : (
                   chatSessions.map(
                     (session) => (
-                      <button
+                      <div
                         key={session.id}
-                        type="button"
-                        onClick={() =>
-                          openChatSession(
-                            session,
-                          )
-                        }
                         className={
                           session.id ===
                           activeChatId
-                            ? 'w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left'
-                            : 'w-full rounded-xl border border-transparent px-3 py-2 text-left hover:border-slate-200 hover:bg-slate-50'
+                            ? 'group flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50'
+                            : 'group flex items-center gap-1 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50'
                         }
                       >
-                        <p className="truncate text-sm font-medium text-slate-800">
-                          {session.title}
-                        </p>
-                        <p className="mt-0.5 text-[0.6875rem] text-slate-500">
-                          {new Date(
-                            session.updatedAt,
-                          ).toLocaleString()}
-                        </p>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openChatSession(
+                              session,
+                            )
+                          }
+                          className="min-w-0 flex-1 px-3 py-2 text-left"
+                        >
+                          <p className="truncate text-sm font-medium text-slate-800">
+                            {session.title}
+                          </p>
+                          <p className="mt-0.5 text-[0.6875rem] text-slate-500">
+                            {new Date(
+                              session.updatedAt,
+                            ).toLocaleString()}
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void deleteChatSession(
+                              session,
+                            )
+                          }}
+                          className="mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 opacity-70 transition hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 sm:opacity-0 sm:group-hover:opacity-100"
+                          aria-label={`Delete chat: ${session.title}`}
+                          title="Delete chat"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     ),
                   )
                 )}
