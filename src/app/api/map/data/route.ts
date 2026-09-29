@@ -165,8 +165,8 @@ export async function GET(request: NextRequest) {
             : barangayReference?.lng ?? null
 
       if (
-        latitude === null ||
-        longitude === null
+        latitude == null ||
+        longitude == null
       ) {
         return null
       }
