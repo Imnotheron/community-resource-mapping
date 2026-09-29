@@ -44,6 +44,8 @@ export interface VulnerablePoint {
   reliefAgeDays?: number | null;
   reliefResetAfterDays?: number | null;
   markerStatus?: "NEEDS_ASSISTANCE" | "NO_RELIEF" | "GIVEN" | null;
+  locationPrecision?: "VERIFIED" | "BARANGAY_REFERENCE";
+  locationLabel?: string | null;
 }
 
 interface VulnerableMapProps {
@@ -144,7 +146,27 @@ function ProfileDrawer({ point, onClose, onViewProfile }: {
             <div className="rounded-2xl border border-slate-200 p-4"><Phone className="h-4 w-4 text-emerald-600" /><p className="mt-2 text-xs text-slate-500">Mobile Number</p><p className="font-semibold">{point.mobileNumber || point.phone || "Not recorded"}</p></div>
             <div className="rounded-2xl border border-slate-200 p-4"><UserRound className="h-4 w-4 text-emerald-600" /><p className="mt-2 text-xs text-slate-500">Age</p><p className="font-semibold">{getAge(point)}</p></div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="font-semibold">Location Details</p><p className="mt-2 text-sm text-slate-600">{point.address || "No address recorded"}</p><p className="mt-2 text-xs text-slate-500">{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold">Location Details</p>
+              {point.locationPrecision === "BARANGAY_REFERENCE" ? (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-amber-800">
+                  Approximate
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-emerald-800">
+                  Verified
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm text-slate-600">{point.address || "No address recorded"}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              {point.locationLabel || (point.locationPrecision === "BARANGAY_REFERENCE" ? "Approximate barangay-level location" : "Registered map location")}
+            </p>
+            {point.locationPrecision !== "BARANGAY_REFERENCE" ? (
+              <p className="mt-1 text-xs text-slate-500">{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</p>
+            ) : null}
+          </div>
           <div className="rounded-2xl border border-slate-200 p-4">
             <p className="font-semibold">Relief marker cycle</p>
             <p className="mt-2 text-sm text-slate-600">
@@ -282,9 +304,9 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       `}</style>
       <div className={`flex h-full min-h-0 w-full flex-col overflow-hidden p-2 lg:flex-row ${selectedPoint ? "gap-3" : "gap-0"}`}>
         <div className={`relative h-full min-h-0 min-w-0 overflow-hidden rounded-[1.35rem] bg-slate-100 ${selectedPoint ? "lg:w-[calc(70%-0.375rem)]" : "lg:w-full"}`}>
-          <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-[1.15rem] border border-white/75 bg-white/90 px-4 py-3 shadow-lg backdrop-blur-xl"><p className="text-[0.53125rem] font-medium uppercase tracking-[0.14em] text-slate-500">San Policarpo Map View</p><p className="mt-1.5 text-[0.8125rem] font-semibold text-slate-950">Vulnerable Citizen Locations</p><p className="mt-0.5 text-[0.65625rem] text-slate-500">Showing {stats.total} recorded location{stats.total === 1 ? "" : "s"}</p></div>
+          <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-[1.15rem] border border-white/75 bg-white/90 px-4 py-3 shadow-lg backdrop-blur-xl"><p className="text-[0.53125rem] font-medium uppercase tracking-[0.14em] text-slate-500">San Policarpo Map View</p><p className="mt-1.5 text-[0.8125rem] font-semibold text-slate-950">Vulnerable Citizen Locations</p><p className="mt-0.5 text-[0.65625rem] text-slate-500">Showing {stats.total} vulnerable profile{stats.total === 1 ? "" : "s"}</p></div>
           <div className="pointer-events-none absolute right-4 top-4 z-[500] hidden rounded-2xl border border-white/75 bg-white/90 p-3 shadow-lg md:block"><p className="mb-2 text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Marker Legend</p><div className="space-y-2 text-xs font-semibold text-slate-700"><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-red-600" /><span>Needs assistance</span><span className="ml-auto text-slate-400">{stats.needs}</span></div><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-amber-600" /><span>No relief yet</span><span className="ml-auto text-slate-400">{stats.noRelief}</span></div><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-600" /><span>Relief received</span><span className="ml-auto text-slate-400">{stats.received}</span></div></div></div>
-          {validPoints.length === 0 ? <div className="pointer-events-none absolute inset-0 z-[400] grid place-items-center bg-white/30"><div className="rounded-3xl border border-slate-200 bg-white/95 px-6 py-5 text-center shadow-xl"><p className="text-sm font-semibold text-slate-950">No recorded map locations</p><p className="mt-1 max-w-sm text-xs text-slate-500">The map only displays valid locations inside San Policarpo, Eastern Samar.</p></div></div> : null}
+          {validPoints.length === 0 ? <div className="pointer-events-none absolute inset-0 z-[400] grid place-items-center bg-white/30"><div className="rounded-3xl border border-slate-200 bg-white/95 px-6 py-5 text-center shadow-xl"><p className="text-sm font-semibold text-slate-950">No mappable vulnerable profiles</p><p className="mt-1 max-w-sm text-xs text-slate-500">CRMS shows verified locations when available and otherwise uses the registered barangay reference point.</p></div></div> : null}
           <div ref={containerRef} className="h-full w-full overflow-hidden" />
         </div>
         <ProfileDrawer point={selectedPoint} onClose={() => setSelectedPoint(null)} onViewProfile={onViewProfile} />
