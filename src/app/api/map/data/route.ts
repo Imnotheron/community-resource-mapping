@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import {
   SAN_POLICARPO_BARANGAY_REFERENCE_POINTS,
+  isWithinSanPolicarpoServiceEnvelope,
   matchSanPolicarpoBarangay,
 } from '@/lib/san-policarpo-geography'
 
@@ -141,14 +142,18 @@ export async function GET(request: NextRequest) {
           : null
 
       const hasProfileCoordinates =
-        Number.isFinite(profile.latitude) &&
-        Number.isFinite(profile.longitude)
+        isWithinSanPolicarpoServiceEnvelope(
+          Number(profile.latitude),
+          Number(profile.longitude),
+        )
       const hasHouseholdCoordinates =
-        Number.isFinite(
-          profile.household?.latitude,
-        ) &&
-        Number.isFinite(
-          profile.household?.longitude,
+        isWithinSanPolicarpoServiceEnvelope(
+          Number(
+            profile.household?.latitude,
+          ),
+          Number(
+            profile.household?.longitude,
+          ),
         )
 
       const latitude =
