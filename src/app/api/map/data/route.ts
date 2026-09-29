@@ -2,6 +2,10 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import {
+  SAN_POLICARPO_BARANGAY_REFERENCE_POINTS,
+  matchSanPolicarpoBarangay,
+} from '@/lib/san-policarpo-geography'
 
 type TokenPayload = {
   userId?: string
@@ -84,12 +88,13 @@ export async function GET(request: NextRequest) {
     const auth = await requireMapViewer(request)
     if ('error' in auth) return auth.error
 
-    // Only approved profiles with recorded coordinates belong on the operational map.
+    // Every approved vulnerable profile belongs on the operational map.
+    // Prefer verified profile coordinates, then household coordinates.
+    // If neither exists, use a clearly-labelled barangay reference point so
+    // imported/legacy registrations are not silently omitted from the map.
     const profiles = await db.vulnerableProfile.findMany({
       where: {
         registrationStatus: 'APPROVED',
-        latitude: { not: null },
-        longitude: { not: null },
       },
       include: {
         household: {
@@ -97,6 +102,8 @@ export async function GET(request: NextRequest) {
             id: true,
             totalMembers: true,
             vulnerableMembers: true,
+            latitude: true,
+            longitude: true,
           },
         },
         reliefDistributions: {
@@ -120,7 +127,56 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const mapData = profiles.map((profile) => {
+    const mapData = profiles
+      .map((profile) => {
+      const matchedBarangay =
+        matchSanPolicarpoBarangay(
+          profile.barangay,
+        )
+      const barangayReference =
+        matchedBarangay
+          ? SAN_POLICARPO_BARANGAY_REFERENCE_POINTS[
+              matchedBarangay
+            ]
+          : null
+
+      const hasProfileCoordinates =
+        Number.isFinite(profile.latitude) &&
+        Number.isFinite(profile.longitude)
+      const hasHouseholdCoordinates =
+        Number.isFinite(
+          profile.household?.latitude,
+        ) &&
+        Number.isFinite(
+          profile.household?.longitude,
+        )
+
+      const latitude =
+        hasProfileCoordinates
+          ? profile.latitude
+          : hasHouseholdCoordinates
+            ? profile.household?.latitude
+            : barangayReference?.lat ?? null
+      const longitude =
+        hasProfileCoordinates
+          ? profile.longitude
+          : hasHouseholdCoordinates
+            ? profile.household?.longitude
+            : barangayReference?.lng ?? null
+
+      if (
+        latitude === null ||
+        longitude === null
+      ) {
+        return null
+      }
+
+      const locationPrecision =
+        hasProfileCoordinates ||
+        hasHouseholdCoordinates
+          ? 'VERIFIED'
+          : 'BARANGAY_REFERENCE'
+
       const latestRelief = profile.reliefDistributions[0]
       const hasReceivedRelief = Boolean(latestRelief)
       const lastDistributionDate = latestRelief?.distributionDate
@@ -159,8 +215,14 @@ export async function GET(request: NextRequest) {
           .trim(),
         email: profile.emailAddress,
         mobileNumber: profile.mobileNumber || 'Not recorded',
-        latitude: profile.latitude!,
-        longitude: profile.longitude!,
+        latitude,
+        longitude,
+        locationPrecision,
+        locationLabel:
+          locationPrecision ===
+          'VERIFIED'
+            ? 'Verified registered location'
+            : `Approximate barangay location — ${matchedBarangay || profile.barangay || 'barangay'}`,
         barangay: profile.barangay,
         address: `${profile.houseNumber || ''} ${profile.street || ''}, ${profile.barangay || ''}`
           .replace(/\s+/g, ' ')
@@ -182,10 +244,27 @@ export async function GET(request: NextRequest) {
         needsAssistance: profile.needsAssistance,
       }
     })
+      .filter(
+        (
+          point,
+        ): point is NonNullable<
+          typeof point
+        > => point !== null,
+      )
 
     return NextResponse.json({
       success: true,
       points: mapData,
+      approvedProfiles:
+        profiles.length,
+      mappedProfiles:
+        mapData.length,
+      approximateProfiles:
+        mapData.filter(
+          (point) =>
+            point.locationPrecision ===
+            'BARANGAY_REFERENCE',
+        ).length,
     })
   } catch (error) {
     console.error('Error fetching map data:', error)
