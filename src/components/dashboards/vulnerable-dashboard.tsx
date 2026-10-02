@@ -9,6 +9,7 @@ import {
   Loader2, Send, MapPin, CheckCircle2, Clock, AlertCircle, BookOpen, Search,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
+import { useDashboardSection } from '@/hooks/use-dashboard-section'
 import { NavItem } from '@/components/layout/sidebar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -63,7 +64,10 @@ interface VulnerableDashboardProps {
 }
 
 export function VulnerableDashboard({ user, onLogout, onProfile }: VulnerableDashboardProps) {
-  const [view, setView] = useState('overview')
+  const [view, setView] = useDashboardSection(
+    NAV_ITEMS.map((item) => item.id),
+    'overview',
+  )
   return (
     <AppShell
       items={NAV_ITEMS}
