@@ -186,7 +186,20 @@ function PopoverContent({
 function PopoverAnchor({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
+  const context =
+    React.useContext(
+      PopoverDismissContext,
+    )
+
+  return (
+    <PopoverPrimitive.Anchor
+      data-slot="popover-anchor"
+      data-crms-popover-owner={
+        context?.ownerId
+      }
+      {...props}
+    />
+  )
 }
 
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor }
