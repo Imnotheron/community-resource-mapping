@@ -40,6 +40,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { useDashboardSection } from "@/hooks/use-dashboard-section";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
 import { NavItem } from "@/components/layout/sidebar";
 import {
@@ -178,7 +179,10 @@ export function AdminDashboard({
   onLogout,
   onProfile,
 }: AdminDashboardProps) {
-  const [view, setView] = useState("overview");
+  const [view, setView] = useDashboardSection(
+    NAV_ITEMS.map((item) => item.id),
+    "overview",
+  );
 
   return (
     <AppShell
