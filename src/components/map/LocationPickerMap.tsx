@@ -358,7 +358,7 @@ export default function LocationPickerMap({
         }
       )
     } else {
-      alert('Geolocation is not supported by your browser')
+      toast.error('Geolocation is unavailable', { description: 'Select a point on the map or search for your address.' })
     }
   }
 
