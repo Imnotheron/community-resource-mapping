@@ -2349,13 +2349,14 @@ function UsersView() {
                           <Button
                             type="button"
                             size="sm"
-                            variant="ghost"
+                            variant="outline"
                             onClick={() => openUserStatus(u)}
-                            className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                            className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
                             aria-label={`Update ${u.name || u.email || 'vulnerable user'} status`}
                             title="Update vulnerable status"
                           >
                             <Activity className="h-4 w-4" />
+                            Status
                           </Button>
                         ) : null}
                       {u.id !== getAdminId() ? (
