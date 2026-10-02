@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useLookupOptions } from '@/hooks/use-lookup-options'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
 
 const AddressPickerMap = dynamic(() => import('@/components/maps/address-picker-map'), {
@@ -832,6 +833,39 @@ export default function VulnerableRegistrationModal({
   const [loadingDrafts, setLoadingDrafts] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [modalFrame, setModalFrame] = useState<ModalFrame | null>(null)
+  const bloodTypeOptions = useLookupOptions('BLOOD_TYPE', bloodTypeOptions)
+  const educationalAttainmentOptions = useLookupOptions(
+    'EDUCATIONAL_ATTAINMENT',
+    educationalAttainmentOptions,
+  )
+  const employmentStatusOptions = useLookupOptions(
+    'EMPLOYMENT_STATUS',
+    employmentStatusOptions,
+  )
+  const guardianRelationshipOptions = useLookupOptions(
+    'GUARDIAN_RELATIONSHIP',
+    guardianRelationshipOptions,
+  )
+  const povertyStatusOptions = useLookupOptions(
+    'POVERTY_STATUS',
+    povertyStatusOptions,
+  )
+  const civilRegistryStatusOptions = useLookupOptions(
+    'CIVIL_REGISTRY_STATUS',
+    civilRegistryStatusOptions,
+  )
+  const disabilityTypeOptions = useLookupOptions(
+    'DISABILITY_TYPE',
+    disabilityTypeOptions,
+  )
+  const disabilitySeverityOptions = useLookupOptions(
+    'DISABILITY_SEVERITY',
+    disabilitySeverityOptions,
+  )
+  const disabilityCauseOptions = useLookupOptions(
+    'DISABILITY_CAUSE',
+    disabilityCauseOptions,
+  )
 
   const modalFrameStyle = useMemo(
     () => {
@@ -1608,14 +1642,14 @@ export default function VulnerableRegistrationModal({
                   </SelectTrigger>
                   <SelectContent>
                     {form.povertyStatus &&
-                    !POVERTY_STATUS_OPTIONS.includes(
+                    !povertyStatusOptions.includes(
                       form.povertyStatus,
                     ) ? (
                       <SelectItem value={form.povertyStatus}>
                         {form.povertyStatus} (saved value)
                       </SelectItem>
                     ) : null}
-                    {POVERTY_STATUS_OPTIONS.map((option) => (
+                    {povertyStatusOptions.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
                       </SelectItem>
@@ -1668,14 +1702,14 @@ export default function VulnerableRegistrationModal({
                   </SelectTrigger>
                   <SelectContent>
                     {form.civilRegistryStatus &&
-                    !CIVIL_REGISTRY_STATUS_OPTIONS.includes(
+                    !civilRegistryStatusOptions.includes(
                       form.civilRegistryStatus,
                     ) ? (
                       <SelectItem value={form.civilRegistryStatus}>
                         {form.civilRegistryStatus} (saved value)
                       </SelectItem>
                     ) : null}
-                    {CIVIL_REGISTRY_STATUS_OPTIONS.map(
+                    {civilRegistryStatusOptions.map(
                       (option) => (
                         <SelectItem key={option} value={option}>
                           {option}
@@ -1757,14 +1791,14 @@ export default function VulnerableRegistrationModal({
                     </SelectTrigger>
                     <SelectContent>
                       {form.disabilityType &&
-                      !DISABILITY_TYPE_OPTIONS.includes(
+                      !disabilityTypeOptions.includes(
                         form.disabilityType,
                       ) ? (
                         <SelectItem value={form.disabilityType}>
                           {form.disabilityType} (saved value)
                         </SelectItem>
                       ) : null}
-                      {DISABILITY_TYPE_OPTIONS.map((option) => (
+                      {disabilityTypeOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -1785,14 +1819,14 @@ export default function VulnerableRegistrationModal({
                     </SelectTrigger>
                     <SelectContent>
                       {form.disabilitySeverity &&
-                      !DISABILITY_SEVERITY_OPTIONS.includes(
+                      !disabilitySeverityOptions.includes(
                         form.disabilitySeverity,
                       ) ? (
                         <SelectItem value={form.disabilitySeverity}>
                           {form.disabilitySeverity} (saved value)
                         </SelectItem>
                       ) : null}
-                      {DISABILITY_SEVERITY_OPTIONS.map(
+                      {disabilitySeverityOptions.map(
                         (option) => (
                           <SelectItem key={option} value={option}>
                             {option}
@@ -1815,14 +1849,14 @@ export default function VulnerableRegistrationModal({
                     </SelectTrigger>
                     <SelectContent>
                       {form.disabilityCause &&
-                      !DISABILITY_CAUSE_OPTIONS.includes(
+                      !disabilityCauseOptions.includes(
                         form.disabilityCause,
                       ) ? (
                         <SelectItem value={form.disabilityCause}>
                           {form.disabilityCause} (saved value)
                         </SelectItem>
                       ) : null}
-                      {DISABILITY_CAUSE_OPTIONS.map((option) => (
+                      {disabilityCauseOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -1953,12 +1987,12 @@ export default function VulnerableRegistrationModal({
               </SelectTrigger>
               <SelectContent>
                 {form.bloodType &&
-                !BLOOD_TYPE_OPTIONS.includes(form.bloodType) ? (
+                !bloodTypeOptions.includes(form.bloodType) ? (
                   <SelectItem value={form.bloodType}>
                     {form.bloodType} (saved value)
                   </SelectItem>
                 ) : null}
-                {BLOOD_TYPE_OPTIONS.map((option) => (
+                {bloodTypeOptions.map((option) => (
                   <SelectItem key={option} value={option}>
                     {option}
                   </SelectItem>
@@ -1979,14 +2013,14 @@ export default function VulnerableRegistrationModal({
               </SelectTrigger>
               <SelectContent>
                 {form.educationalAttainment &&
-                !EDUCATIONAL_ATTAINMENT_OPTIONS.includes(
+                !educationalAttainmentOptions.includes(
                   form.educationalAttainment,
                 ) ? (
                   <SelectItem value={form.educationalAttainment}>
                     {form.educationalAttainment} (saved value)
                   </SelectItem>
                 ) : null}
-                {EDUCATIONAL_ATTAINMENT_OPTIONS.map(
+                {educationalAttainmentOptions.map(
                   (option) => (
                     <SelectItem key={option} value={option}>
                       {option}
@@ -2028,14 +2062,14 @@ export default function VulnerableRegistrationModal({
               </SelectTrigger>
               <SelectContent>
                 {form.employmentStatus &&
-                !EMPLOYMENT_STATUS_OPTIONS.includes(
+                !employmentStatusOptions.includes(
                   form.employmentStatus,
                 ) ? (
                   <SelectItem value={form.employmentStatus}>
                     {form.employmentStatus} (saved value)
                   </SelectItem>
                 ) : null}
-                {EMPLOYMENT_STATUS_OPTIONS.map((option) => (
+                {employmentStatusOptions.map((option) => (
                   <SelectItem key={option} value={option}>
                     {option}
                   </SelectItem>
@@ -2091,14 +2125,14 @@ export default function VulnerableRegistrationModal({
               </SelectTrigger>
               <SelectContent>
                 {form.guardianRelationship &&
-                !GUARDIAN_RELATIONSHIP_OPTIONS.includes(
+                !guardianRelationshipOptions.includes(
                   form.guardianRelationship,
                 ) ? (
                   <SelectItem value={form.guardianRelationship}>
                     {form.guardianRelationship} (saved value)
                   </SelectItem>
                 ) : null}
-                {GUARDIAN_RELATIONSHIP_OPTIONS.map(
+                {guardianRelationshipOptions.map(
                   (option) => (
                     <SelectItem key={option} value={option}>
                       {option}
