@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
 function clean(value: unknown) {
   return String(value || '').trim()
@@ -78,6 +79,22 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Relief distributions can only be recorded for approved citizens',
+        },
+        { status: 409 },
+      )
+    }
+
+    const lifecycle = (
+      await getVulnerableStatuses([beneficiary.id])
+    ).get(beneficiary.id)
+    const profileStatus = lifecycle?.status || 'ACTIVE'
+
+    if (profileStatus !== 'ACTIVE') {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            `Relief cannot be recorded while this vulnerable profile is ${profileStatus.toLowerCase().replace(/_/g, ' ')}.`,
         },
         { status: 409 },
       )
