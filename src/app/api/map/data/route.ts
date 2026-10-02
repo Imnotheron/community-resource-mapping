@@ -9,6 +9,7 @@ import {
 } from '@/lib/san-policarpo-geography'
 
 import { requireRequestUser } from '@/lib/request-user-session'
+import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,8 +57,15 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const profileStatuses = await getVulnerableStatuses(
+      profiles.map((profile) => profile.id),
+    )
+
     const mapData = profiles
       .map((profile) => {
+      const profileStatus = profileStatuses.get(profile.id)?.status || 'ACTIVE'
+      if (profileStatus !== 'ACTIVE') return null
+
       const matchedBarangay =
         matchSanPolicarpoBarangay(
           profile.barangay,
@@ -175,6 +183,7 @@ export async function GET(request: NextRequest) {
         totalMembers: profile.household?.totalMembers,
         vulnerableMembers: profile.household?.vulnerableMembers,
         needsAssistance: profile.needsAssistance,
+        profileStatus,
       }
     })
       .filter(
