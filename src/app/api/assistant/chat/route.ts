@@ -1878,31 +1878,61 @@ export async function POST(request: NextRequest) {
       queryAwareContext,
     ].join('\n')
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: systemInstruction }],
-          },
-          contents: [
-            ...history,
-            {
-              role: 'user',
-              parts: [{ text: message }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.15,
-            maxOutputTokens: 520,
-          },
-        }),
-      },
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () => controller.abort(),
+      20_000,
     )
+
+    let response: Response
+
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemInstruction }],
+            },
+            contents: [
+              ...history,
+              {
+                role: 'user',
+                parts: [{ text: message }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.15,
+              maxOutputTokens: 520,
+            },
+          }),
+        },
+      )
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === 'AbortError'
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'ASSISTANT_TIMEOUT',
+            error:
+              'The assistant took too long to respond. Your CRMS session is still active; please retry the message.',
+          },
+          { status: 504 },
+        )
+      }
+
+      throw error
+    } finally {
+      clearTimeout(timeout)
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
