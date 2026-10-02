@@ -531,6 +531,10 @@ export function CrmsAssistant({
     useRef('')
   const turnRecognitionRef =
     useRef<any>(null)
+  const assistantRequestRef =
+    useRef<AbortController | null>(null)
+  const voiceRequestRef =
+    useRef<AbortController | null>(null)
   const turnLastSpeechAtRef =
     useRef(0)
   const turnStartedAtRef =
