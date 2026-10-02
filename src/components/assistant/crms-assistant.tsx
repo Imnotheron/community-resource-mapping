@@ -2931,6 +2931,8 @@ export function CrmsAssistant({
     _userInitiated: boolean,
   ) {
     stoppingVoiceRef.current = true
+    voiceRequestRef.current?.abort()
+    voiceRequestRef.current = null
     clearSetupTimeout()
     closeCompatibleInputGraph()
     clearSpeechWatchdog()
