@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,29 @@ export async function GET(request: NextRequest) {
       ],
     })
 
-    return NextResponse.json({ success: true, profiles })
+    const statuses = await getVulnerableStatuses(
+      profiles.map((profile) => profile.id),
+    )
+
+    const withStatus = profiles.map((profile) => {
+      const lifecycle = statuses.get(profile.id)
+
+      return {
+        ...profile,
+        profileStatus: lifecycle?.status || 'ACTIVE',
+        profileStatusReason: lifecycle?.reason || null,
+        profileStatusUpdatedAt: lifecycle?.updatedAt || null,
+      }
+    })
+
+    return NextResponse.json(
+      { success: true, profiles: withStatus },
+      {
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      },
+    )
   } catch (error) {
     console.error('Error fetching worker profile directory:', error)
     return NextResponse.json(
