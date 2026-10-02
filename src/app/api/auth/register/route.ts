@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { sendWelcomeEmail } from '@/lib/email'
+import { createSessionToken } from '@/lib/session-token'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,16 +51,12 @@ export async function POST(request: NextRequest) {
       console.error('Failed to send welcome email:', emailError)
     })
 
-    // Create a simple token (in production, use JWT)
-    const token = Buffer.from(
-      JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      }),
-    ).toString('base64')
+    const token = await createSessionToken({
+      userId: user.id,
+      role: user.role,
+    })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -70,6 +67,16 @@ export async function POST(request: NextRequest) {
       },
       token,
     })
+
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 8,
+      path: '/',
+    })
+
+    return response
   } catch (error) {
     console.error('Registration error:', error)
     return NextResponse.json(
