@@ -11,6 +11,7 @@ import { Sidebar } from './sidebar'
 import type { NavItem } from './sidebar'
 import { MobileAppNav } from './mobile-app-nav'
 import { CrmsAssistant } from '@/components/assistant/crms-assistant'
+import { ConnectionIndicator } from '@/components/connectivity/connection-indicator'
 import { Button } from '@/components/ui/button'
 import { DashboardAmbient } from '@/components/effects/dashboard-ambient'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -251,6 +252,8 @@ export function AppShell({
                 </div>
               </div>
 
+              <div className="flex items-center gap-2">
+                <ConnectionIndicator className="max-w-[128px] px-2" />
               <button
                 type="button"
                 onClick={onProfile}
@@ -270,6 +273,7 @@ export function AppShell({
                     .toUpperCase()
                 )}
               </button>
+              </div>
             </div>
 
             <header className="relative z-10 hidden shrink-0 px-6 pt-4 md:block">
@@ -293,7 +297,8 @@ export function AppShell({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+                <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+                  <ConnectionIndicator />
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
