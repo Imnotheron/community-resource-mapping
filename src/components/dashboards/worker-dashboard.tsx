@@ -101,7 +101,13 @@ function OverviewView({ workerId, onNavigate }: { workerId: string; onNavigate: 
           apiFetch('/api/worker/profiles'),
         ])
         setDistributions(dist.distributions || [])
-        setProfilesCount(prof.profiles?.length || 0)
+        setProfilesCount(
+          (prof.profiles || []).filter(
+            (profile: any) =>
+              profile.registrationStatus === 'APPROVED' &&
+              (profile.profileStatus || 'ACTIVE') === 'ACTIVE',
+          ).length,
+        )
       } catch (err: any) {
         toast.error('Failed to load overview', { description: err.message })
       } finally {
@@ -418,7 +424,13 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
     (async () => {
       try {
         const data = await apiFetch('/api/worker/profiles')
-        setProfiles((data.profiles || []).filter((p: any) => p.registrationStatus === 'APPROVED'))
+        setProfiles(
+          (data.profiles || []).filter(
+            (p: any) =>
+              p.registrationStatus === 'APPROVED' &&
+              (p.profileStatus || 'ACTIVE') === 'ACTIVE',
+          ),
+        )
       } catch (err: any) {
         toast.error('Failed to load profiles', { description: err.message })
       } finally {
