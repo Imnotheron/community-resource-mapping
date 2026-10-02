@@ -833,38 +833,38 @@ export default function VulnerableRegistrationModal({
   const [loadingDrafts, setLoadingDrafts] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [modalFrame, setModalFrame] = useState<ModalFrame | null>(null)
-  const bloodTypeOptions = useLookupOptions('BLOOD_TYPE', bloodTypeOptions)
+  const bloodTypeOptions = useLookupOptions('BLOOD_TYPE', BLOOD_TYPE_OPTIONS)
   const educationalAttainmentOptions = useLookupOptions(
     'EDUCATIONAL_ATTAINMENT',
-    educationalAttainmentOptions,
+    EDUCATIONAL_ATTAINMENT_OPTIONS,
   )
   const employmentStatusOptions = useLookupOptions(
     'EMPLOYMENT_STATUS',
-    employmentStatusOptions,
+    EMPLOYMENT_STATUS_OPTIONS,
   )
   const guardianRelationshipOptions = useLookupOptions(
     'GUARDIAN_RELATIONSHIP',
-    guardianRelationshipOptions,
+    GUARDIAN_RELATIONSHIP_OPTIONS,
   )
   const povertyStatusOptions = useLookupOptions(
     'POVERTY_STATUS',
-    povertyStatusOptions,
+    POVERTY_STATUS_OPTIONS,
   )
   const civilRegistryStatusOptions = useLookupOptions(
     'CIVIL_REGISTRY_STATUS',
-    civilRegistryStatusOptions,
+    CIVIL_REGISTRY_STATUS_OPTIONS,
   )
   const disabilityTypeOptions = useLookupOptions(
     'DISABILITY_TYPE',
-    disabilityTypeOptions,
+    DISABILITY_TYPE_OPTIONS,
   )
   const disabilitySeverityOptions = useLookupOptions(
     'DISABILITY_SEVERITY',
-    disabilitySeverityOptions,
+    DISABILITY_SEVERITY_OPTIONS,
   )
   const disabilityCauseOptions = useLookupOptions(
     'DISABILITY_CAUSE',
-    disabilityCauseOptions,
+    DISABILITY_CAUSE_OPTIONS,
   )
 
   const modalFrameStyle = useMemo(
