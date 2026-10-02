@@ -1397,18 +1397,13 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Suffix">
-            <Select value={form.suffix} onValueChange={(value) => updateField('suffix', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="e.g., Jr., Sr., III" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="JR">Jr.</SelectItem>
-                <SelectItem value="SR">Sr.</SelectItem>
-                <SelectItem value="II">II</SelectItem>
-                <SelectItem value="III">III</SelectItem>
-                <SelectItem value="IV">IV</SelectItem>
-              </SelectContent>
-            </Select>
+            <SmartEditableSelect
+              value={form.suffix}
+              onValueChange={(value) => updateField('suffix', value)}
+              options={['Jr.', 'Sr.', 'II', 'III', 'IV']}
+              storageKey="registration.suffix"
+              placeholder="Select or type suffix"
+            />
           </InputBlock>
 
           <InputBlock label="Date of Birth" field="dateOfBirth" required error={errors.dateOfBirth}>
