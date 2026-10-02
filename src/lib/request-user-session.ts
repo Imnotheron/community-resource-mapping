@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-
-type TokenPayload = {
-  userId?: string
-}
+import { verifySessionToken } from '@/lib/session-token'
 
 type RequestUserOptions = {
   allowedRoles?: string[]
@@ -17,28 +14,16 @@ function readToken(request: NextRequest) {
     ? authorization.slice('Bearer '.length).trim()
     : ''
 
-  return bearer || request.cookies.get('token')?.value || ''
-}
-
-function decodeToken(token: string): TokenPayload | null {
-  if (!token) return null
-
-  try {
-    const decoded = Buffer.from(token, 'base64').toString('utf8')
-    const payload = JSON.parse(decoded) as TokenPayload
-    return payload && typeof payload === 'object' ? payload : null
-  } catch {
-    return null
-  }
+  return request.cookies.get('token')?.value || bearer
 }
 
 function normalizeRole(value: unknown) {
   return String(value || '').trim().toUpperCase()
 }
 
-export function requireMatchingRequestUser(request: NextRequest) {
-  const payload = decodeToken(readToken(request))
-  const sessionUserId = String(payload?.userId || '').trim()
+export async function requireMatchingRequestUser(request: NextRequest) {
+  const session = await verifySessionToken(readToken(request))
+  const sessionUserId = String(session?.userId || '').trim()
 
   if (!sessionUserId) {
     return {
@@ -67,19 +52,22 @@ export function requireMatchingRequestUser(request: NextRequest) {
     }
   }
 
-  return { userId: sessionUserId }
+  return {
+    userId: sessionUserId,
+    tokenRole: normalizeRole(session?.role),
+  }
 }
 
 /**
  * Resolves the signed-in database user, optionally checks a body/query user ID,
- * and restricts the request to one or more roles. This keeps role APIs from
- * trusting a caller-supplied workerId or userId by itself.
+ * and restricts the request to one or more roles. The signed token establishes
+ * identity, while the database remains authoritative for the current role.
  */
 export async function requireRequestUser(
   request: NextRequest,
   options: RequestUserOptions = {},
 ) {
-  const match = requireMatchingRequestUser(request)
+  const match = await requireMatchingRequestUser(request)
   if ('error' in match) return match
 
   const requestedUserId = String(options.requestedUserId || '').trim()
@@ -115,7 +103,10 @@ export async function requireRequestUser(
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
     return {
       error: NextResponse.json(
-        { success: false, error: 'This account is not allowed to perform this action' },
+        {
+          success: false,
+          error: 'This account is not allowed to perform this action',
+        },
         { status: 403 },
       ),
     }
