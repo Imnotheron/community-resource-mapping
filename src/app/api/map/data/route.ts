@@ -8,85 +8,13 @@ import {
   matchSanPolicarpoBarangay,
 } from '@/lib/san-policarpo-geography'
 
-type TokenPayload = {
-  userId?: string
-  role?: string
-}
-
-function normalizeRole(value: unknown) {
-  return String(value || '').trim().toUpperCase()
-}
-
-function readToken(request: NextRequest) {
-  const authorization = request.headers.get('authorization') || ''
-  const bearerToken = authorization.startsWith('Bearer ')
-    ? authorization.slice('Bearer '.length).trim()
-    : ''
-
-  return bearerToken || request.cookies.get('token')?.value || ''
-}
-
-function decodeToken(token: string): TokenPayload | null {
-  if (!token) return null
-
-  try {
-    const decoded = Buffer.from(token, 'base64').toString('utf8')
-    const payload = JSON.parse(decoded) as TokenPayload
-    return payload && typeof payload === 'object' ? payload : null
-  } catch {
-    return null
-  }
-}
-
-async function requireMapViewer(request: NextRequest) {
-  const payload = decodeToken(readToken(request))
-  const tokenUserId = String(payload?.userId || '').trim()
-
-  if (!tokenUserId) {
-    return {
-      error: NextResponse.json(
-        { success: false, message: 'Authentication is required to view live vulnerable map data.' },
-        { status: 401 },
-      ),
-    }
-  }
-
-  const requestedUserId = String(
-    request.nextUrl.searchParams.get('userId') ||
-      request.headers.get('x-user-id') ||
-      '',
-  ).trim()
-
-  if (requestedUserId && requestedUserId !== tokenUserId) {
-    return {
-      error: NextResponse.json(
-        { success: false, message: 'The requested user does not match the current session.' },
-        { status: 403 },
-      ),
-    }
-  }
-
-  const user = await db.user.findUnique({
-    where: { id: tokenUserId },
-    select: { id: true, role: true },
-  })
-
-  const role = normalizeRole(user?.role)
-  if (!user || (role !== 'ADMIN' && role !== 'WORKER')) {
-    return {
-      error: NextResponse.json(
-        { success: false, message: 'Administrator or field-worker access is required.' },
-        { status: 403 },
-      ),
-    }
-  }
-
-  return { user }
-}
+import { requireRequestUser } from '@/lib/request-user-session'
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireMapViewer(request)
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN', 'WORKER'],
+    })
     if ('error' in auth) return auth.error
 
     // Every approved vulnerable profile belongs on the operational map.
@@ -257,7 +185,8 @@ export async function GET(request: NextRequest) {
         > => point !== null,
       )
 
-    return NextResponse.json({
+    return NextResponse.json(
+      {
       success: true,
       points: mapData,
       approvedProfiles:
@@ -270,7 +199,13 @@ export async function GET(request: NextRequest) {
             point.locationPrecision ===
             'BARANGAY_REFERENCE',
         ).length,
-    })
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      },
+    )
   } catch (error) {
     console.error('Error fetching map data:', error)
     return NextResponse.json(
