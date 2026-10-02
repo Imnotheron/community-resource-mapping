@@ -66,28 +66,18 @@ function getStatus(point: VulnerablePoint) {
     point.markerStatus ||
     (point.hasReceivedRelief
       ? "GIVEN"
-      : point.needsAssistance
-        ? "NEEDS_ASSISTANCE"
-        : "NO_RELIEF");
+      : "NEEDS_ASSISTANCE");
 
   if (status === "GIVEN") {
     return {
-      label: "Relief given",
+      label: "Relief received",
       color: "#16a34a",
       soft: "#dcfce7",
     };
   }
 
-  if (status === "NO_RELIEF") {
-    return {
-      label: "No relief yet",
-      color: "#eab308",
-      soft: "#fef9c3",
-    };
-  }
-
   return {
-    label: "Needs assistance",
+    label: "Pending distribution",
     color: "#dc2626",
     soft: "#fee2e2",
   };
@@ -170,14 +160,14 @@ function ProfileDrawer({ point, onClose, onViewProfile }: {
             ) : null}
           </div>
           <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="font-semibold">Relief marker cycle</p>
+            <p className="font-semibold">Relief cycle status</p>
             <p className="mt-2 text-sm text-slate-600">
               {point.lastDistributionDate
-                ? `Last approved relief: ${new Date(point.lastDistributionDate).toLocaleDateString("en-PH")}`
-                : "No approved relief distribution recorded yet."}
+                ? `Relief recorded in this cycle: ${new Date(point.lastDistributionDate).toLocaleDateString("en-PH")}`
+                : "No approved relief has been recorded for this citizen in the selected cycle yet."}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Green markers automatically return to red after {point.reliefResetAfterDays || 30} days so old distributions do not keep a household marked as recently served.
+              Red means pending distribution. Green means an approved relief distribution exists in the selected cycle.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 p-4"><p className="font-semibold">Vulnerabilities</p><div className="mt-2 flex flex-wrap gap-2">{(point.vulnerabilityTypes?.length ? point.vulnerabilityTypes : ["Not specified"]).map((v) => <span key={v} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{String(v).replace(/_/g, " ")}</span>)}</div></div>
@@ -201,14 +191,11 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
   const validPoints = useMemo(() => points.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude) && isWithinSanPolicarpo(point.latitude, point.longitude)), [points]);
   const stats = useMemo(() => ({
     total: validPoints.length,
-    needs: validPoints.filter(
-      (point) => getStatus(point).label === "Needs assistance",
-    ).length,
-    noRelief: validPoints.filter(
-      (point) => getStatus(point).label === "No relief yet",
+    pending: validPoints.filter(
+      (point) => getStatus(point).label === "Pending distribution",
     ).length,
     received: validPoints.filter(
-      (point) => getStatus(point).label === "Relief given",
+      (point) => getStatus(point).label === "Relief received",
     ).length,
   }), [validPoints]);
 
@@ -319,7 +306,7 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
       <div className={`flex h-full min-h-0 w-full flex-col overflow-hidden p-2 lg:flex-row ${selectedPoint ? "gap-3" : "gap-0"}`}>
         <div className={`relative h-full min-h-0 min-w-0 overflow-hidden rounded-[1.35rem] bg-slate-100 ${selectedPoint ? "lg:w-[calc(70%-0.375rem)]" : "lg:w-full"}`}>
           <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-[1.15rem] border border-white/75 bg-white/90 px-4 py-3 shadow-lg backdrop-blur-xl"><p className="text-[0.53125rem] font-medium uppercase tracking-[0.14em] text-slate-500">San Policarpo Map View</p><p className="mt-1.5 text-[0.8125rem] font-semibold text-slate-950">Vulnerable Citizen Locations</p><p className="mt-0.5 text-[0.65625rem] text-slate-500">Showing {stats.total} vulnerable profile{stats.total === 1 ? "" : "s"}</p></div>
-          <div className="pointer-events-none absolute right-4 top-4 z-[500] hidden rounded-2xl border border-white/75 bg-white/90 p-3 shadow-lg md:block"><p className="mb-2 text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Marker Legend</p><div className="space-y-2 text-xs font-semibold text-slate-700"><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-red-600" /><span>Needs assistance</span><span className="ml-auto text-slate-400">{stats.needs}</span></div><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-amber-600" /><span>No relief yet</span><span className="ml-auto text-slate-400">{stats.noRelief}</span></div><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-600" /><span>Relief received</span><span className="ml-auto text-slate-400">{stats.received}</span></div></div></div>
+          <div className="pointer-events-none absolute right-4 top-4 z-[500] hidden rounded-2xl border border-white/75 bg-white/90 p-3 shadow-lg md:block"><p className="mb-2 text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Marker Legend</p><div className="space-y-2 text-xs font-semibold text-slate-700"><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-red-600" /><span>Pending distribution</span><span className="ml-auto text-slate-400">{stats.pending}</span></div><div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-600" /><span>Relief received</span><span className="ml-auto text-slate-400">{stats.received}</span></div></div></div>
           {validPoints.length === 0 ? <div className="pointer-events-none absolute inset-0 z-[400] grid place-items-center bg-white/30"><div className="rounded-3xl border border-slate-200 bg-white/95 px-6 py-5 text-center shadow-xl"><p className="text-sm font-semibold text-slate-950">No mappable vulnerable profiles</p><p className="mt-1 max-w-sm text-xs text-slate-500">CRMS shows verified locations when available and otherwise uses the registered barangay reference point.</p></div></div> : null}
           <div ref={containerRef} className="h-full w-full overflow-hidden" />
         </div>
