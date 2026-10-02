@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { toast } from 'sonner'
 import { Search, MapPin, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -109,7 +110,7 @@ export function LocationPicker({
       if (!isWithinSanPolicarpo(ll.lat, ll.lng)) {
         marker.setLatLng([DEFAULT_LAT, DEFAULT_LNG])
         map.setView([DEFAULT_LAT, DEFAULT_LNG], 13)
-        alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
+        toast.error('Location outside San Policarpo', { description: 'Please select a location inside San Policarpo, Eastern Samar.' })
         return
       }
 
