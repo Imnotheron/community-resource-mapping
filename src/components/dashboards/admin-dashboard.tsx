@@ -3994,8 +3994,9 @@ function MapView() {
     <>
       <LiveVulnerableMapView
         title="Vulnerable Citizens Map"
-        description="Approved active vulnerable individuals. Red needs assistance · yellow has no relief yet · green recently received relief."
+        description="Approved active vulnerable individuals. Red is pending distribution in the selected cycle · green received relief."
         onViewProfile={handleViewProfile}
+        allowCycleReset
       />
 
       <AdminMapProfileDialog
