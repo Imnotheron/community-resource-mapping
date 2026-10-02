@@ -53,6 +53,7 @@ interface VulnerableMapProps {
   height?: number;
   onViewProfile?: (profileId: string, point: VulnerablePoint) => void;
   interactiveMarkers?: boolean;
+  resetVersion?: number;
 }
 
 function isWithinSanPolicarpo(latitude: number, longitude: number) {
@@ -190,7 +191,7 @@ function ProfileDrawer({ point, onClose, onViewProfile }: {
   );
 }
 
-export function VulnerableMap({ points, height = 500, onViewProfile, interactiveMarkers = true }: VulnerableMapProps) {
+export function VulnerableMap({ points, height = 500, onViewProfile, interactiveMarkers = true, resetVersion = 0 }: VulnerableMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
@@ -293,6 +294,18 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
     }, 300);
     return () => window.clearTimeout(timer);
   }, [selectedPoint]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || resetVersion === 0) return;
+
+    setSelectedPoint(null);
+    map.fitBounds(SAN_POLICARPO_BOUNDS, {
+      padding: [18, 18],
+      animate: false,
+    });
+    map.invalidateSize(false);
+  }, [resetVersion]);
 
   const minimumMapHeight = Math.min(Math.max(height, 320), 360);
   const mapHeightCss = `clamp(${minimumMapHeight}px, calc(100dvh - 300px), 620px)`;
