@@ -37,7 +37,7 @@ const VulnerableMap = dynamic(
   },
 )
 
-type RecapMode = 'DAY' | 'WEEK' | 'MONTH' | 'DATE'
+type RecapMode = 'ALL' | 'DAY' | 'WEEK' | 'MONTH' | 'DATE'
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
@@ -74,6 +74,8 @@ function getRecapRange(
   mode: RecapMode,
   selectedDate: string,
 ) {
+  if (mode === 'ALL') return null
+
   const now = new Date()
 
   if (mode === 'DATE') {
@@ -132,6 +134,7 @@ function getRecapLabel(
   mode: RecapMode,
   selectedDate: string,
 ) {
+  if (mode === 'ALL') return 'All active records'
   if (mode === 'WEEK') return 'This week'
   if (mode === 'MONTH') return 'This month'
   if (mode === 'DATE') {
@@ -170,7 +173,7 @@ export function LiveVulnerableMapView({
 }) {
   const [points, setPoints] = useState<VulnerablePoint[]>([])
   const [loading, setLoading] = useState(true)
-  const [recapMode, setRecapMode] = useState<RecapMode>('DAY')
+  const [recapMode, setRecapMode] = useState<RecapMode>('ALL')
   const [selectedDate, setSelectedDate] = useState(() =>
     toDateInputValue(new Date()),
   )
@@ -219,18 +222,26 @@ export function LiveVulnerableMapView({
   }, [loadMap])
 
   const filteredPoints = useMemo(() => {
-    const { start, end } = getRecapRange(
+    const range = getRecapRange(
       recapMode,
       selectedDate,
     )
 
+    if (!range) return points
+
+    const { start, end } = range
+
     return points.filter((point) => {
-      if (!point.registrationDate) return false
+      const activityDate =
+        point.lastDistributionDate ||
+        point.registrationDate
 
-      const registered = new Date(point.registrationDate)
-      if (Number.isNaN(registered.getTime())) return false
+      if (!activityDate) return false
 
-      return registered >= start && registered <= end
+      const recordDate = new Date(activityDate)
+      if (Number.isNaN(recordDate.getTime())) return false
+
+      return recordDate >= start && recordDate <= end
     })
   }, [points, recapMode, selectedDate])
 
@@ -274,6 +285,9 @@ export function LiveVulnerableMapView({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="ALL">
+                All records
+              </SelectItem>
               <SelectItem value="DAY">
                 By day
               </SelectItem>
