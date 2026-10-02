@@ -119,7 +119,7 @@ export function LocationPicker({
 
     map.on('click', (e: L.LeafletMouseEvent) => {
       if (!isWithinSanPolicarpo(e.latlng.lat, e.latlng.lng)) {
-        alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
+        toast.error('Location outside San Policarpo', { description: 'Please select a location inside San Policarpo, Eastern Samar.' })
         return
       }
 
@@ -160,7 +160,7 @@ export function LocationPicker({
     if (!mapRef.current || !markerRef.current) return
 
     if (!isWithinSanPolicarpo(r.lat, r.lon)) {
-      alert('Please select a location inside San Policarpo, Eastern Samar only. The boundary now includes Natividad and Tabo.')
+      toast.error('Location outside San Policarpo', { description: 'Please select a location inside San Policarpo, Eastern Samar.' })
       return
     }
 
