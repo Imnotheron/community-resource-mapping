@@ -176,7 +176,7 @@ function errorResponse(
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = requireMatchingRequestUser(request)
+    const auth = await requireMatchingRequestUser(request)
     if ('error' in auth) return auth.error
 
     await ensureSettingsColumns()
@@ -215,7 +215,7 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = requireMatchingRequestUser(request)
+    const auth = await requireMatchingRequestUser(request)
     if ('error' in auth) return auth.error
 
     await ensureSettingsColumns()
