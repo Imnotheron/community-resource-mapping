@@ -170,6 +170,7 @@ export async function GET(request: NextRequest) {
           .replace(/^\s*,|,\s*$/g, '')
           .trim(),
         vulnerabilityTypes,
+        registrationDate: profile.createdAt,
         disabilityType: profile.disabilityType,
         disabilityCause: profile.disabilityCause || null,
         hasReceivedRelief,
