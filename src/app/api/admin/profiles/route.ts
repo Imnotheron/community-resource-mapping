@@ -1,10 +1,17 @@
 export const dynamic = 'force-dynamic'
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
+import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     const profiles = await db.vulnerableProfile.findMany({
       orderBy: {
         createdAt: 'desc',
@@ -31,11 +38,20 @@ export async function GET() {
       },
     })
 
+    const statuses = await getVulnerableStatuses(
+      profiles.map((profile) => profile.id),
+    )
+
     const formattedProfiles = profiles.map((profile) => {
       const latestDistribution = profile.reliefDistributions?.[0] || null
+      const profileStatus = statuses.get(profile.id)
 
       return {
         ...profile,
+        profileStatus: profileStatus?.status || 'ACTIVE',
+        profileStatusReason: profileStatus?.reason || null,
+        profileStatusUpdatedAt: profileStatus?.updatedAt || null,
+        profileStatusUpdatedBy: profileStatus?.updatedBy || null,
 
         userName: profile.user?.name || '',
         userEmail: profile.user?.email || profile.emailAddress || '',
@@ -57,10 +73,17 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
-      success: true,
-      profiles: formattedProfiles,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        profiles: formattedProfiles,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      },
+    )
   } catch (error: any) {
     console.error('Failed to load admin profiles:', error)
 
@@ -70,7 +93,7 @@ export async function GET() {
         message: 'Failed to load profiles',
         error: error?.message || 'Unknown error',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
