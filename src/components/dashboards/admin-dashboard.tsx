@@ -282,6 +282,38 @@ function OverviewView() {
     })),
   ];
 
+  async function updateProfileStatus() {
+    if (!statusTarget) return
+
+    setStatusSaving(true)
+    try {
+      await apiFetch(
+        `/api/admin/profiles/${statusTarget.id}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: statusValue,
+            reason: statusReason.trim() || null,
+          }),
+        },
+      )
+
+      toast.success('Vulnerable status updated')
+      setStatusTarget(null)
+      setStatusReason('')
+      await load()
+      window.dispatchEvent(
+        new CustomEvent('crms:vulnerable-updated'),
+      )
+    } catch (err: any) {
+      toast.error('Status update failed', {
+        description: err.message,
+      })
+    } finally {
+      setStatusSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -712,6 +744,10 @@ function RegistrationsView() {
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showRegisterVulnerable, setShowRegisterVulnerable] = useState(false)
+  const [statusTarget, setStatusTarget] = useState<any | null>(null)
+  const [statusValue, setStatusValue] = useState('ACTIVE')
+  const [statusReason, setStatusReason] = useState('')
+  const [statusSaving, setStatusSaving] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1273,6 +1309,11 @@ function RegistrationsView() {
                           {p.suffix ? ', ' + p.suffix : ''}
                         </h3>
                         <StatusBadge status={p.registrationStatus} />
+                        {p.registrationStatus === 'APPROVED' ? (
+                          <Badge variant="outline" className="text-[0.625rem]">
+                            {String(p.profileStatus || 'ACTIVE').replace(/_/g, ' ')}
+                          </Badge>
+                        ) : null}
                       </div>
 
                       <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground md:grid-cols-3">
@@ -1326,6 +1367,20 @@ function RegistrationsView() {
                       )}
                     </div>
 
+                    <div className="flex flex-wrap gap-2">
+                    {p.registrationStatus === 'APPROVED' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setStatusTarget(p)
+                          setStatusValue(p.profileStatus || 'ACTIVE')
+                          setStatusReason(p.profileStatusReason || '')
+                        }}
+                      >
+                        Update Status
+                      </Button>
+                    )}
                     {p.registrationStatus === 'PENDING' && (
                       <div className="flex gap-2">
                         <Button
@@ -1347,6 +1402,7 @@ function RegistrationsView() {
                         </Button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1443,6 +1499,73 @@ function RegistrationsView() {
               onClick={() => setImportResult(null)}
             >
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!statusTarget}
+        onOpenChange={(open) => {
+          if (!open && !statusSaving) {
+            setStatusTarget(null)
+            setStatusReason('')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Vulnerable Status</DialogTitle>
+            <DialogDescription>
+              Change the current status for {statusTarget?.firstName}{' '}
+              {statusTarget?.lastName}. Inactive, relocated, recovered, and deceased records are removed from the live operational map.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={statusValue} onValueChange={setStatusValue}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="RECOVERED">Recovered / Healed</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                  <SelectItem value="RELOCATED">Relocated</SelectItem>
+                  <SelectItem value="DECEASED">Deceased</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Reason / note</Label>
+              <Textarea
+                value={statusReason}
+                onChange={(event) => setStatusReason(event.target.value)}
+                placeholder="Optional note about this status change"
+                maxLength={500}
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={statusSaving}
+              onClick={() => setStatusTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={statusSaving}
+              onClick={updateProfileStatus}
+            >
+              {statusSaving ? 'Updating…' : 'Confirm update'}
             </Button>
           </DialogFooter>
         </DialogContent>
