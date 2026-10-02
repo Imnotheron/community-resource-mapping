@@ -1381,19 +1381,6 @@ function RegistrationsView() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                    {p.registrationStatus === 'APPROVED' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setStatusTarget(p)
-                          setStatusValue(p.profileStatus || 'ACTIVE')
-                          setStatusReason(p.profileStatusReason || '')
-                        }}
-                      >
-                        Update Status
-                      </Button>
-                    )}
                     {p.registrationStatus === 'PENDING' && (
                       <div className="flex gap-2">
                         <Button
@@ -1709,10 +1696,25 @@ function UserManagementAvatar({ user }: { user: any }) {
 
 function AccountSetupBadge({ user }: { user: any }) {
   if (user?.vulnerableProfile) {
+    const profile = user.vulnerableProfile
+    const lifecycle = String(
+      profile.profileStatus || 'ACTIVE',
+    ).replace(/_/g, ' ')
+
     return (
-      <StatusBadge
-        status={user.vulnerableProfile.registrationStatus}
-      />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <StatusBadge
+          status={profile.registrationStatus}
+        />
+        {profile.registrationStatus === 'APPROVED' ? (
+          <Badge
+            variant="outline"
+            className="w-fit border-slate-200 bg-slate-50 text-[0.625rem] font-semibold uppercase text-slate-700"
+          >
+            {lifecycle}
+          </Badge>
+        ) : null}
+      </div>
     );
   }
 
@@ -1777,6 +1779,10 @@ function UsersView() {
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [selectedVulnerableProfile, setSelectedVulnerableProfile] = useState<any | null>(null);
+  const [userStatusTarget, setUserStatusTarget] = useState<any | null>(null);
+  const [userStatusValue, setUserStatusValue] = useState('ACTIVE');
+  const [userStatusReason, setUserStatusReason] = useState('');
+  const [userStatusSaving, setUserStatusSaving] = useState(false);
 
   const changeRoleFilter = (nextFilter: UserRoleFilter) => {
     if (nextFilter === roleFilter) return;
@@ -1955,6 +1961,77 @@ function UsersView() {
       });
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const openUserStatus = (user: any) => {
+    const profile = user?.vulnerableProfile
+
+    if (
+      normalizeRole(user?.role) !== 'VULNERABLE' ||
+      !profile?.id ||
+      profile.registrationStatus !== 'APPROVED'
+    ) {
+      toast.error('Status update unavailable', {
+        description:
+          'Only approved vulnerable users can have a lifecycle status.',
+      })
+      return
+    }
+
+    setUserStatusTarget(user)
+    setUserStatusValue(
+      profile.profileStatus || 'ACTIVE',
+    )
+    setUserStatusReason(
+      profile.profileStatusReason || '',
+    )
+  };
+
+  const updateUserProfileStatus = async () => {
+    const profile =
+      userStatusTarget?.vulnerableProfile
+
+    if (!profile?.id) return
+
+    setUserStatusSaving(true)
+
+    try {
+      await apiFetch(
+        `/api/admin/profiles/${profile.id}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: userStatusValue,
+            reason:
+              userStatusReason.trim() ||
+              null,
+          }),
+        },
+      )
+
+      toast.success(
+        'Vulnerable status updated',
+      )
+
+      setUserStatusTarget(null)
+      setUserStatusReason('')
+      await load(false)
+
+      window.dispatchEvent(
+        new CustomEvent(
+          'crms:vulnerable-updated',
+        ),
+      )
+    } catch (err: any) {
+      toast.error(
+        'Status update failed',
+        {
+          description: err.message,
+        },
+      )
+    } finally {
+      setUserStatusSaving(false)
     }
   };
 
@@ -2267,6 +2344,20 @@ function UsersView() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        {normalizeRole(u.role) === 'VULNERABLE' &&
+                        u.vulnerableProfile?.registrationStatus === 'APPROVED' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openUserStatus(u)}
+                            className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                            aria-label={`Update ${u.name || u.email || 'vulnerable user'} status`}
+                            title="Update vulnerable status"
+                          >
+                            <Activity className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                       {u.id !== getAdminId() ? (
                         <Button
                           type="button"
@@ -2321,6 +2412,102 @@ function UsersView() {
           }
         }}
       />
+
+      <Dialog
+        open={Boolean(userStatusTarget)}
+        onOpenChange={(open) => {
+          if (!open && !userStatusSaving) {
+            setUserStatusTarget(null)
+            setUserStatusReason('')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Update Vulnerable Status
+            </DialogTitle>
+            <DialogDescription>
+              Change the lifecycle status for{' '}
+              {userStatusTarget?.name ||
+                userStatusTarget?.email}.
+              Recovered, inactive, relocated, and deceased users are removed from the live operational map and cannot receive new relief distributions.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={userStatusValue}
+                onValueChange={
+                  setUserStatusValue
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">
+                    Active
+                  </SelectItem>
+                  <SelectItem value="RECOVERED">
+                    Recovered / Healed
+                  </SelectItem>
+                  <SelectItem value="INACTIVE">
+                    Inactive
+                  </SelectItem>
+                  <SelectItem value="RELOCATED">
+                    Relocated
+                  </SelectItem>
+                  <SelectItem value="DECEASED">
+                    Deceased
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Reason / note</Label>
+              <Textarea
+                value={userStatusReason}
+                onChange={(event) =>
+                  setUserStatusReason(
+                    event.target.value,
+                  )
+                }
+                placeholder="Optional note about this status change"
+                maxLength={500}
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={userStatusSaving}
+              onClick={() =>
+                setUserStatusTarget(null)
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={userStatusSaving}
+              onClick={() => {
+                void updateUserProfileStatus()
+              }}
+            >
+              {userStatusSaving
+                ? 'Updating…'
+                : 'Confirm update'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DeleteUserConfirmDialog
         user={deleteTarget}
