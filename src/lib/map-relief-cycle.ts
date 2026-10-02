@@ -24,8 +24,8 @@ export async function getLatestMapCycleResetBefore(
   const rows = await db.$queryRawUnsafe<CycleResetRow[]>(
     `SELECT "id", "resetAt", "resetBy"
      FROM "MapReliefCycleReset"
-     WHERE "resetAt" <= ?
-     ORDER BY "resetAt" DESC
+     WHERE datetime("resetAt") <= datetime(?)
+     ORDER BY datetime("resetAt") DESC
      LIMIT 1`,
     cutoff.toISOString(),
   )
