@@ -3,7 +3,6 @@
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal';
 import { CreateStaffAccountDialog } from "@/components/admin/create-staff-account-dialog";
 import { ApprovalCenter } from "@/components/admin/approval-center";
-import { LookupManager } from "@/components/admin/lookup-manager";
 import { OperationsHistory } from "@/components/admin/operations-history";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
@@ -39,7 +38,6 @@ import {
   History,
   Search,
   FileSpreadsheet,
-  Settings2,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { useDashboardSection } from "@/hooks/use-dashboard-section";
@@ -142,7 +140,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "map", label: "Vulnerable Map", icon: MapIcon },
   { id: "reports", label: "Daily Reports", icon: Printer },
-  { id: "lookups", label: "Dropdown Options", icon: Settings2 },
   { id: "guide", label: "User Guide", icon: BookOpen },
 ];
 
@@ -211,7 +208,6 @@ export function AdminDashboard({
       {view === "analytics" && <AnalyticsView />}
       {view === "map" && <MapView />}
       {view === "reports" && <DailyReportsView user={user} />}
-      {view === "lookups" && <LookupManager />}
       {view === "guide" && <RoleManual role={user.role || "ADMIN"} />}
     </AppShell>
   );
