@@ -25,6 +25,8 @@ const LEGACY_USER_KEY = 'user'
 const LEGACY_TOKEN_KEY = 'token'
 const AUTH_CHANGED_EVENT = 'crms-auth-changed'
 
+let authRecoveryInProgress = false
+
 function dispatchAuthChanged() {
   if (typeof window === 'undefined') return
 
@@ -177,6 +179,24 @@ export async function apiFetch<T = any>(
     headers,
     body,
   })
+
+  if (
+    response.status === 401 &&
+    !url.startsWith('/api/auth/') &&
+    !authRecoveryInProgress &&
+    getStoredUser()
+  ) {
+    authRecoveryInProgress = true
+    clearStoredUser()
+
+    if (typeof window !== 'undefined') {
+      window.location.replace('/')
+    }
+
+    throw new Error(
+      'Your session expired. Please sign in again.',
+    )
+  }
 
   let data: any
   const contentType =
