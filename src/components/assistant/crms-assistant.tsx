@@ -1168,39 +1168,62 @@ export function CrmsAssistant({
       content,
     })
 
-    const data =
-      await apiFetch<{
-        reply: string
-        provider?: string
-        model?: string
-      }>('/api/assistant/chat', {
-        method: 'POST',
-        body: JSON.stringify({
-          message: content,
-          history,
-          activeView,
-          activeViewLabel,
-          language:
-            languageRef.current,
-        }),
+    assistantRequestRef.current?.abort()
+    const controller = new AbortController()
+    assistantRequestRef.current = controller
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      22_000,
+    )
+
+    try {
+      const data =
+        await apiFetch<{
+          reply: string
+          provider?: string
+          model?: string
+        }>('/api/assistant/chat', {
+          method: 'POST',
+          signal: controller.signal,
+          body: JSON.stringify({
+            message: content,
+            history,
+            activeView,
+            activeViewLabel,
+            language:
+              languageRef.current,
+          }),
+        })
+
+      const reply =
+        String(
+          data.reply || '',
+        ).trim() ||
+        'The assistant returned an empty response.'
+
+      addMessage({
+        role: 'assistant',
+        content: reply,
       })
 
-    const reply =
-      String(
-        data.reply || '',
-      ).trim() ||
-      'The assistant returned an empty response.'
-
-    addMessage({
-      role: 'assistant',
-      content: reply,
-    })
-
-    return {
-      reply,
-      model:
-        data.model ||
-        'connected model',
+      return {
+        reply,
+        model:
+          data.model ||
+          'connected model',
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        throw new Error(
+          'The assistant request timed out. Please retry; your chat is still available.',
+        )
+      }
+      throw error
+    } finally {
+      window.clearTimeout(timeout)
+      if (assistantRequestRef.current === controller) {
+        assistantRequestRef.current = null
+      }
     }
   }
 
