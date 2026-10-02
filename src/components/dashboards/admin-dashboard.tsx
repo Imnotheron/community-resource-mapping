@@ -6,7 +6,6 @@ import { ApprovalCenter } from "@/components/admin/approval-center";
 import { OperationsHistory } from "@/components/admin/operations-history";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
-import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -42,6 +41,7 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { useDashboardSection } from "@/hooks/use-dashboard-section";
 import { DailyReportsView } from "@/components/reports/daily-reports-view";
+import { LiveVulnerableMapView } from "@/components/maps/live-vulnerable-map-view";
 import { NavItem } from "@/components/layout/sidebar";
 import {
   Card,
@@ -111,21 +111,6 @@ import {
   Line,
   Legend,
 } from "recharts";
-
-const VulnerableMap = dynamic(
-  () => import("@/components/maps/vulnerable-map").then((m) => m.VulnerableMap),
-  {
-    ssr: false,
-    loading: () => (
-      <WowLoader
-        compact
-        label="Loading map"
-        description="Rendering vulnerable citizen locations..."
-        className="h-[500px]"
-      />
-    ),
-  },
-);
 
 const NAV_ITEMS: NavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -3829,24 +3814,9 @@ function AnalyticsView() {
 
 // =================== MAP ===================
 function MapView() {
-  const [points, setPoints] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await apiFetch("/api/map/data");
-        setPoints(data.points || []);
-      } catch (err: any) {
-        toast.error("Failed to load map data", { description: err.message });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
 
   const handleViewProfile = useCallback(async (profileId: string) => {
     setProfileDialogOpen(true);
@@ -3864,51 +3834,29 @@ function MapView() {
 
       if (!profile) {
         toast.error("Profile not found", {
-          description: "The selected map marker does not match an available vulnerable profile record.",
+          description:
+            "The selected map marker does not match an available vulnerable profile record.",
         });
         return;
       }
 
       setSelectedProfile(profile);
     } catch (err: any) {
-      toast.error("Failed to load profile", { description: err.message });
+      toast.error("Failed to load profile", {
+        description: err.message,
+      });
     } finally {
       setProfileLoading(false);
     }
   }, []);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Vulnerable Citizens Map
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Geospatial view of approved vulnerable individuals. Markers:{" "}
-          <span className="text-red-600">needs assistance</span> ·{" "}
-          <span className="text-amber-600">no relief yet</span> ·{" "}
-          <span className="text-emerald-600">relief received</span>
-        </p>
-      </div>
-
-      {loading ? (
-        <WowLoader
-          compact
-          label="Loading map data"
-          description="Plotting approved vulnerable citizen locations..."
-          className="h-[420px]"
-        />
-      ) : (
-        <Card>
-          <CardContent className="p-2">
-            <VulnerableMap
-              points={points}
-              height={500}
-              onViewProfile={handleViewProfile}
-            />
-          </CardContent>
-        </Card>
-      )}
+    <>
+      <LiveVulnerableMapView
+        title="Vulnerable Citizens Map"
+        description="Approved active vulnerable individuals. Red needs assistance · yellow has no relief yet · green recently received relief."
+        onViewProfile={handleViewProfile}
+      />
 
       <AdminMapProfileDialog
         open={profileDialogOpen}
@@ -3916,7 +3864,7 @@ function MapView() {
         loading={profileLoading}
         profile={selectedProfile}
       />
-    </div>
+    </>
   );
 }
 
