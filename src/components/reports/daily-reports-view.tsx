@@ -219,6 +219,83 @@ function AdminReport({
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
+          Detailed Vulnerable Citizen Records
+        </h2>
+        <ReportTable>
+          <table className="report-table w-full text-left text-[0.6875rem]">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="px-2 py-2">Citizen</th>
+                <th className="px-2 py-2">Barangay / Address</th>
+                <th className="px-2 py-2">Contact</th>
+                <th className="px-2 py-2">Vulnerability</th>
+                <th className="px-2 py-2">Assistance</th>
+                <th className="px-2 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(report.citizenRecords || []).length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                    No vulnerable citizen records match the selected filters.
+                  </td>
+                </tr>
+              ) : (
+                report.citizenRecords.map((item: any) => {
+                  let vulnerabilities: string[] = []
+                  try {
+                    const parsed = JSON.parse(item.vulnerabilityTypes || '[]')
+                    vulnerabilities = Array.isArray(parsed) ? parsed : []
+                  } catch {
+                    vulnerabilities = String(item.vulnerabilityTypes || '')
+                      .split(/[,;|]/)
+                      .map((value) => value.trim())
+                      .filter(Boolean)
+                  }
+
+                  return (
+                    <tr key={item.id} className="border-t border-slate-200 align-top">
+                      <td className="px-2 py-2 font-medium">
+                        {[item.firstName, item.middleName, item.lastName, item.suffix]
+                          .filter(Boolean)
+                          .join(' ')}
+                      </td>
+                      <td className="px-2 py-2">
+                        <div>{item.barangay || '—'}</div>
+                        <div className="text-slate-500">
+                          {[item.houseNumber, item.street, item.municipality, item.province]
+                            .filter(Boolean)
+                            .join(', ') || '—'}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        <div>{item.mobileNumber || '—'}</div>
+                        <div className="text-slate-500">{item.emailAddress || '—'}</div>
+                      </td>
+                      <td className="px-2 py-2">
+                        {vulnerabilities.length
+                          ? vulnerabilities.map((value) => String(value).replace(/_/g, ' ')).join(', ')
+                          : '—'}
+                      </td>
+                      <td className="px-2 py-2">
+                        {item.needsAssistance
+                          ? item.assistanceType || 'Needs assistance'
+                          : 'No active assistance flag'}
+                      </td>
+                      <td className="px-2 py-2">{item.registrationStatus}</td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </ReportTable>
+      </section>
+      )}
+
+      {settings.template !== 'SUMMARY' && (
+      <section className="report-section">
+        <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Daily Relief Distributions
         </h2>
         <ReportTable>
@@ -306,7 +383,7 @@ function AdminReport({
 
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Barangay Summary
+          Barangay Summary (Counts)
         </h2>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
@@ -615,10 +692,28 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
       item?.household?.barangay ||
       ''
 
+    const typeName = (item: any) => {
+      if (item?.distributionType) return String(item.distributionType)
+      const raw = String(item?.vulnerabilityTypes || '')
+      if (!raw) return ''
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) return String(parsed[0] || '')
+      } catch {
+        // Fall through to the stored text value.
+      }
+      return raw.split(/[,;|]/)[0] || ''
+    }
+
     const sortRecords = (items: any[]) =>
       [...(items || [])].sort((a, b) => {
         if (sortBy === 'BARANGAY') {
           const compared = barangayName(a).localeCompare(barangayName(b))
+          if (compared !== 0) return compared
+        }
+
+        if (sortBy === 'TYPE') {
+          const compared = typeName(a).localeCompare(typeName(b))
           if (compared !== 0) return compared
         }
 
@@ -633,6 +728,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
 
     return {
       ...report,
+      citizenRecords: sortRecords(report.citizenRecords || []),
       distributions: sortRecords(report.distributions || []),
       registrations: sortRecords(report.registrations || []),
     }
@@ -1235,6 +1331,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               <SelectContent>
                 <SelectItem value="LAST_NAME">Last name / Person</SelectItem>
                 <SelectItem value="BARANGAY">Barangay</SelectItem>
+                <SelectItem value="TYPE">Type / Vulnerability</SelectItem>
                 <SelectItem value="DATE">Latest date</SelectItem>
               </SelectContent>
             </Select>
