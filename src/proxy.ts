@@ -1,19 +1,77 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Simple mobile User-Agent detection
+import { verifySessionToken } from '@/lib/session-token'
+
 function isMobileUserAgent(ua: string): boolean {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(ua)
 }
 
-// Proxy for handling authentication and route protection
-export function proxy(request: NextRequest) {
+function readToken(request: NextRequest) {
+  const authorization = request.headers.get('authorization') || ''
+  const bearer = authorization.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length).trim()
+    : ''
+
+  return request.cookies.get('token')?.value || bearer
+}
+
+function requiredRoles(pathname: string) {
+  if (
+    pathname === '/api/admin/signup-request' ||
+    pathname.startsWith('/api/auth/')
+  ) {
+    return null
+  }
+
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin/')
+  ) {
+    return ['ADMIN']
+  }
+
+  if (
+    pathname.startsWith('/worker') ||
+    pathname.startsWith('/api/worker/')
+  ) {
+    return ['WORKER']
+  }
+
+  if (
+    pathname.startsWith('/vulnerable') ||
+    pathname.startsWith('/api/vulnerable/')
+  ) {
+    return ['VULNERABLE']
+  }
+
+  if (pathname.startsWith('/api/map/')) {
+    return ['ADMIN', 'WORKER']
+  }
+
+  if (
+    pathname === '/profile' ||
+    pathname.startsWith('/api/assistant/') ||
+    pathname.startsWith('/api/user/')
+  ) {
+    return ['ADMIN', 'WORKER', 'VULNERABLE']
+  }
+
+  return null
+}
+
+function apiError(message: string, status: number) {
+  return NextResponse.json(
+    { success: false, error: message },
+    { status },
+  )
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow access to static files, API routes, and public pages
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
     pathname.startsWith('/static') ||
     pathname === '/' ||
     pathname.startsWith('/intro') ||
@@ -25,34 +83,41 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Block admin routes on mobile devices (server-side safety net)
+  const allowedRoles = requiredRoles(pathname)
+  if (!allowedRoles) return NextResponse.next()
+
+  const session = await verifySessionToken(readToken(request))
+  const isApi = pathname.startsWith('/api/')
+
+  if (!session) {
+    if (isApi) return apiError('Authentication required', 401)
+
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('reason', 'session')
+    return NextResponse.redirect(url)
+  }
+
+  if (!allowedRoles.includes(session.role)) {
+    if (isApi) return apiError('Forbidden', 403)
+
+    const url = request.nextUrl.clone()
+    url.pathname =
+      session.role === 'ADMIN'
+        ? '/admin/dashboard'
+        : session.role === 'WORKER'
+          ? '/worker/dashboard'
+          : '/vulnerable/dashboard'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+
   if (pathname.startsWith('/admin')) {
     const userAgent = request.headers.get('user-agent') || ''
     if (isMobileUserAgent(userAgent)) {
-      console.log('[Proxy] Mobile device detected on admin route, redirecting to intro')
       const url = request.nextUrl.clone()
       url.pathname = '/intro'
-      return NextResponse.redirect(url)
-    }
-  }
-
-  // Check for auth token
-  const token =
-    request.cookies.get('token')?.value ||
-    request.headers.get('authorization')?.replace('Bearer ', '')
-
-  console.log('[Proxy] Path:', pathname, 'Has Token:', !!token)
-
-  // Protected routes
-  if (
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/worker') ||
-    pathname.startsWith('/vulnerable')
-  ) {
-    if (!token) {
-      console.log('[Proxy] No token found, redirecting to intro')
-      const url = request.nextUrl.clone()
-      url.pathname = '/intro'
+      url.search = ''
       return NextResponse.redirect(url)
     }
   }
@@ -62,6 +127,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)',
   ],
 }
