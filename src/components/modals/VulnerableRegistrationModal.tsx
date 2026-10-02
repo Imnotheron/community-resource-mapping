@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SmartEditableSelect } from '@/components/ui/smart-editable-select'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useLookupOptions } from '@/hooks/use-lookup-options'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
@@ -306,6 +307,18 @@ const DISABILITY_CAUSE_OPTIONS: string[] = [
   'Disaster / Conflict',
   'Unknown',
   'Other / Not specified',
+]
+
+const ASSISTANCE_TYPE_OPTIONS: string[] = [
+  'Food assistance',
+  'Medical assistance',
+  'Financial assistance',
+  'Shelter assistance',
+  'Mobility / assistive device',
+  'Transportation assistance',
+  'Educational assistance',
+  'Livelihood assistance',
+  'Other assistance',
 ]
 
 function getEmptyForm(): FormState {
@@ -866,6 +879,10 @@ export default function VulnerableRegistrationModal({
     'DISABILITY_CAUSE',
     DISABILITY_CAUSE_OPTIONS,
   )
+  const assistanceTypeOptions = useLookupOptions(
+    'ASSISTANCE_TYPE',
+    ASSISTANCE_TYPE_OPTIONS,
+  )
 
   const modalFrameStyle = useMemo(
     () => {
@@ -1404,46 +1421,23 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Gender" field="gender" required error={errors.gender}>
-            <Select value={form.gender} onValueChange={(value) => updateField('gender', value)}>
-              <SelectTrigger className={cn(errors.gender && 'border-red-400 focus:ring-red-400')}>
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MALE">Male</SelectItem>
-                <SelectItem value="FEMALE">Female</SelectItem>
-                <SelectItem value="OTHER">Other</SelectItem>
-                <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
-              </SelectContent>
-            </Select>
+            <SmartEditableSelect
+              value={form.gender}
+              onValueChange={(value) => updateField('gender', value)}
+              options={['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']}
+              storageKey="registration.gender"
+              placeholder="Select or type gender"
+              className={cn(errors.gender && 'border-red-400')}
+            />
           </InputBlock>
 
           <InputBlock label="Civil Status">
-            <Select value={form.civilStatus} onValueChange={(value) => updateField('civilStatus', value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select civil status" />
-              </SelectTrigger>
-              <SelectContent>
-                {form.civilStatus &&
-                !['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(
-                  form.civilStatus,
-                ) ? (
-                  <SelectItem value={form.civilStatus}>
-                    {form.civilStatus} (custom)
-                  </SelectItem>
-                ) : null}
-                <SelectItem value="SINGLE">Single</SelectItem>
-                <SelectItem value="MARRIED">Married</SelectItem>
-                <SelectItem value="WIDOWED">Widowed</SelectItem>
-                <SelectItem value="SEPARATED">Separated</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
+            <SmartEditableSelect
               value={form.civilStatus}
-              onChange={(event) =>
-                updateField('civilStatus', event.target.value)
-              }
-              placeholder="Or type a civil status manually"
-              className="mt-2"
+              onValueChange={(value) => updateField('civilStatus', value)}
+              options={['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED']}
+              storageKey="registration.civil-status"
+              placeholder="Select or type civil status"
             />
           </InputBlock>
 
@@ -1631,31 +1625,14 @@ export default function VulnerableRegistrationModal({
               </InputBlock>
 
                   <InputBlock label="Poverty / Welfare Status" field="povertyStatus" required={form.registryCategory === 'GENERAL_WELFARE'} error={errors.povertyStatus}>
-                <Select
+                <SmartEditableSelect
                   value={form.povertyStatus}
-                  onValueChange={(value) =>
-                    updateField('povertyStatus', value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select welfare status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {form.povertyStatus &&
-                    !povertyStatusOptions.includes(
-                      form.povertyStatus,
-                    ) ? (
-                      <SelectItem value={form.povertyStatus}>
-                        {form.povertyStatus} (saved value)
-                      </SelectItem>
-                    ) : null}
-                    {povertyStatusOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onValueChange={(value) => updateField('povertyStatus', value)}
+                  options={povertyStatusOptions}
+                  storageKey="registration.poverty-status"
+                  placeholder="Select or type welfare status"
+                  className={cn(errors.povertyStatus && 'border-red-400')}
+                />
               </InputBlock>
 
               <InputBlock label="Senior Citizen ID / NCSC Ref.">
@@ -1691,33 +1668,14 @@ export default function VulnerableRegistrationModal({
               </InputBlock>
 
                   <InputBlock label="Civil Registry Status" field="civilRegistryStatus" required={form.registryCategory === 'CIVIL_REGISTRY'} error={errors.civilRegistryStatus}>
-                <Select
+                <SmartEditableSelect
                   value={form.civilRegistryStatus}
-                  onValueChange={(value) =>
-                    updateField('civilRegistryStatus', value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select registry status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {form.civilRegistryStatus &&
-                    !civilRegistryStatusOptions.includes(
-                      form.civilRegistryStatus,
-                    ) ? (
-                      <SelectItem value={form.civilRegistryStatus}>
-                        {form.civilRegistryStatus} (saved value)
-                      </SelectItem>
-                    ) : null}
-                    {civilRegistryStatusOptions.map(
-                      (option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
+                  onValueChange={(value) => updateField('civilRegistryStatus', value)}
+                  options={civilRegistryStatusOptions}
+                  storageKey="registration.civil-registry-status"
+                  placeholder="Select or type registry status"
+                  className={cn(errors.civilRegistryStatus && 'border-red-400')}
+                />
               </InputBlock>
 
               <div
@@ -1775,94 +1733,35 @@ export default function VulnerableRegistrationModal({
             {form.hasDisability ? (
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <InputBlock label="Disability Type" field="disabilityType" required={form.registryCategory === 'PWD' || form.hasDisability} error={errors.disabilityType}>
-                  <Select
+                  <SmartEditableSelect
                     value={form.disabilityType}
-                    onValueChange={(value) =>
-                      updateField('disabilityType', value)
-                    }
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        errors.disabilityType &&
-                          'border-red-400 focus:ring-red-400',
-                      )}
-                    >
-                      <SelectValue placeholder="Select primary disability type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {form.disabilityType &&
-                      !disabilityTypeOptions.includes(
-                        form.disabilityType,
-                      ) ? (
-                        <SelectItem value={form.disabilityType}>
-                          {form.disabilityType} (saved value)
-                        </SelectItem>
-                      ) : null}
-                      {disabilityTypeOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={(value) => updateField('disabilityType', value)}
+                    options={disabilityTypeOptions}
+                    storageKey="registration.disability-type"
+                    placeholder="Select or type disability type"
+                    className={cn(errors.disabilityType && 'border-red-400')}
+                  />
                 </InputBlock>
 
                       <InputBlock label="Disability Severity" field="disabilitySeverity" required={form.hasDisability} error={errors.disabilitySeverity}>
-                  <Select
+                  <SmartEditableSelect
                     value={form.disabilitySeverity}
-                    onValueChange={(value) =>
-                      updateField('disabilitySeverity', value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select severity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {form.disabilitySeverity &&
-                      !disabilitySeverityOptions.includes(
-                        form.disabilitySeverity,
-                      ) ? (
-                        <SelectItem value={form.disabilitySeverity}>
-                          {form.disabilitySeverity} (saved value)
-                        </SelectItem>
-                      ) : null}
-                      {disabilitySeverityOptions.map(
-                        (option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={(value) => updateField('disabilitySeverity', value)}
+                    options={disabilitySeverityOptions}
+                    storageKey="registration.disability-severity"
+                    placeholder="Select or type severity"
+                    className={cn(errors.disabilitySeverity && 'border-red-400')}
+                  />
                 </InputBlock>
 
                       <InputBlock label="Disability Cause">
-                  <Select
+                  <SmartEditableSelect
                     value={form.disabilityCause}
-                    onValueChange={(value) =>
-                      updateField('disabilityCause', value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select cause" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {form.disabilityCause &&
-                      !disabilityCauseOptions.includes(
-                        form.disabilityCause,
-                      ) ? (
-                        <SelectItem value={form.disabilityCause}>
-                          {form.disabilityCause} (saved value)
-                        </SelectItem>
-                      ) : null}
-                      {disabilityCauseOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={(value) => updateField('disabilityCause', value)}
+                    options={disabilityCauseOptions}
+                    storageKey="registration.disability-cause"
+                    placeholder="Select or type cause"
+                  />
                 </InputBlock>
 
                 <InputBlock label="Medical Certificate Number">
@@ -1950,12 +1849,13 @@ export default function VulnerableRegistrationModal({
             {form.needsAssistance ? (
               <div className="mt-4">
                 <InputBlock label="Assistance Type" field="assistanceType" required={form.needsAssistance} error={errors.assistanceType}>
-                  <Textarea
+                  <SmartEditableSelect
                     value={form.assistanceType}
-                    onChange={(e) => updateField('assistanceType', e.target.value)}
-                    placeholder="e.g. Food packs, medicine, wheelchair, financial support"
-                    rows={3}
-                    className={cn(errors.assistanceType && 'border-red-400 focus-visible:ring-red-400')}
+                    onValueChange={(value) => updateField('assistanceType', value)}
+                    options={assistanceTypeOptions}
+                    storageKey="registration.assistance-type"
+                    placeholder="Select or type assistance needed"
+                    className={cn(errors.assistanceType && 'border-red-400')}
                   />
                 </InputBlock>
               </div>
@@ -1976,69 +1876,22 @@ export default function VulnerableRegistrationModal({
 
         <div className="grid gap-4 md:grid-cols-2">
           <InputBlock label="Blood Type">
-            <Select
+            <SmartEditableSelect
               value={form.bloodType}
-              onValueChange={(value) =>
-                updateField('bloodType', value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select blood type" />
-              </SelectTrigger>
-              <SelectContent>
-                {form.bloodType &&
-                !bloodTypeOptions.includes(form.bloodType) ? (
-                  <SelectItem value={form.bloodType}>
-                    {form.bloodType} (saved value)
-                  </SelectItem>
-                ) : null}
-                {bloodTypeOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(value) => updateField('bloodType', value)}
+              options={bloodTypeOptions}
+              storageKey="registration.blood-type"
+              placeholder="Select or type blood type"
+            />
           </InputBlock>
 
           <InputBlock label="Educational Attainment">
-            <Select
+            <SmartEditableSelect
               value={form.educationalAttainment}
-              onValueChange={(value) =>
-                updateField('educationalAttainment', value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select highest completed level" />
-              </SelectTrigger>
-              <SelectContent>
-                {form.educationalAttainment &&
-                !educationalAttainmentOptions.includes(
-                  form.educationalAttainment,
-                ) ? (
-                  <SelectItem value={form.educationalAttainment}>
-                    {form.educationalAttainment} (saved value)
-                  </SelectItem>
-                ) : null}
-                {educationalAttainmentOptions.map(
-                  (option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
-            <Input
-              value={form.educationalAttainment}
-              onChange={(event) =>
-                updateField(
-                  'educationalAttainment',
-                  event.target.value,
-                )
-              }
-              placeholder="Or type educational attainment manually"
-              className="mt-2"
+              onValueChange={(value) => updateField('educationalAttainment', value)}
+              options={educationalAttainmentOptions}
+              storageKey="registration.educational-attainment"
+              placeholder="Select or type educational attainment"
             />
           </InputBlock>
 
@@ -2051,41 +1904,12 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Employment Status">
-            <Select
+            <SmartEditableSelect
               value={form.employmentStatus}
-              onValueChange={(value) =>
-                updateField('employmentStatus', value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select employment status" />
-              </SelectTrigger>
-              <SelectContent>
-                {form.employmentStatus &&
-                !employmentStatusOptions.includes(
-                  form.employmentStatus,
-                ) ? (
-                  <SelectItem value={form.employmentStatus}>
-                    {form.employmentStatus} (saved value)
-                  </SelectItem>
-                ) : null}
-                {employmentStatusOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              value={form.employmentStatus}
-              onChange={(event) =>
-                updateField(
-                  'employmentStatus',
-                  event.target.value,
-                )
-              }
-              placeholder="Or type employment status manually"
-              className="mt-2"
+              onValueChange={(value) => updateField('employmentStatus', value)}
+              options={employmentStatusOptions}
+              storageKey="registration.employment-status"
+              placeholder="Select or type employment status"
             />
           </InputBlock>
 
@@ -2114,43 +1938,12 @@ export default function VulnerableRegistrationModal({
           </InputBlock>
 
           <InputBlock label="Guardian Relationship">
-            <Select
+            <SmartEditableSelect
               value={form.guardianRelationship}
-              onValueChange={(value) =>
-                updateField('guardianRelationship', value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select relationship" />
-              </SelectTrigger>
-              <SelectContent>
-                {form.guardianRelationship &&
-                !guardianRelationshipOptions.includes(
-                  form.guardianRelationship,
-                ) ? (
-                  <SelectItem value={form.guardianRelationship}>
-                    {form.guardianRelationship} (saved value)
-                  </SelectItem>
-                ) : null}
-                {guardianRelationshipOptions.map(
-                  (option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
-            <Input
-              value={form.guardianRelationship}
-              onChange={(event) =>
-                updateField(
-                  'guardianRelationship',
-                  event.target.value,
-                )
-              }
-              placeholder="Or type relationship manually"
-              className="mt-2"
+              onValueChange={(value) => updateField('guardianRelationship', value)}
+              options={guardianRelationshipOptions}
+              storageKey="registration.guardian-relationship"
+              placeholder="Select or type relationship"
             />
           </InputBlock>
 
