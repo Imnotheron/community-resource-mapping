@@ -224,6 +224,7 @@ export function UserFeedbackList({ userId, isAdmin = false, isWorker = false }: 
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Feedback List</CardTitle>
@@ -456,5 +457,6 @@ export function UserFeedbackList({ userId, isAdmin = false, isWorker = false }: 
       cancelLabel="Cancel"
       variant="destructive"
     />
+    </>
   )
 }
