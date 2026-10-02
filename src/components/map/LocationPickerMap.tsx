@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polygon, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { toast } from 'sonner'
 import { MapPin, Search, Loader2, AlertTriangle, Info, Home, Map as MapIcon, CheckCircle2, Lock, Unlock, Maximize2, Minimize2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -353,7 +354,7 @@ export default function LocationPickerMap({
         },
         (error) => {
           console.error('Geolocation error:', error)
-          alert('Unable to get your current location. Please click on the map or search for your address.')
+          toast.error('Unable to get your current location', { description: 'Select a point on the map or search for your address.' })
         }
       )
     } else {
