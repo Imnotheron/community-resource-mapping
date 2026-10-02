@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000
 
@@ -173,11 +174,31 @@ export async function GET(
         },
       })
 
+    const profileStatuses =
+      await getVulnerableStatuses(
+        vulnerableProfiles.map(
+          (profile) => profile.id,
+        ),
+      )
+
     const profileByUserId = new Map(
-      vulnerableProfiles.map((profile) => [
-        profile.userId,
-        profile,
-      ]),
+      vulnerableProfiles.map((profile) => {
+        const lifecycle =
+          profileStatuses.get(profile.id)
+
+        return [
+          profile.userId,
+          {
+            ...profile,
+            profileStatus:
+              lifecycle?.status || 'ACTIVE',
+            profileStatusReason:
+              lifecycle?.reason || null,
+            profileStatusUpdatedAt:
+              lifecycle?.updatedAt || null,
+          },
+        ]
+      }),
     )
 
     const users = rows.map((user) =>
