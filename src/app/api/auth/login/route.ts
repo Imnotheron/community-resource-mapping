@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { issueLoginOtp } from '@/lib/login-otp'
+import { createSessionToken } from '@/lib/session-token'
 
 type UserColumn = {
   name: string
@@ -111,16 +112,13 @@ type LoginUser = Prisma.UserGetPayload<{
   select: typeof userSelect
 }>
 
-function authenticatedResponse(
+async function authenticatedResponse(
   user: LoginUser,
 ) {
-  const token = Buffer.from(
-    JSON.stringify({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    }),
-  ).toString('base64')
+  const token = await createSessionToken({
+    userId: user.id,
+    role: user.role,
+  })
 
   const response = NextResponse.json({
     success: true,
@@ -161,7 +159,7 @@ function authenticatedResponse(
     httpOnly: true,
     secure: !isDevelopment,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 8,
     path: '/',
   })
 
