@@ -26,7 +26,7 @@ async function removeStoredPicture(value: string | null | undefined) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = requireMatchingRequestUser(request)
+    const auth = await requireMatchingRequestUser(request)
     if ('error' in auth) return auth.error
 
     const formData = await request.formData()
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = requireMatchingRequestUser(request)
+    const auth = await requireMatchingRequestUser(request)
     if ('error' in auth) return auth.error
 
     const user = await db.user.findUnique({
