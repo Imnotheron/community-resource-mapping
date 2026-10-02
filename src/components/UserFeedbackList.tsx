@@ -46,6 +46,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2, MessageSquare, CheckCircle, XCircle, Eye, Trash2, Reply } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface Feedback {
   id: string
@@ -102,6 +103,7 @@ export function UserFeedbackList({ userId, isAdmin = false, isWorker = false }: 
   const [responseText, setResponseText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const fetchFeedback = async (page: number = 1) => {
@@ -186,8 +188,6 @@ export function UserFeedbackList({ userId, isAdmin = false, isWorker = false }: 
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this feedback?')) return
-
     setIsDeleting(true)
     try {
       const response = await fetch(`/api/feedback/${id}?userId=${userId}`, {
@@ -391,7 +391,7 @@ export function UserFeedbackList({ userId, isAdmin = false, isWorker = false }: 
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(item.id)}
+                            onClick={() => setDeleteTargetId(item.id)}
                             disabled={isDeleting}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -440,5 +440,21 @@ export function UserFeedbackList({ userId, isAdmin = false, isWorker = false }: 
         )}
       </CardContent>
     </Card>
+    <ConfirmDialog
+      open={Boolean(deleteTargetId)}
+      onClose={() => {
+        if (!isDeleting) setDeleteTargetId(null)
+      }}
+      onConfirm={() => {
+        const id = deleteTargetId
+        setDeleteTargetId(null)
+        if (id) void handleDelete(id)
+      }}
+      title="Delete feedback?"
+      description="This permanently removes the selected feedback record."
+      confirmLabel={isDeleting ? 'Deleting…' : 'Delete feedback'}
+      cancelLabel="Cancel"
+      variant="destructive"
+    />
   )
 }
