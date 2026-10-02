@@ -1956,24 +1956,55 @@ export function CrmsAssistant({
         const audio =
           await blobToBase64(blob)
 
-        const transcription =
-          await apiFetch<{
-            transcript: string
-            model?: string
-          }>(
-            '/api/assistant/transcribe',
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                audio,
-                mimeType,
-                model:
-                  turnModelRef.current,
-                language:
-                  languageRef.current,
-              }),
-            },
+        voiceRequestRef.current?.abort()
+        const voiceController =
+          new AbortController()
+        voiceRequestRef.current =
+          voiceController
+        const voiceTimeout =
+          window.setTimeout(
+            () => voiceController.abort(),
+            22_000,
           )
+
+        let transcription: {
+          transcript: string
+          model?: string
+        }
+
+        try {
+          transcription =
+            await apiFetch<{
+              transcript: string
+              model?: string
+            }>(
+              '/api/assistant/transcribe',
+              {
+                method: 'POST',
+                signal:
+                  voiceController.signal,
+                body: JSON.stringify({
+                  audio,
+                  mimeType,
+                  model:
+                    turnModelRef.current,
+                  language:
+                    languageRef.current,
+                }),
+              },
+            )
+        } finally {
+          window.clearTimeout(
+            voiceTimeout,
+          )
+          if (
+            voiceRequestRef.current ===
+            voiceController
+          ) {
+            voiceRequestRef.current =
+              null
+          }
+        }
 
         transcript =
           String(
