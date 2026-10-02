@@ -32,6 +32,7 @@ export interface VulnerablePoint {
   image?: string | null;
   avatarUrl?: string | null;
   dateOfBirth?: string | null;
+  registrationDate?: string | null;
   age?: number | string | null;
   gender?: string | null;
   civilStatus?: string | null;
