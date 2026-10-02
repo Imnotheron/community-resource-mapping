@@ -282,38 +282,6 @@ function OverviewView() {
     })),
   ];
 
-  async function updateProfileStatus() {
-    if (!statusTarget) return
-
-    setStatusSaving(true)
-    try {
-      await apiFetch(
-        `/api/admin/profiles/${statusTarget.id}/status`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            status: statusValue,
-            reason: statusReason.trim() || null,
-          }),
-        },
-      )
-
-      toast.success('Vulnerable status updated')
-      setStatusTarget(null)
-      setStatusReason('')
-      await load()
-      window.dispatchEvent(
-        new CustomEvent('crms:vulnerable-updated'),
-      )
-    } catch (err: any) {
-      toast.error('Status update failed', {
-        description: err.message,
-      })
-    } finally {
-      setStatusSaving(false)
-    }
-  }
-
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -1177,6 +1145,39 @@ function RegistrationsView() {
       throw err
     }
   }
+
+  async function updateProfileStatus() {
+    if (!statusTarget) return
+
+    setStatusSaving(true)
+    try {
+      await apiFetch(
+        `/api/admin/profiles/${statusTarget.id}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: statusValue,
+            reason: statusReason.trim() || null,
+          }),
+        },
+      )
+
+      toast.success('Vulnerable status updated')
+      setStatusTarget(null)
+      setStatusReason('')
+      await load()
+      window.dispatchEvent(
+        new CustomEvent('crms:vulnerable-updated'),
+      )
+    } catch (err: any) {
+      toast.error('Status update failed', {
+        description: err.message,
+      })
+    } finally {
+      setStatusSaving(false)
+    }
+  }
+
 
   return (
     <div className="space-y-6 animate-fade-in">
