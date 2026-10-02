@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { useDashboardSection } from '@/hooks/use-dashboard-section'
+import { useLookupOptions } from '@/hooks/use-lookup-options'
 import { DailyReportsView } from '@/components/reports/daily-reports-view'
 import { OperationsHistory } from '@/components/admin/operations-history'
 import { LiveVulnerableMapView } from '@/components/maps/live-vulnerable-map-view'
@@ -25,6 +26,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { WowLoader } from '@/components/ui/wow-loader'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SmartEditableSelect } from '@/components/ui/smart-editable-select'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -405,6 +407,17 @@ function normalizeImportRow(row: Record<string, any>) {
 }
 
 function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: () => void }) {
+  const distributionTypeOptions = useLookupOptions(
+    'DISTRIBUTION_TYPE',
+    [
+      'Food Pack',
+      'Hygiene Kit',
+      'Cash Assistance',
+      'Medical Supplies',
+      'Shelter Materials',
+      'Other',
+    ],
+  )
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -753,17 +766,18 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Distribution Type</Label>
-            <Select value={form.distributionType} onValueChange={(v) => setForm({ ...form, distributionType: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Food Pack">Food Pack</SelectItem>
-                <SelectItem value="Hygiene Kit">Hygiene Kit</SelectItem>
-                <SelectItem value="Cash Assistance">Cash Assistance</SelectItem>
-                <SelectItem value="Medical Supplies">Medical Supplies</SelectItem>
-                <SelectItem value="Shelter Materials">Shelter Materials</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            <SmartEditableSelect
+              value={form.distributionType}
+              onValueChange={(value) =>
+                setForm({
+                  ...form,
+                  distributionType: value,
+                })
+              }
+              options={distributionTypeOptions}
+              storageKey="distribution.type"
+              placeholder="Select or type distribution type"
+            />
           </div>
 
           <div className="space-y-2">
