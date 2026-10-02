@@ -1,6 +1,7 @@
 'use client'
 
 import { lazy, Suspense, useCallback, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import AccountSetupReminder from '@/components/onboarding/account-setup-reminder'
 import { LoginWelcome } from '@/components/onboarding/login-welcome'
 import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
@@ -76,6 +77,8 @@ function ViewLoader({
 }
 
 function AppShellContent() {
+  const router = useRouter()
+
   const {
     user,
     loading,
@@ -187,7 +190,9 @@ function AppShellContent() {
     setMode('landing')
   }
 
-  const handleProfile = () => setMode('profile')
+  const handleProfile = () => {
+    router.push('/profile')
+  }
 
   if (welcomeUser) {
     return (
