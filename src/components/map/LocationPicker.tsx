@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Crosshair } from 'lucide-react'
 import {
@@ -52,11 +53,11 @@ export default function LocationPicker({ center, onLocationSelect, initialPositi
         },
         (err) => {
           console.error('Error getting location:', err)
-          alert('Unable to get your current location. Please try again or click on the map.')
+          toast.error('Unable to get your current location', { description: 'Try again or select a point on the map.' })
         }
       )
     } else {
-      alert('Geolocation is not supported by your browser. Please click on the map to select your location.')
+      toast.error('Geolocation is unavailable', { description: 'Select your location directly on the map.' })
     }
   }
 
