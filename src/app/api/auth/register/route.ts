@@ -21,6 +21,17 @@ export async function POST(request: NextRequest) {
     const cleanEmail = String(email).trim().toLowerCase()
     const cleanRole = String(role).trim().toUpperCase()
 
+    if (cleanRole !== 'VULNERABLE') {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'Public registration is limited to vulnerable citizen accounts. Staff accounts must be created through the authorized administrator workflow.',
+        },
+        { status: 403 },
+      )
+    }
+
     // Check if user already exists
     const existingUser = await db.user.findUnique({
       where: { email: cleanEmail },
