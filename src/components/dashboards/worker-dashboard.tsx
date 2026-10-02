@@ -8,6 +8,7 @@ import {
   Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
+import { useDashboardSection } from '@/hooks/use-dashboard-section'
 import { DailyReportsView } from '@/components/reports/daily-reports-view'
 import { OperationsHistory } from '@/components/admin/operations-history'
 import { NavItem } from '@/components/layout/sidebar'
@@ -50,7 +51,10 @@ interface WorkerDashboardProps {
 }
 
 export function WorkerDashboard({ user, onLogout, onProfile }: WorkerDashboardProps) {
-  const [view, setView] = useState('overview')
+  const [view, setView] = useDashboardSection(
+    NAV_ITEMS.map((item) => item.id),
+    'overview',
+  )
   return (
     <AppShell
       items={NAV_ITEMS}
