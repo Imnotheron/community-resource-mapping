@@ -9,6 +9,7 @@ import {
   ensureLoginOtpColumns,
   LOGIN_OTP_MAX_ATTEMPTS,
 } from '@/lib/login-otp'
+import { createSessionToken } from '@/lib/session-token'
 
 export async function POST(request: NextRequest) {
   try {
@@ -145,13 +146,10 @@ export async function POST(request: NextRequest) {
 
     await clearLoginOtp(user.id)
 
-    const token = Buffer.from(
-      JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      }),
-    ).toString('base64')
+    const token = await createSessionToken({
+      userId: user.id,
+      role: user.role,
+    })
 
     const response = NextResponse.json({
       success: true,
@@ -190,7 +188,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: !isDevelopment,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 8,
       path: '/',
     })
 
