@@ -825,6 +825,10 @@ export function CrmsAssistant({
         resize,
       )
 
+      assistantRequestRef.current?.abort()
+      assistantRequestRef.current = null
+      voiceRequestRef.current?.abort()
+      voiceRequestRef.current = null
       void stopVoiceChat(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
