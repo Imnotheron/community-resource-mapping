@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -290,11 +291,11 @@ export default function VulnerableRegistration() {
           router.push('/vulnerable/dashboard')
         }, 3000)
       } else {
-        alert(data.message || 'Registration failed')
+        toast.error('Registration failed', { description: data.message || 'Unable to submit the registration.' })
       }
     } catch (error) {
       console.error('Registration error:', error)
-      alert('Registration failed. Please try again.')
+      toast.error('Registration failed', { description: 'Please try again.' })
     } finally {
       setIsLoading(false)
     }
