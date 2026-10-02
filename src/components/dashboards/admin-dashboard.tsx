@@ -7,6 +7,7 @@ import { LookupManager } from "@/components/admin/lookup-manager";
 import { OperationsHistory } from "@/components/admin/operations-history";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -113,6 +114,21 @@ import {
   Line,
   Legend,
 } from "recharts";
+
+const VulnerableMap = dynamic(
+  () => import("@/components/maps/vulnerable-map").then((m) => m.VulnerableMap),
+  {
+    ssr: false,
+    loading: () => (
+      <WowLoader
+        compact
+        label="Loading map"
+        description="Rendering vulnerable citizen locations..."
+        className="h-[500px]"
+      />
+    ),
+  },
+);
 
 const NAV_ITEMS: NavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
