@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   Popover,
   PopoverAnchor,
@@ -67,6 +68,7 @@ export function SmartEditableSelect({
     counts: {},
     hidden: [],
   })
+  const [removeTarget, setRemoveTarget] = React.useState<string | null>(null)
   const typedDuringFocusRef = React.useRef(false)
   const blurTimerRef = React.useRef<number | null>(null)
 
@@ -538,7 +540,7 @@ export function SmartEditableSelect({
                       onClick={(event) => {
                         event.preventDefault()
                         event.stopPropagation()
-                        hideOption(option)
+                        setRemoveTarget(option)
                       }}
                       aria-label={`Remove ${option} from this dropdown`}
                       title="Remove from this dropdown"
@@ -574,6 +576,25 @@ export function SmartEditableSelect({
           </div>
         ) : null}
       </PopoverContent>
+
+      <ConfirmDialog
+        open={Boolean(removeTarget)}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={() => {
+          if (removeTarget) {
+            hideOption(removeTarget)
+          }
+        }}
+        title="Remove dropdown option?"
+        description={
+          removeTarget
+            ? `Remove “${removeTarget}” from this dropdown on this browser? You can restore removed choices later.`
+            : 'Remove this option from the dropdown?'
+        }
+        confirmLabel="Remove option"
+        cancelLabel="Keep option"
+        variant="destructive"
+      />
     </Popover>
   )
 }
