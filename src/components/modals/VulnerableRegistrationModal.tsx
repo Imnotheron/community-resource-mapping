@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { SmartEditableSelect } from '@/components/ui/smart-editable-select'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useLookupOptions } from '@/hooks/use-lookup-options'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
@@ -186,6 +187,14 @@ interface SavedDraft {
   createdAt: string
   updatedAt: string
 }
+
+type RegistrationConfirmAction =
+  | { kind: 'close' }
+  | { kind: 'save-draft' }
+  | { kind: 'resume-draft'; draft: SavedDraft }
+  | { kind: 'delete-draft'; draft: SavedDraft }
+  | { kind: 'submit' }
+  | null
 
 
 const STEPS: {
@@ -845,6 +854,7 @@ export default function VulnerableRegistrationModal({
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [loadingDrafts, setLoadingDrafts] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<RegistrationConfirmAction>(null)
   const [modalFrame, setModalFrame] = useState<ModalFrame | null>(null)
   const bloodTypeOptions = useLookupOptions('BLOOD_TYPE', BLOOD_TYPE_OPTIONS)
   const educationalAttainmentOptions = useLookupOptions(
@@ -1111,7 +1121,7 @@ export default function VulnerableRegistrationModal({
     })
   }
 
-  async function saveDraft() {
+  async function performSaveDraft() {
     const adminId = getCurrentAdminId()
 
     if (!adminId) {
@@ -1158,7 +1168,7 @@ export default function VulnerableRegistrationModal({
     }
   }
 
-  function resumeDraft(draft: SavedDraft) {
+  function performResumeDraft(draft: SavedDraft) {
     setForm(normalizeDraftForm(draft.formData || {}))
     setCurrentDraftId(draft.id)
     setStep(Math.min(Math.max(draft.currentStep || 0, 0), STEPS.length - 1))
@@ -1169,7 +1179,7 @@ export default function VulnerableRegistrationModal({
     })
   }
 
-  async function deleteDraft(draftId: string) {
+  async function performDeleteDraft(draftId: string) {
     const adminId = getCurrentAdminId()
 
     if (!adminId) {
@@ -1207,10 +1217,135 @@ export default function VulnerableRegistrationModal({
     }
   }
 
-  function clearAndClose() {
+  function closeImmediately() {
     setStep(0)
     setErrors({})
     onClose()
+  }
+
+  function requestClose() {
+    setConfirmAction({ kind: 'close' })
+  }
+
+  function requestSaveDraft() {
+    setConfirmAction({ kind: 'save-draft' })
+  }
+
+  function requestResumeDraft(draft: SavedDraft) {
+    setConfirmAction({
+      kind: 'resume-draft',
+      draft,
+    })
+  }
+
+  function requestDeleteDraft(draft: SavedDraft) {
+    setConfirmAction({
+      kind: 'delete-draft',
+      draft,
+    })
+  }
+
+  function requestSubmit() {
+    if (!goToFirstMissingRequiredField()) {
+      return
+    }
+
+    setConfirmAction({ kind: 'submit' })
+  }
+
+  function confirmActionCopy() {
+    if (!confirmAction) {
+      return {
+        title: 'Confirm action',
+        description: 'Continue with this action?',
+        confirmLabel: 'Confirm',
+        cancelLabel: 'Cancel',
+        variant: 'default' as const,
+      }
+    }
+
+    if (confirmAction.kind === 'close') {
+      return {
+        title: 'Cancel vulnerable registration?',
+        description:
+          'Are you sure you want to close this registration form? Any changes that have not been saved as a draft will be discarded.',
+        confirmLabel: 'Yes, cancel',
+        cancelLabel: 'Keep editing',
+        variant: 'destructive' as const,
+      }
+    }
+
+    if (confirmAction.kind === 'save-draft') {
+      return {
+        title: currentDraftId ? 'Update this draft?' : 'Save this registration as a draft?',
+        description: currentDraftId
+          ? 'This will update the currently loaded draft with the information now in the form, then clear the form.'
+          : 'This will save the current registration information as a draft, then clear the form so you can continue later.',
+        confirmLabel: currentDraftId ? 'Update draft' : 'Save draft',
+        cancelLabel: 'Continue editing',
+        variant: 'default' as const,
+      }
+    }
+
+    if (confirmAction.kind === 'resume-draft') {
+      return {
+        title: 'Load this saved draft?',
+        description:
+          `Are you sure you want to load “${confirmAction.draft.title}”? The information currently shown in the form will be replaced unless you save it first.`,
+        confirmLabel: 'Load draft',
+        cancelLabel: 'Keep current form',
+        variant: 'default' as const,
+      }
+    }
+
+    if (confirmAction.kind === 'delete-draft') {
+      return {
+        title: 'Delete this draft?',
+        description:
+          `Are you sure you want to permanently delete “${confirmAction.draft.title}”? This action cannot be undone.`,
+        confirmLabel: 'Delete draft',
+        cancelLabel: 'Keep draft',
+        variant: 'destructive' as const,
+      }
+    }
+
+    return {
+      title: 'Register this vulnerable person?',
+      description:
+        'Please confirm that you reviewed the information and want to create this vulnerable citizen record. The registration will be submitted to the system.',
+      confirmLabel: 'Yes, register person',
+      cancelLabel: 'Review again',
+      variant: 'default' as const,
+    }
+  }
+
+  function runConfirmedAction() {
+    const action = confirmAction
+    if (!action) return
+
+    if (action.kind === 'close') {
+      closeImmediately()
+      return
+    }
+
+    if (action.kind === 'save-draft') {
+      void performSaveDraft()
+      return
+    }
+
+    if (action.kind === 'resume-draft') {
+      performResumeDraft(action.draft)
+      return
+    }
+
+    if (action.kind === 'delete-draft') {
+      void performDeleteDraft(action.draft.id)
+      return
+    }
+
+    if (action.kind === 'submit') {
+      void performSubmit()
+    }
   }
 
   function validateCurrentStep() {
@@ -1327,13 +1462,7 @@ export default function VulnerableRegistrationModal({
     return false
   }
 
-  async function handleSubmit() {
-    if (
-      !goToFirstMissingRequiredField()
-    ) {
-      return
-    }
-
+  async function performSubmit() {
     setSubmitting(true)
 
     try {
@@ -2220,8 +2349,11 @@ export default function VulnerableRegistrationModal({
     )
   }
 
+  const confirmation = confirmActionCopy()
+
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && clearAndClose()}>
+    <>
+    <Dialog open={open} onOpenChange={(value) => !value && requestClose()}>
       <DialogContent
         data-registration-modal
         className="!fixed !translate-x-0 !translate-y-0 !max-w-none overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-[0.9375rem] text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.22)] [color-scheme:light] [&>button]:hidden [&_input]:text-sm [&_textarea]:text-sm [&_[role=combobox]]:text-sm md:rounded-[28px]"
@@ -2293,7 +2425,7 @@ export default function VulnerableRegistrationModal({
 
                 <button
                   type="button"
-                  onClick={clearAndClose}
+                  onClick={requestClose}
                   className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
                   aria-label="Close"
                 >
@@ -2411,7 +2543,7 @@ export default function VulnerableRegistrationModal({
                           >
                             <button
                               type="button"
-                              onClick={() => resumeDraft(draft)}
+                              onClick={() => requestResumeDraft(draft)}
                               className="block w-full text-left"
                             >
                               <div className="flex items-start gap-2">
@@ -2430,14 +2562,14 @@ export default function VulnerableRegistrationModal({
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <button
                                 type="button"
-                                onClick={() => resumeDraft(draft)}
+                                onClick={() => requestResumeDraft(draft)}
                                 className="text-[0.6875rem] font-semibold text-emerald-700 hover:text-emerald-800"
                               >
                                 Resume
                               </button>
                               <button
                                 type="button"
-                                onClick={() => deleteDraft(draft.id)}
+                                onClick={() => requestDeleteDraft(draft)}
                                 className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-red-600 hover:text-red-700"
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -2488,7 +2620,7 @@ export default function VulnerableRegistrationModal({
                 type="button"
                 variant="outline"
                 className="h-10 min-w-10 px-3 sm:min-w-[124px]"
-                onClick={step === 0 ? clearAndClose : goPrevious}
+                onClick={step === 0 ? requestClose : goPrevious}
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">
@@ -2501,7 +2633,7 @@ export default function VulnerableRegistrationModal({
                   type="button"
                   variant="outline"
                   className="h-10 min-w-10 px-3 sm:min-w-[150px]"
-                  onClick={saveDraft}
+                  onClick={requestSaveDraft}
                   disabled={savingDraft}
                 >
                   <Save className="mr-2 h-4 w-4" />
@@ -2532,7 +2664,7 @@ export default function VulnerableRegistrationModal({
                         ? 'bg-emerald-600 hover:bg-emerald-700'
                         : 'bg-amber-500 text-white hover:bg-amber-600'
                     )}
-                    onClick={canSubmit ? handleSubmit : goToFirstMissingRequiredField}
+                    onClick={canSubmit ? requestSubmit : goToFirstMissingRequiredField}
                     disabled={submitting}
                   >
                     {submitting ? 'Submitting...' : canSubmit ? 'Confirm Registration' : 'Complete Required Fields'}
@@ -2545,6 +2677,18 @@ export default function VulnerableRegistrationModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={Boolean(confirmAction)}
+      onClose={() => setConfirmAction(null)}
+      onConfirm={runConfirmedAction}
+      title={confirmation.title}
+      description={confirmation.description}
+      confirmLabel={confirmation.confirmLabel}
+      cancelLabel={confirmation.cancelLabel}
+      variant={confirmation.variant}
+    />
+    </>
   )
 }
 
