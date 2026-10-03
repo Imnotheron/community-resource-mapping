@@ -12,11 +12,6 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 type SmartDropdownPrefs = {
@@ -62,50 +57,128 @@ export function SmartEditableSelect({
   className?: string
   learnAfter?: number
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [query, setQuery] = React.useState('')
-  const [prefs, setPrefs] = React.useState<SmartDropdownPrefs>({
-    counts: {},
-    hidden: [],
-  })
-  const [removeTarget, setRemoveTarget] = React.useState<string | null>(null)
-  const typedDuringFocusRef = React.useRef(false)
-  const blurTimerRef = React.useRef<number | null>(null)
+  const [open, setOpen] =
+    React.useState(false)
+  const [query, setQuery] =
+    React.useState('')
+  const [prefs, setPrefs] =
+    React.useState<SmartDropdownPrefs>({
+      counts: {},
+      hidden: [],
+    })
+  const [removeTarget, setRemoveTarget] =
+    React.useState<string | null>(null)
 
-  const localStorageKey = React.useMemo(
-    () => `crms-smart-dropdown:${storageKey}`,
-    [storageKey],
-  )
+  const rootRef =
+    React.useRef<HTMLDivElement | null>(
+      null,
+    )
+  const typedDuringFocusRef =
+    React.useRef(false)
+  const blurTimerRef =
+    React.useRef<number | null>(null)
+
+  const localStorageKey =
+    React.useMemo(
+      () =>
+        `crms-smart-dropdown:${storageKey}`,
+      [storageKey],
+    )
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (
+      typeof window === 'undefined'
+    ) {
+      return
+    }
 
     try {
-      const raw = window.localStorage.getItem(localStorageKey)
+      const raw =
+        window.localStorage.getItem(
+          localStorageKey,
+        )
+
       if (!raw) return
 
       const parsed = JSON.parse(raw)
+
       setPrefs({
         counts:
           parsed &&
-          typeof parsed.counts === 'object' &&
+          typeof parsed.counts ===
+            'object' &&
           parsed.counts
             ? parsed.counts
             : {},
-        hidden: Array.isArray(parsed?.hidden)
+        hidden: Array.isArray(
+          parsed?.hidden,
+        )
           ? parsed.hidden
           : [],
       })
     } catch {
-      // Keep the default preferences if local browser storage is malformed.
+      // Keep defaults when browser storage is unavailable or malformed.
     }
   }, [localStorageKey])
+
+  React.useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (
+      event: PointerEvent,
+    ) => {
+      const target = event.target
+      const root = rootRef.current
+
+      if (
+        !root ||
+        !(target instanceof Node)
+      ) {
+        return
+      }
+
+      if (!root.contains(target)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      handlePointerDown,
+      true,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        handlePointerDown,
+        true,
+      )
+    }
+  }, [open])
+
+  React.useEffect(() => {
+    return () => {
+      if (
+        blurTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          blurTimerRef.current,
+        )
+      }
+    }
+  }, [])
 
   const savePrefs = React.useCallback(
     (next: SmartDropdownPrefs) => {
       setPrefs(next)
 
-      if (typeof window === 'undefined') return
+      if (
+        typeof window === 'undefined'
+      ) {
+        return
+      }
 
       try {
         window.localStorage.setItem(
@@ -113,16 +186,17 @@ export function SmartEditableSelect({
           JSON.stringify(next),
         )
       } catch {
-        // The field remains fully usable even when storage is unavailable.
+        // Dropdown remains usable even if local storage is unavailable.
       }
     },
     [localStorageKey],
   )
 
-  const baseOptions = React.useMemo(
-    () => uniqueValues(options),
-    [options],
-  )
+  const baseOptions =
+    React.useMemo(
+      () => uniqueValues(options),
+      [options],
+    )
 
   const baseKeys = React.useMemo(
     () =>
@@ -132,58 +206,80 @@ export function SmartEditableSelect({
     [baseOptions],
   )
 
-  const hiddenKeys = React.useMemo(
-    () =>
-      new Set(
-        prefs.hidden.map(normalize),
-      ),
-    [prefs.hidden],
-  )
-
-  const learnedOptions = React.useMemo(
-    () =>
-      Object.entries(prefs.counts)
-        .filter(
-          ([label, count]) =>
-            count >= learnAfter &&
-            !baseKeys.has(normalize(label)),
-        )
-        .sort((a, b) => {
-          const countCompare = b[1] - a[1]
-          if (countCompare !== 0) return countCompare
-          return a[0].localeCompare(b[0])
-        })
-        .map(([label]) => label),
-    [baseKeys, learnAfter, prefs.counts],
-  )
-
-  const allVisibleOptions = React.useMemo(
-    () =>
-      uniqueValues([
-        ...baseOptions,
-        ...learnedOptions,
-      ]).filter(
-        (option) =>
-          !hiddenKeys.has(normalize(option)),
-      ),
-    [
-      baseOptions,
-      hiddenKeys,
-      learnedOptions,
-    ],
-  )
-
-  const filteredOptions = React.useMemo(() => {
-    const needle = normalize(query)
-    if (!needle) return allVisibleOptions
-
-    return allVisibleOptions.filter(
-      (option) =>
-        normalize(option).includes(
-          needle,
+  const hiddenKeys =
+    React.useMemo(
+      () =>
+        new Set(
+          prefs.hidden.map(normalize),
         ),
+      [prefs.hidden],
     )
-  }, [allVisibleOptions, query])
+
+  const learnedOptions =
+    React.useMemo(
+      () =>
+        Object.entries(prefs.counts)
+          .filter(
+            ([label, count]) =>
+              count >= learnAfter &&
+              !baseKeys.has(
+                normalize(label),
+              ),
+          )
+          .sort((a, b) => {
+            const countCompare =
+              b[1] - a[1]
+
+            if (countCompare !== 0) {
+              return countCompare
+            }
+
+            return a[0].localeCompare(
+              b[0],
+            )
+          })
+          .map(([label]) => label),
+      [
+        baseKeys,
+        learnAfter,
+        prefs.counts,
+      ],
+    )
+
+  const allVisibleOptions =
+    React.useMemo(
+      () =>
+        uniqueValues([
+          ...baseOptions,
+          ...learnedOptions,
+        ]).filter(
+          (option) =>
+            !hiddenKeys.has(
+              normalize(option),
+            ),
+        ),
+      [
+        baseOptions,
+        hiddenKeys,
+        learnedOptions,
+      ],
+    )
+
+  const filteredOptions =
+    React.useMemo(() => {
+      const needle = normalize(query)
+
+      if (!needle) {
+        return allVisibleOptions
+      }
+
+      return allVisibleOptions.filter(
+        (option) =>
+          normalize(option).includes(
+            needle,
+          ),
+      )
+    }, [allVisibleOptions, query])
 
   const exactVisibleMatch =
     allVisibleOptions.some(
@@ -204,16 +300,22 @@ export function SmartEditableSelect({
   const recordCustomUsage =
     React.useCallback(
       (rawValue: string) => {
-        const clean = rawValue.trim()
+        const clean =
+          rawValue.trim()
+
         if (
           !clean ||
-          baseKeys.has(normalize(clean))
+          baseKeys.has(
+            normalize(clean),
+          )
         ) {
           return
         }
 
         const existingKey =
-          Object.keys(prefs.counts).find(
+          Object.keys(
+            prefs.counts,
+          ).find(
             (candidate) =>
               normalize(candidate) ===
               normalize(clean),
@@ -222,17 +324,15 @@ export function SmartEditableSelect({
         const key =
           existingKey || clean
 
-        const next = {
+        savePrefs({
           ...prefs,
           counts: {
             ...prefs.counts,
             [key]:
-              (prefs.counts[key] || 0) +
-              1,
+              (prefs.counts[key] ||
+                0) + 1,
           },
-        }
-
-        savePrefs(next)
+        })
       },
       [
         baseKeys,
@@ -241,57 +341,61 @@ export function SmartEditableSelect({
       ],
     )
 
-  const commitValue = React.useCallback(
-    (
-      rawValue: string,
-      recordUsage = true,
-    ) => {
-      const clean = rawValue.trim()
-      if (!clean) return
+  const commitValue =
+    React.useCallback(
+      (
+        rawValue: string,
+        recordUsage = true,
+      ) => {
+        const clean =
+          rawValue.trim()
 
-      onValueChange(clean)
+        if (!clean) return
 
-      if (recordUsage) {
-        recordCustomUsage(clean)
-      }
+        onValueChange(clean)
 
-      typedDuringFocusRef.current = false
-      setQuery('')
-      setOpen(false)
-    },
-    [
-      onValueChange,
-      recordCustomUsage,
-    ],
-  )
+        if (recordUsage) {
+          recordCustomUsage(clean)
+        }
 
-  const hideOption = React.useCallback(
-    (option: string) => {
-      const key = normalize(option)
+        typedDuringFocusRef.current =
+          false
+        setQuery('')
+        setOpen(false)
+      },
+      [
+        onValueChange,
+        recordCustomUsage,
+      ],
+    )
 
-      const hidden = uniqueValues([
-        ...prefs.hidden,
-        option,
-      ])
+  const hideOption =
+    React.useCallback(
+      (option: string) => {
+        const key =
+          normalize(option)
 
-      savePrefs({
-        ...prefs,
-        hidden,
-      })
+        savePrefs({
+          ...prefs,
+          hidden: uniqueValues([
+            ...prefs.hidden,
+            option,
+          ]),
+        })
 
-      if (
-        normalize(value) === key
-      ) {
-        onValueChange('')
-      }
-    },
-    [
-      onValueChange,
-      prefs,
-      savePrefs,
-      value,
-    ],
-  )
+        if (
+          normalize(value) === key
+        ) {
+          onValueChange('')
+        }
+      },
+      [
+        onValueChange,
+        prefs,
+        savePrefs,
+        value,
+      ],
+    )
 
   const restoreHidden =
     React.useCallback(() => {
@@ -301,25 +405,12 @@ export function SmartEditableSelect({
       })
     }, [prefs, savePrefs])
 
-  React.useEffect(() => {
-    return () => {
-      if (
-        blurTimerRef.current !==
-        null
-      ) {
-        window.clearTimeout(
-          blurTimerRef.current,
-        )
-      }
-    }
-  }, [])
-
   return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-    >
-      <PopoverAnchor asChild>
+    <>
+      <div
+        ref={rootRef}
+        className="w-full space-y-1.5"
+      >
         <div
           className={cn(
             'relative flex h-10 w-full items-center rounded-md border border-input bg-background shadow-xs transition focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
@@ -341,8 +432,10 @@ export function SmartEditableSelect({
             onChange={(event) => {
               const next =
                 event.target.value
+
               typedDuringFocusRef.current =
                 true
+
               setQuery(next)
               onValueChange(next)
               setOpen(true)
@@ -385,19 +478,22 @@ export function SmartEditableSelect({
               }
 
               blurTimerRef.current =
-                window.setTimeout(() => {
-                  if (
-                    typedDuringFocusRef.current &&
-                    value.trim()
-                  ) {
-                    recordCustomUsage(
-                      value,
-                    )
-                  }
+                window.setTimeout(
+                  () => {
+                    if (
+                      typedDuringFocusRef.current &&
+                      value.trim()
+                    ) {
+                      recordCustomUsage(
+                        value,
+                      )
+                    }
 
-                  typedDuringFocusRef.current =
-                    false
-                }, 120)
+                    typedDuringFocusRef.current =
+                      false
+                  },
+                  120,
+                )
             }}
           />
 
@@ -422,164 +518,167 @@ export function SmartEditableSelect({
             <ChevronDown className="h-4 w-4 opacity-60" />
           </Button>
         </div>
-      </PopoverAnchor>
 
-      <PopoverContent
-        align="start"
-        className="w-[var(--radix-popover-anchor-width)] min-w-[280px] p-0"
-      >
-        <div className="border-b px-3 py-2">
-          <p className="text-xs font-semibold text-slate-700">
-            Type your own value or choose a suggestion
-          </p>
-          <p className="mt-0.5 text-[0.6875rem] text-muted-foreground">
-            Custom values become learned suggestions after {learnAfter} uses.
-          </p>
-        </div>
+        {open && !disabled ? (
+          <div className="w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+            <div className="border-b px-3 py-2">
+              <p className="text-xs font-semibold text-slate-700">
+                Type your own value or choose a suggestion
+              </p>
+              <p className="mt-0.5 text-[0.6875rem] text-muted-foreground">
+                Custom values become learned suggestions after {learnAfter} uses.
+              </p>
+            </div>
 
-        <div className="max-h-72 overflow-y-auto p-1.5">
-          {manualCandidate ? (
-            <button
-              type="button"
-              className="mb-1 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-emerald-50"
-              onMouseDown={(event) =>
-                event.preventDefault()
-              }
-              onClick={() =>
-                commitValue(
-                  manualCandidate,
+            <div className="max-h-56 overflow-y-auto p-1.5">
+              {manualCandidate ? (
+                <button
+                  type="button"
+                  className="mb-1 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-emerald-50"
+                  onMouseDown={(event) =>
+                    event.preventDefault()
+                  }
+                  onClick={() =>
+                    commitValue(
+                      manualCandidate,
+                    )
+                  }
+                >
+                  <Plus className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <span className="min-w-0 flex-1 truncate">
+                    Use “{manualCandidate}”
+                  </span>
+                  <span className="text-[0.625rem] text-muted-foreground">
+                    {Math.min(
+                      (prefs.counts[
+                        Object.keys(
+                          prefs.counts,
+                        ).find(
+                          (candidate) =>
+                            normalize(
+                              candidate,
+                            ) ===
+                            normalize(
+                              manualCandidate,
+                            ),
+                        ) ||
+                          manualCandidate
+                      ] || 0) + 1,
+                      learnAfter,
+                    )}
+                    /{learnAfter}
+                  </span>
+                </button>
+              ) : null}
+
+              {filteredOptions.length ? (
+                filteredOptions.map(
+                  (option) => {
+                    const selected =
+                      normalize(value) ===
+                      normalize(option)
+
+                    const learned =
+                      !baseKeys.has(
+                        normalize(option),
+                      )
+
+                    return (
+                      <div
+                        key={option}
+                        className="group flex items-center rounded-md hover:bg-accent"
+                      >
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-sm"
+                          onMouseDown={(
+                            event,
+                          ) =>
+                            event.preventDefault()
+                          }
+                          onClick={() =>
+                            commitValue(
+                              option,
+                              learned,
+                            )
+                          }
+                        >
+                          <Check
+                            className={cn(
+                              'h-4 w-4 shrink-0',
+                              selected
+                                ? 'opacity-100'
+                                : 'opacity-0',
+                            )}
+                          />
+                          <span className="min-w-0 flex-1 truncate">
+                            {option}
+                          </span>
+
+                          {learned ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[0.625rem] font-semibold text-violet-700">
+                              <Sparkles className="h-3 w-3" />
+                              Learned
+                            </span>
+                          ) : null}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-70 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
+                          onMouseDown={(
+                            event,
+                          ) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setRemoveTarget(
+                              option,
+                            )
+                          }}
+                          aria-label={`Remove ${option} from this dropdown`}
+                          title="Remove from this dropdown"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )
+                  },
                 )
-              }
-            >
-              <Plus className="h-4 w-4 shrink-0 text-emerald-600" />
-              <span className="min-w-0 flex-1 truncate">
-                Use “{manualCandidate}”
-              </span>
-              <span className="text-[0.625rem] text-muted-foreground">
-                {Math.min(
-                  (prefs.counts[
-                    Object.keys(
-                      prefs.counts,
-                    ).find(
-                      (candidate) =>
-                        normalize(
-                          candidate,
-                        ) ===
-                        normalize(
-                          manualCandidate,
-                        ),
-                    ) ||
-                      manualCandidate
-                  ] || 0) + 1,
-                  learnAfter,
-                )}
-                /{learnAfter}
-              </span>
-            </button>
-          ) : null}
+              ) : !manualCandidate ? (
+                <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  No visible suggestions. Type a value to enter it manually.
+                </p>
+              ) : null}
+            </div>
 
-          {filteredOptions.length ? (
-            filteredOptions.map(
-              (option) => {
-                const selected =
-                  normalize(value) ===
-                  normalize(option)
-                const learned =
-                  !baseKeys.has(
-                    normalize(option),
-                  )
-
-                return (
-                  <div
-                    key={option}
-                    className="group flex items-center rounded-md hover:bg-accent"
-                  >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-sm"
-                      onMouseDown={(
-                        event,
-                      ) =>
-                        event.preventDefault()
-                      }
-                      onClick={() =>
-                        commitValue(
-                          option,
-                          learned,
-                        )
-                      }
-                    >
-                      <Check
-                        className={cn(
-                          'h-4 w-4 shrink-0',
-                          selected
-                            ? 'opacity-100'
-                            : 'opacity-0',
-                        )}
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {option}
-                      </span>
-                      {learned ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[0.625rem] font-semibold text-violet-700">
-                          <Sparkles className="h-3 w-3" />
-                          Learned
-                        </span>
-                      ) : null}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-70 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
-                      onMouseDown={(
-                        event,
-                      ) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setRemoveTarget(option)
-                      }}
-                      aria-label={`Remove ${option} from this dropdown`}
-                      title="Remove from this dropdown"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )
-              },
-            )
-          ) : !manualCandidate ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No visible suggestions. Type a value to enter it manually.
-            </p>
-          ) : null}
-        </div>
-
-        {hiddenCount > 0 ? (
-          <div className="border-t p-1.5">
-            <button
-              type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-md px-2.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-              onMouseDown={(event) =>
-                event.preventDefault()
-              }
-              onClick={
-                restoreHidden
-              }
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Restore {hiddenCount} removed choice{hiddenCount === 1 ? '' : 's'}
-            </button>
+            {hiddenCount > 0 ? (
+              <div className="border-t p-1.5">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-center gap-2 rounded-md px-2.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  onMouseDown={(event) =>
+                    event.preventDefault()
+                  }
+                  onClick={restoreHidden}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Restore {hiddenCount} removed choice{hiddenCount === 1 ? '' : 's'}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
-      </PopoverContent>
+      </div>
 
       <ConfirmDialog
         open={Boolean(removeTarget)}
-        onClose={() => setRemoveTarget(null)}
+        onClose={() =>
+          setRemoveTarget(null)
+        }
         onConfirm={() => {
           if (removeTarget) {
             hideOption(removeTarget)
@@ -595,6 +694,6 @@ export function SmartEditableSelect({
         cancelLabel="Keep option"
         variant="destructive"
       />
-    </Popover>
+    </>
   )
 }
