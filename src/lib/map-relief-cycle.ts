@@ -8,9 +8,13 @@ type CycleResetRow = {
 
 type CycleSettingsRow = {
   id: number
-  resetIntervalDays: number | null
+  autoResetAt: string | Date | null
   updatedAt: string | Date
   updatedBy: string | null
+}
+
+type TableInfoRow = {
+  name: string
 }
 
 export async function ensureMapReliefCycleTable() {
@@ -26,16 +30,33 @@ export async function ensureMapReliefCycleTable() {
     CREATE TABLE IF NOT EXISTS "MapReliefCycleSettings" (
       "id" INTEGER PRIMARY KEY NOT NULL DEFAULT 1,
       "resetIntervalDays" INTEGER,
+      "autoResetAt" DATETIME,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedBy" TEXT,
       CHECK ("id" = 1)
     )
   `)
 
+  const columns =
+    await db.$queryRawUnsafe<TableInfoRow[]>(
+      'PRAGMA table_info("MapReliefCycleSettings")',
+    )
+
+  if (
+    !columns.some(
+      (column) =>
+        column.name === 'autoResetAt',
+    )
+  ) {
+    await db.$executeRawUnsafe(
+      'ALTER TABLE "MapReliefCycleSettings" ADD COLUMN "autoResetAt" DATETIME',
+    )
+  }
+
   await db.$executeRawUnsafe(`
     INSERT OR IGNORE INTO "MapReliefCycleSettings"
-      ("id", "resetIntervalDays", "updatedAt", "updatedBy")
-    VALUES (1, NULL, CURRENT_TIMESTAMP, NULL)
+      ("id", "resetIntervalDays", "autoResetAt", "updatedAt", "updatedBy")
+    VALUES (1, NULL, NULL, CURRENT_TIMESTAMP, NULL)
   `)
 }
 
@@ -44,20 +65,29 @@ export async function getLatestMapCycleResetBefore(
 ) {
   await ensureMapReliefCycleTable()
 
-  const rows = await db.$queryRawUnsafe<CycleResetRow[]>(
-    `SELECT "id", "resetAt", "resetBy"
-     FROM "MapReliefCycleReset"
-     WHERE datetime("resetAt") <= datetime(?)
-     ORDER BY datetime("resetAt") DESC
-     LIMIT 1`,
-    cutoff.toISOString(),
-  )
+  const rows =
+    await db.$queryRawUnsafe<CycleResetRow[]>(
+      `SELECT "id", "resetAt", "resetBy"
+       FROM "MapReliefCycleReset"
+       WHERE datetime("resetAt") <= datetime(?)
+       ORDER BY datetime("resetAt") DESC
+       LIMIT 1`,
+      cutoff.toISOString(),
+    )
 
   const row = rows[0]
   if (!row) return null
 
-  const resetAt = new Date(row.resetAt)
-  if (Number.isNaN(resetAt.getTime())) return null
+  const resetAt =
+    new Date(row.resetAt)
+
+  if (
+    Number.isNaN(
+      resetAt.getTime(),
+    )
+  ) {
+    return null
+  }
 
   return {
     id: Number(row.id),
@@ -69,44 +99,61 @@ export async function getLatestMapCycleResetBefore(
 export async function getMapReliefCycleSettings() {
   await ensureMapReliefCycleTable()
 
-  const rows = await db.$queryRawUnsafe<CycleSettingsRow[]>(
-    `SELECT "id", "resetIntervalDays", "updatedAt", "updatedBy"
-     FROM "MapReliefCycleSettings"
-     WHERE "id" = 1
-     LIMIT 1`,
-  )
+  const rows =
+    await db.$queryRawUnsafe<CycleSettingsRow[]>(
+      `SELECT "id", "autoResetAt", "updatedAt", "updatedBy"
+       FROM "MapReliefCycleSettings"
+       WHERE "id" = 1
+       LIMIT 1`,
+    )
 
   const row = rows[0]
-  const updatedAt = row?.updatedAt
-    ? new Date(row.updatedAt)
-    : new Date()
+
+  const updatedAt =
+    row?.updatedAt
+      ? new Date(row.updatedAt)
+      : new Date()
+
+  const autoResetAt =
+    row?.autoResetAt
+      ? new Date(row.autoResetAt)
+      : null
 
   return {
-    resetIntervalDays:
-      row?.resetIntervalDays == null
-        ? null
-        : Number(row.resetIntervalDays),
+    autoResetAt:
+      autoResetAt &&
+      !Number.isNaN(
+        autoResetAt.getTime(),
+      )
+        ? autoResetAt
+        : null,
     updatedAt:
-      Number.isNaN(updatedAt.getTime())
+      Number.isNaN(
+        updatedAt.getTime(),
+      )
         ? new Date()
         : updatedAt,
-    updatedBy: row?.updatedBy || null,
+    updatedBy:
+      row?.updatedBy || null,
   }
 }
 
 export async function updateMapReliefCycleSettings(
-  resetIntervalDays: number | null,
+  autoResetAt: Date | null,
   updatedBy: string,
 ) {
   await ensureMapReliefCycleTable()
 
   await db.$executeRawUnsafe(
     `UPDATE "MapReliefCycleSettings"
-     SET "resetIntervalDays" = ?,
+     SET "autoResetAt" = ?,
+         "resetIntervalDays" = NULL,
          "updatedAt" = CURRENT_TIMESTAMP,
          "updatedBy" = ?
      WHERE "id" = 1`,
-    resetIntervalDays,
+    autoResetAt
+      ? autoResetAt.toISOString()
+      : null,
     updatedBy,
   )
 
@@ -126,12 +173,15 @@ export async function startNewMapReliefCycle(
 
   const latest =
     await getLatestMapCycleResetBefore(
-      new Date(Date.now() + 60_000),
+      new Date(
+        Date.now() + 60_000,
+      ),
     )
 
   return {
     resetAt:
-      latest?.resetAt || new Date(),
+      latest?.resetAt ||
+      new Date(),
     resetBy,
   }
 }
@@ -144,81 +194,44 @@ export async function maybeAutoResetMapReliefCycle(
   const settings =
     await getMapReliefCycleSettings()
 
-  const intervalDays =
-    settings.resetIntervalDays
+  const scheduled =
+    settings.autoResetAt
 
-  if (
-    !intervalDays ||
-    intervalDays < 1
-  ) {
+  if (!scheduled) {
     return {
       reset: false,
-      resetIntervalDays: null,
-      nextResetAt: null,
+      autoResetAt: null,
     }
   }
 
-  const latest =
-    await getLatestMapCycleResetBefore(
-      now,
-    )
-
-  const baseTime =
-    latest?.resetAt &&
-    latest.resetAt >
-      settings.updatedAt
-      ? latest.resetAt
-      : settings.updatedAt
-
-  const intervalMs =
-    intervalDays *
-    24 *
-    60 *
-    60 *
-    1000
-
-  const nextResetAt =
-    new Date(
-      baseTime.getTime() +
-        intervalMs,
-    )
-
-  if (now < nextResetAt) {
+  if (now < scheduled) {
     return {
       reset: false,
-      resetIntervalDays:
-        intervalDays,
-      nextResetAt,
+      autoResetAt: scheduled,
     }
   }
 
-  // Re-check immediately before inserting so simultaneous map requests
-  // do not repeatedly start the same automatic relief cycle.
-  const latestBeforeInsert =
-    await getLatestMapCycleResetBefore(
-      now,
+  // Claim the scheduled reset before creating a new cycle.
+  // Only the first request that clears the exact stored timestamp wins.
+  const claimed =
+    await db.$executeRawUnsafe(
+      `UPDATE "MapReliefCycleSettings"
+       SET "autoResetAt" = NULL,
+           "updatedAt" = CURRENT_TIMESTAMP,
+           "updatedBy" = 'SYSTEM_AUTO_RESET'
+       WHERE "id" = 1
+         AND "autoResetAt" = ?`,
+      scheduled.toISOString(),
     )
 
-  const effectiveBase =
-    latestBeforeInsert?.resetAt &&
-    latestBeforeInsert.resetAt >
-      settings.updatedAt
-      ? latestBeforeInsert.resetAt
-      : settings.updatedAt
+  if (!claimed) {
+    const latestSettings =
+      await getMapReliefCycleSettings()
 
-  if (
-    now.getTime() <
-    effectiveBase.getTime() +
-      intervalMs
-  ) {
     return {
       reset: false,
-      resetIntervalDays:
-        intervalDays,
-      nextResetAt: new Date(
-        effectiveBase.getTime() +
-          intervalMs,
-      ),
+      autoResetAt:
+        latestSettings.autoResetAt,
     }
   }
 
@@ -229,12 +242,7 @@ export async function maybeAutoResetMapReliefCycle(
 
   return {
     reset: true,
-    resetIntervalDays:
-      intervalDays,
     resetAt: cycle.resetAt,
-    nextResetAt: new Date(
-      cycle.resetAt.getTime() +
-        intervalMs,
-    ),
+    autoResetAt: null,
   }
 }
