@@ -15,8 +15,10 @@ const labels = {
 
 export function ConnectionIndicator({
   className,
+  compactOnMobile = false,
 }: {
   className?: string
+  compactOnMobile?: boolean
 }) {
   const { latency, quality } = useConnectionQuality()
   const offline = quality === 'OFFLINE'
@@ -39,7 +41,9 @@ export function ConnectionIndicator({
       ) : (
         <Wifi className="h-3.5 w-3.5" />
       )}
-      <span>{labels[quality]}</span>
+      <span className={cn(compactOnMobile && 'hidden min-[430px]:inline')}>
+        {labels[quality]}
+      </span>
       {latency != null ? (
         <span className="text-muted-foreground">
           {latency} ms
