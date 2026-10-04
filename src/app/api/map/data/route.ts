@@ -357,37 +357,13 @@ export async function GET(request: NextRequest) {
                 : 'MANUAL_RESET'
               : 'INITIAL',
         ...(await (async () => {
-          const settings = await getMapReliefCycleSettings()
-          if (!settings.resetIntervalDays) {
-            return {
-              resetIntervalDays: null,
-              nextAutoResetAt: null,
-            }
-          }
-
-          const latestCurrentCycle =
-            await getLatestMapCycleResetBefore(
-              new Date(),
-            )
-
-          const base =
-            latestCurrentCycle?.resetAt &&
-            latestCurrentCycle.resetAt >
-              settings.updatedAt
-              ? latestCurrentCycle.resetAt
-              : settings.updatedAt
+          const settings =
+            await getMapReliefCycleSettings()
 
           return {
-            resetIntervalDays:
-              settings.resetIntervalDays,
-            nextAutoResetAt: new Date(
-              base.getTime() +
-                settings.resetIntervalDays *
-                  24 *
-                  60 *
-                  60 *
-                  1000,
-            ),
+            autoResetAt:
+              settings.autoResetAt ||
+              null,
           }
         })()),
       },
