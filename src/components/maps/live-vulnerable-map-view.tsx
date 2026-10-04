@@ -7,8 +7,8 @@ import {
   useState,
 } from 'react'
 import {
+  CalendarClock,
   CalendarDays,
-  Clock3,
   RefreshCw,
   X,
 } from 'lucide-react'
@@ -50,6 +50,36 @@ function toDateInputValue(date: Date) {
   ).padStart(2, '0')
 
   return `${year}-${month}-${day}`
+}
+
+function toManilaDateInputValue(
+  value: string | Date | null,
+) {
+  if (!value) return ''
+
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat(
+    'en-CA',
+    {
+      timeZone:
+        'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    },
+  ).format(date)
 }
 
 function buildMapQuery(
@@ -121,46 +151,57 @@ export function LiveVulnerableMapView({
     useState<VulnerablePoint[]>([])
   const [loading, setLoading] =
     useState(true)
+
   const [
     selectedDate,
     setSelectedDate,
   ] = useState('')
+
   const [
     resetVersion,
     setResetVersion,
   ] = useState(0)
+
   const [
     lastUpdated,
     setLastUpdated,
   ] = useState<Date | null>(null)
+
   const [
     cycleStartedAt,
     setCycleStartedAt,
   ] = useState<string | null>(null)
+
   const [
-    resetIntervalDays,
-    setResetIntervalDays,
-  ] = useState<number | null>(null)
-  const [
-    resetIntervalInput,
-    setResetIntervalInput,
+    autoResetDate,
+    setAutoResetDate,
   ] = useState('')
+
   const [
-    timerDirty,
-    setTimerDirty,
+    savedAutoResetDate,
+    setSavedAutoResetDate,
+  ] = useState('')
+
+  const [
+    scheduleDirty,
+    setScheduleDirty,
   ] = useState(false)
+
   const [
-    nextAutoResetAt,
-    setNextAutoResetAt,
-  ] = useState<string | null>(null)
-  const [
-    savingTimer,
-    setSavingTimer,
+    savingSchedule,
+    setSavingSchedule,
   ] = useState(false)
+
+  const [
+    scheduleDialogOpen,
+    setScheduleDialogOpen,
+  ] = useState(false)
+
   const [
     resetDialogOpen,
     setResetDialogOpen,
   ] = useState(false)
+
   const [
     resettingCycle,
     setResettingCycle,
@@ -188,8 +229,7 @@ export function LiveVulnerableMapView({
           await apiFetch<{
             points?: VulnerablePoint[]
             cycleStartedAt?: string | null
-            resetIntervalDays?: number | null
-            nextAutoResetAt?: string | null
+            autoResetAt?: string | null
           }>(
             `/api/map/data?${query}`,
             {
@@ -200,26 +240,25 @@ export function LiveVulnerableMapView({
         setPoints(
           data.points || [],
         )
+
         setCycleStartedAt(
           data.cycleStartedAt ||
             null,
         )
-        setResetIntervalDays(
-          data.resetIntervalDays ??
-            null,
-        )
-        setNextAutoResetAt(
-          data.nextAutoResetAt ||
-            null,
+
+        const scheduledDate =
+          toManilaDateInputValue(
+            data.autoResetAt ||
+              null,
+          )
+
+        setSavedAutoResetDate(
+          scheduledDate,
         )
 
-        if (!timerDirty) {
-          setResetIntervalInput(
-            data.resetIntervalDays
-              ? String(
-                  data.resetIntervalDays,
-                )
-              : '',
+        if (!scheduleDirty) {
+          setAutoResetDate(
+            scheduledDate,
           )
         }
 
@@ -240,8 +279,8 @@ export function LiveVulnerableMapView({
       }
     },
     [
+      scheduleDirty,
       selectedDate,
-      timerDirty,
     ],
   )
 
@@ -274,47 +313,54 @@ export function LiveVulnerableMapView({
       )
   }, [loadMap, selectedDate])
 
-  async function saveAutoResetTimer() {
-    const trimmed =
-      resetIntervalInput.trim()
-
-    const days =
-      trimmed === ''
-        ? null
-        : Number(trimmed)
-
+  function requestSaveAutoResetDate() {
     if (
-      days !== null &&
-      (!Number.isInteger(days) ||
-        days < 1 ||
-        days > 365)
+      autoResetDate &&
+      autoResetDate <
+        toDateInputValue(
+          new Date(),
+        )
     ) {
       toast.error(
-        'Enter a valid reset interval',
-        {
-          description:
-            'Use a whole number from 1 to 365 days, or leave it blank to turn automatic reset off.',
-        },
+        'Choose today or a future date',
       )
       return
     }
 
-    setSavingTimer(true)
+    setScheduleDialogOpen(true)
+  }
+
+  async function saveAutoResetDate() {
+    setSavingSchedule(true)
 
     try {
-      await apiFetch(
-        '/api/map/settings',
-        {
-          method: 'PUT',
-          body: JSON.stringify({
-            resetIntervalDays:
-              days,
-          }),
-        },
-      )
+      const data =
+        await apiFetch<{
+          autoResetDate?: string | null
+          autoResetAt?: string | null
+        }>(
+          '/api/map/settings',
+          {
+            method: 'PUT',
+            body: JSON.stringify({
+              autoResetDate:
+                autoResetDate ||
+                null,
+            }),
+          },
+        )
 
-      setTimerDirty(false)
-      setResetIntervalDays(days)
+      const nextDate =
+        data.autoResetDate ||
+        ''
+
+      setAutoResetDate(
+        nextDate,
+      )
+      setSavedAutoResetDate(
+        nextDate,
+      )
+      setScheduleDirty(false)
 
       await loadMap(
         false,
@@ -322,13 +368,17 @@ export function LiveVulnerableMapView({
       )
 
       toast.success(
-        days
-          ? `Automatic reset set to every ${days} day${days === 1 ? '' : 's'}`
-          : 'Automatic map reset turned off',
+        nextDate
+          ? `Automatic map reset scheduled for ${new Date(`${nextDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}`
+          : 'Automatic map reset schedule cleared',
       )
     } catch (error: any) {
       toast.error(
-        'Unable to save automatic reset',
+        'Unable to save automatic reset date',
         {
           description:
             error?.message ||
@@ -336,7 +386,8 @@ export function LiveVulnerableMapView({
         },
       )
     } finally {
-      setSavingTimer(false)
+      setSavingSchedule(false)
+      setScheduleDialogOpen(false)
     }
   }
 
@@ -397,16 +448,22 @@ export function LiveVulnerableMapView({
             <h1 className="text-2xl font-semibold tracking-tight">
               {title}
             </h1>
+
             <p className="mt-1 text-sm text-muted-foreground">
               {description}
             </p>
+
             <p className="mt-1 text-xs text-muted-foreground">
               {recapLabel} · Showing {points.length} active vulnerable record{points.length === 1 ? '' : 's'}
               {cycleStartedAt
                 ? ` · Cycle began ${new Date(cycleStartedAt).toLocaleString('en-PH')}`
                 : ''}
-              {resetIntervalDays && nextAutoResetAt && !selectedDate
-                ? ` · Auto reset every ${resetIntervalDays} day${resetIntervalDays === 1 ? '' : 's'} · Next ${new Date(nextAutoResetAt).toLocaleString('en-PH')}`
+              {savedAutoResetDate && !selectedDate
+                ? ` · Auto reset scheduled ${new Date(`${savedAutoResetDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}`
                 : ''}
               {lastUpdated
                 ? ` · Last synced ${lastUpdated.toLocaleTimeString('en-PH')}`
@@ -417,11 +474,13 @@ export function LiveVulnerableMapView({
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
               <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                Select date
+                View map date
               </p>
+
               <div className="flex items-center gap-1">
                 <div className="relative">
                   <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
                   <Input
                     type="date"
                     value={
@@ -464,50 +523,67 @@ export function LiveVulnerableMapView({
             {allowCycleReset ? (
               <div className="space-y-1">
                 <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Auto reset timer
+                  Auto reset date
                 </p>
-                <div className="flex items-center gap-1 rounded-md border bg-background px-2 shadow-xs">
-                  <Clock3 className="h-4 w-4 shrink-0 text-slate-400" />
-                  <span className="whitespace-nowrap text-xs text-slate-600">
-                    Every
-                  </span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={365}
-                    step={1}
-                    value={
-                      resetIntervalInput
-                    }
-                    onChange={(
-                      event,
-                    ) => {
-                      setResetIntervalInput(
-                        event.target
-                          .value,
-                      )
-                      setTimerDirty(true)
-                    }}
-                    placeholder="Off"
-                    className="h-8 w-[72px] border-0 px-1 text-center shadow-none focus-visible:ring-0"
-                    aria-label="Automatic map reset interval in days"
-                  />
-                  <span className="text-xs text-slate-600">
-                    days
-                  </span>
+
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <CalendarClock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                    <Input
+                      type="date"
+                      value={
+                        autoResetDate
+                      }
+                      min={toDateInputValue(
+                        new Date(),
+                      )}
+                      onChange={(
+                        event,
+                      ) => {
+                        setAutoResetDate(
+                          event.target
+                            .value,
+                        )
+                        setScheduleDirty(
+                          true,
+                        )
+                      }}
+                      className="w-[175px] pl-9"
+                      aria-label="Select automatic map reset date"
+                    />
+                  </div>
+
+                  {autoResetDate ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10"
+                      onClick={() => {
+                        setAutoResetDate('')
+                        setScheduleDirty(true)
+                      }}
+                      title="Clear automatic reset date"
+                      aria-label="Clear automatic reset date"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+
                   <Button
                     type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 px-2"
-                    onClick={() => {
-                      void saveAutoResetTimer()
-                    }}
+                    variant="outline"
+                    className="h-10"
+                    onClick={
+                      requestSaveAutoResetDate
+                    }
                     disabled={
-                      savingTimer
+                      savingSchedule ||
+                      !scheduleDirty
                     }
                   >
-                    {savingTimer
+                    {savingSchedule
                       ? 'Saving…'
                       : 'Save'}
                   </Button>
@@ -563,6 +639,36 @@ export function LiveVulnerableMapView({
           </Card>
         )}
       </div>
+
+      <ConfirmDialog
+        open={scheduleDialogOpen}
+        onClose={() =>
+          setScheduleDialogOpen(false)
+        }
+        onConfirm={() => {
+          void saveAutoResetDate()
+        }}
+        title={
+          autoResetDate
+            ? 'Schedule automatic map reset?'
+            : 'Clear automatic reset schedule?'
+        }
+        description={
+          autoResetDate
+            ? `The map will automatically start a new relief cycle on ${new Date(`${autoResetDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}. All active markers will return to red while previous distribution history remains available.`
+            : 'This will remove the scheduled automatic reset date. The map will only reset when an Admin manually starts a new relief cycle or schedules another date.'
+        }
+        confirmLabel={
+          autoResetDate
+            ? 'Schedule reset'
+            : 'Clear schedule'
+        }
+        cancelLabel="Cancel"
+      />
 
       <ConfirmDialog
         open={resetDialogOpen}
