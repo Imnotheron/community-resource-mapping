@@ -632,10 +632,10 @@ export function VulnerableMapWalkthrough({ user }: { user: AuthUser }) {
         start()
       }}
       aria-label="Open Vulnerable Map guide"
-      className="fixed bottom-24 right-4 z-40 rounded-full border-emerald-200 bg-white/95 text-emerald-700 shadow-lg backdrop-blur-xl hover:bg-emerald-50 sm:right-6"
+      className="fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full border-emerald-200 bg-white/95 p-0 text-emerald-700 shadow-lg backdrop-blur-xl hover:bg-emerald-50 sm:right-6 sm:h-auto sm:w-auto sm:px-4"
     >
       <MapPinned className="h-4 w-4" />
-      Vulnerable Map guide
+      <span className="hidden sm:inline">Vulnerable Map guide</span>
     </Button>
   )
 }
