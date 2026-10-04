@@ -8,7 +8,11 @@ import {
   isWithinSanPolicarpoServiceEnvelope,
   matchSanPolicarpoBarangay,
 } from '@/lib/san-policarpo-geography'
-import { getLatestMapCycleResetBefore } from '@/lib/map-relief-cycle'
+import {
+  getLatestMapCycleResetBefore,
+  getMapReliefCycleSettings,
+  maybeAutoResetMapReliefCycle,
+} from '@/lib/map-relief-cycle'
 import { requireRequestUser } from '@/lib/request-user-session'
 import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
@@ -99,6 +103,12 @@ export async function GET(request: NextRequest) {
     const historical = Boolean(
       asOfParam || fromParam,
     )
+
+    if (!historical) {
+      await maybeAutoResetMapReliefCycle(
+        new Date(),
+      )
+    }
 
     const profiles =
       await db.vulnerableProfile.findMany({
@@ -342,8 +352,41 @@ export async function GET(request: NextRequest) {
           requestedPeriodStart
             ? 'PERIOD'
             : cycleReset
-              ? 'MANUAL_RESET'
+              ? cycleReset.resetBy === 'SYSTEM_AUTO_RESET'
+                ? 'AUTO_RESET'
+                : 'MANUAL_RESET'
               : 'INITIAL',
+        ...(await (async () => {
+          const settings = await getMapReliefCycleSettings()
+          if (!settings.resetIntervalDays) {
+            return {
+              resetIntervalDays: null,
+              nextAutoResetAt: null,
+            }
+          }
+
+          const latestCurrentCycle =
+            await getLatestMapCycleResetBefore(
+              new Date(),
+            )
+
+          const base =
+            latestCurrentCycle?.resetAt ||
+            settings.updatedAt
+
+          return {
+            resetIntervalDays:
+              settings.resetIntervalDays,
+            nextAutoResetAt: new Date(
+              base.getTime() +
+                settings.resetIntervalDays *
+                  24 *
+                  60 *
+                  60 *
+                  1000,
+            ),
+          }
+        })()),
       },
       {
         headers: {
