@@ -255,10 +255,10 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
       onClick={start}
       disabled={Boolean(activeTourId)}
       aria-label="Open Field Worker guide"
-      className="fixed bottom-24 right-4 z-40 rounded-full bg-white/95 shadow-lg backdrop-blur-xl md:bottom-10 md:right-6"
+      className="fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full bg-white/95 p-0 shadow-lg backdrop-blur-xl sm:h-auto sm:w-auto sm:px-4 md:bottom-10 md:right-6"
     >
       <CircleHelp className="h-4 w-4" />
-      Worker guide
+      <span className="hidden sm:inline">Worker guide</span>
     </Button>
   )
 }
