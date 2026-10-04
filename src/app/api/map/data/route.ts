@@ -88,6 +88,16 @@ export async function GET(request: NextRequest) {
     const requestedPeriodStart =
       parseDateTimeParam(fromParam, false)
 
+    const historical = Boolean(
+      asOfParam || fromParam,
+    )
+
+    if (!historical) {
+      await maybeAutoResetMapReliefCycle(
+        new Date(),
+      )
+    }
+
     const cycleReset =
       requestedPeriodStart
         ? null
@@ -99,16 +109,6 @@ export async function GET(request: NextRequest) {
       requestedPeriodStart ||
       cycleReset?.resetAt ||
       null
-
-    const historical = Boolean(
-      asOfParam || fromParam,
-    )
-
-    if (!historical) {
-      await maybeAutoResetMapReliefCycle(
-        new Date(),
-      )
-    }
 
     const profiles =
       await db.vulnerableProfile.findMany({
