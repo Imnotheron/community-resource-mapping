@@ -253,7 +253,10 @@ export function AppShell({
               </div>
 
               <div className="flex items-center gap-2">
-                <ConnectionIndicator className="max-w-[128px] px-2" />
+                <ConnectionIndicator
+                  compactOnMobile
+                  className="max-w-[118px] gap-1.5 px-2"
+                />
               <button
                 type="button"
                 onClick={onProfile}
@@ -310,7 +313,7 @@ export function AppShell({
               </div>
             </header>
 
-            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-6 md:py-5">
+            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4 md:px-6 md:py-5">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeView}
