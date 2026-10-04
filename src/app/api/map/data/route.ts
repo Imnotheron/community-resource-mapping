@@ -371,8 +371,11 @@ export async function GET(request: NextRequest) {
             )
 
           const base =
-            latestCurrentCycle?.resetAt ||
-            settings.updatedAt
+            latestCurrentCycle?.resetAt &&
+            latestCurrentCycle.resetAt >
+              settings.updatedAt
+              ? latestCurrentCycle.resetAt
+              : settings.updatedAt
 
           return {
             resetIntervalDays:
