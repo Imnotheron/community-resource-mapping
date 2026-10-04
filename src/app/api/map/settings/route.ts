@@ -10,20 +10,58 @@ import {
 } from '@/lib/map-relief-cycle'
 
 const settingsSchema = z.object({
-  resetIntervalDays: z
-    .number()
-    .int()
-    .min(1)
-    .max(365)
+  autoResetDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable(),
 })
 
+function parseResetDate(
+  value: string | null,
+) {
+  if (!value) return null
+
+  const date = new Date(
+    `${value}T00:00:00+08:00`,
+  )
+
+  return Number.isNaN(
+    date.getTime(),
+  )
+    ? null
+    : date
+}
+
+function dateInputValue(
+  value: Date | null,
+) {
+  if (!value) return null
+
+  return new Intl.DateTimeFormat(
+    'en-CA',
+    {
+      timeZone:
+        'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    },
+  ).format(value)
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireRequestUser(request, {
-      allowedRoles: ['ADMIN'],
-    })
-    if ('error' in auth) return auth.error
+    const auth =
+      await requireRequestUser(
+        request,
+        {
+          allowedRoles: ['ADMIN'],
+        },
+      )
+
+    if ('error' in auth) {
+      return auth.error
+    }
 
     const settings =
       await getMapReliefCycleSettings()
@@ -31,9 +69,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        resetIntervalDays:
-          settings.resetIntervalDays,
-        updatedAt: settings.updatedAt,
+        autoResetDate:
+          dateInputValue(
+            settings.autoResetAt,
+          ),
+        autoResetAt:
+          settings.autoResetAt,
+        updatedAt:
+          settings.updatedAt,
       },
       {
         headers: {
@@ -61,10 +104,17 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await requireRequestUser(request, {
-      allowedRoles: ['ADMIN'],
-    })
-    if ('error' in auth) return auth.error
+    const auth =
+      await requireRequestUser(
+        request,
+        {
+          allowedRoles: ['ADMIN'],
+        },
+      )
+
+    if ('error' in auth) {
+      return auth.error
+    }
 
     const body =
       await request.json()
@@ -77,24 +127,72 @@ export async function PUT(request: NextRequest) {
         {
           success: false,
           error:
-            'Reset interval must be between 1 and 365 days, or disabled.',
+            'Choose a valid automatic reset date, or clear it to disable the schedule.',
         },
         { status: 400 },
       )
     }
 
+    const scheduledDate =
+      parseResetDate(
+        parsed.data.autoResetDate,
+      )
+
+    if (
+      parsed.data.autoResetDate &&
+      !scheduledDate
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Choose a valid automatic reset date.',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (scheduledDate) {
+      const todayStart =
+        parseResetDate(
+          dateInputValue(
+            new Date(),
+          ),
+        )
+
+      if (
+        todayStart &&
+        scheduledDate <
+          todayStart
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Automatic reset date cannot be in the past.',
+          },
+          { status: 400 },
+        )
+      }
+    }
+
     const settings =
       await updateMapReliefCycleSettings(
-        parsed.data.resetIntervalDays,
+        scheduledDate,
         auth.userId,
       )
 
     return NextResponse.json(
       {
         success: true,
-        resetIntervalDays:
-          settings.resetIntervalDays,
-        updatedAt: settings.updatedAt,
+        autoResetDate:
+          dateInputValue(
+            settings.autoResetAt,
+          ),
+        autoResetAt:
+          settings.autoResetAt,
+        updatedAt:
+          settings.updatedAt,
       },
       {
         headers: {
