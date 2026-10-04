@@ -8,7 +8,9 @@ import {
 } from 'react'
 import {
   CalendarDays,
+  Clock3,
   RefreshCw,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -16,13 +18,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { WowLoader } from '@/components/ui/wow-loader'
 import { apiFetch } from '@/lib/api-client'
 import type { VulnerablePoint } from '@/components/maps/vulnerable-map'
@@ -45,13 +40,6 @@ const VulnerableMap = dynamic(
   },
 )
 
-type RecapMode =
-  | 'ALL'
-  | 'DAY'
-  | 'WEEK'
-  | 'MONTH'
-  | 'DATE'
-
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
   const month = String(
@@ -64,26 +52,7 @@ function toDateInputValue(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function startOfWeek(date: Date) {
-  const start = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  )
-  const weekday = start.getDay()
-  const daysFromMonday =
-    weekday === 0 ? 6 : weekday - 1
-
-  start.setDate(
-    start.getDate() -
-      daysFromMonday,
-  )
-
-  return start
-}
-
 function buildMapQuery(
-  mode: RecapMode,
   selectedDate: string,
 ) {
   const params =
@@ -94,47 +63,7 @@ function buildMapQuery(
     String(Date.now()),
   )
 
-  const today = new Date()
-
-  if (mode === 'DAY') {
-    const date =
-      toDateInputValue(today)
-
-    params.set('from', date)
-    params.set('asOf', date)
-  } else if (mode === 'WEEK') {
-    params.set(
-      'from',
-      toDateInputValue(
-        startOfWeek(today),
-      ),
-    )
-    params.set(
-      'asOf',
-      toDateInputValue(today),
-    )
-  } else if (mode === 'MONTH') {
-    params.set(
-      'from',
-      toDateInputValue(
-        new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          1,
-        ),
-      ),
-    )
-    params.set(
-      'asOf',
-      toDateInputValue(today),
-    )
-  } else if (
-    mode === 'DATE' &&
-    selectedDate
-  ) {
-    // A selected historical date reconstructs the relief cycle
-    // that was active on that date rather than filtering out
-    // citizens who had no activity that day.
+  if (selectedDate) {
     params.set(
       'asOf',
       selectedDate,
@@ -144,24 +73,11 @@ function buildMapQuery(
   return params.toString()
 }
 
-function getRecapLabel(
-  mode: RecapMode,
+function historicalLabel(
   selectedDate: string,
 ) {
-  if (mode === 'ALL') {
+  if (!selectedDate) {
     return 'Current relief cycle'
-  }
-
-  if (mode === 'DAY') {
-    return 'Today'
-  }
-
-  if (mode === 'WEEK') {
-    return 'This week'
-  }
-
-  if (mode === 'MONTH') {
-    return 'This month'
   }
 
   const [year, month, day] =
@@ -169,22 +85,22 @@ function getRecapLabel(
       .split('-')
       .map(Number)
 
-  if (year && month && day) {
-    return new Date(
-      year,
-      month - 1,
-      day,
-    ).toLocaleDateString(
-      'en-PH',
-      {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      },
-    )
+  if (!year || !month || !day) {
+    return 'Selected date'
   }
 
-  return 'Selected date'
+  return new Date(
+    year,
+    month - 1,
+    day,
+  ).toLocaleDateString(
+    'en-PH',
+    {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    },
+  )
 }
 
 export function LiveVulnerableMapView({
@@ -205,16 +121,10 @@ export function LiveVulnerableMapView({
     useState<VulnerablePoint[]>([])
   const [loading, setLoading] =
     useState(true)
-  const [recapMode, setRecapMode] =
-    useState<RecapMode>('ALL')
   const [
     selectedDate,
     setSelectedDate,
-  ] = useState(() =>
-    toDateInputValue(
-      new Date(),
-    ),
-  )
+  ] = useState('')
   const [
     resetVersion,
     setResetVersion,
@@ -228,6 +138,26 @@ export function LiveVulnerableMapView({
     setCycleStartedAt,
   ] = useState<string | null>(null)
   const [
+    resetIntervalDays,
+    setResetIntervalDays,
+  ] = useState<number | null>(null)
+  const [
+    resetIntervalInput,
+    setResetIntervalInput,
+  ] = useState('')
+  const [
+    timerDirty,
+    setTimerDirty,
+  ] = useState(false)
+  const [
+    nextAutoResetAt,
+    setNextAutoResetAt,
+  ] = useState<string | null>(null)
+  const [
+    savingTimer,
+    setSavingTimer,
+  ] = useState(false)
+  const [
     resetDialogOpen,
     setResetDialogOpen,
   ] = useState(false)
@@ -239,27 +169,27 @@ export function LiveVulnerableMapView({
   const loadMap = useCallback(
     async (
       showLoader = false,
-      modeOverride?: RecapMode,
+      dateOverride?: string,
     ) => {
       if (showLoader) {
         setLoading(true)
       }
 
-      const mode =
-        modeOverride ||
-        recapMode
+      const date =
+        dateOverride !== undefined
+          ? dateOverride
+          : selectedDate
 
       try {
         const query =
-          buildMapQuery(
-            mode,
-            selectedDate,
-          )
+          buildMapQuery(date)
 
         const data =
           await apiFetch<{
             points?: VulnerablePoint[]
             cycleStartedAt?: string | null
+            resetIntervalDays?: number | null
+            nextAutoResetAt?: string | null
           }>(
             `/api/map/data?${query}`,
             {
@@ -274,6 +204,25 @@ export function LiveVulnerableMapView({
           data.cycleStartedAt ||
             null,
         )
+        setResetIntervalDays(
+          data.resetIntervalDays ??
+            null,
+        )
+        setNextAutoResetAt(
+          data.nextAutoResetAt ||
+            null,
+        )
+
+        if (!timerDirty) {
+          setResetIntervalInput(
+            data.resetIntervalDays
+              ? String(
+                  data.resetIntervalDays,
+                )
+              : '',
+          )
+        }
+
         setLastUpdated(
           new Date(),
         )
@@ -291,8 +240,8 @@ export function LiveVulnerableMapView({
       }
     },
     [
-      recapMode,
       selectedDate,
+      timerDirty,
     ],
   )
 
@@ -301,7 +250,7 @@ export function LiveVulnerableMapView({
   }, [loadMap])
 
   useEffect(() => {
-    if (recapMode === 'DATE') {
+    if (selectedDate) {
       return
     }
 
@@ -323,7 +272,73 @@ export function LiveVulnerableMapView({
       window.clearInterval(
         interval,
       )
-  }, [loadMap, recapMode])
+  }, [loadMap, selectedDate])
+
+  async function saveAutoResetTimer() {
+    const trimmed =
+      resetIntervalInput.trim()
+
+    const days =
+      trimmed === ''
+        ? null
+        : Number(trimmed)
+
+    if (
+      days !== null &&
+      (!Number.isInteger(days) ||
+        days < 1 ||
+        days > 365)
+    ) {
+      toast.error(
+        'Enter a valid reset interval',
+        {
+          description:
+            'Use a whole number from 1 to 365 days, or leave it blank to turn automatic reset off.',
+        },
+      )
+      return
+    }
+
+    setSavingTimer(true)
+
+    try {
+      await apiFetch(
+        '/api/map/settings',
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            resetIntervalDays:
+              days,
+          }),
+        },
+      )
+
+      setTimerDirty(false)
+      setResetIntervalDays(days)
+
+      await loadMap(
+        false,
+        selectedDate,
+      )
+
+      toast.success(
+        days
+          ? `Automatic reset set to every ${days} day${days === 1 ? '' : 's'}`
+          : 'Automatic map reset turned off',
+      )
+    } catch (error: any) {
+      toast.error(
+        'Unable to save automatic reset',
+        {
+          description:
+            error?.message ||
+            'Please try again.',
+        },
+      )
+    } finally {
+      setSavingTimer(false)
+    }
+  }
 
   async function resetCycle() {
     setResettingCycle(true)
@@ -336,7 +351,7 @@ export function LiveVulnerableMapView({
         },
       )
 
-      setRecapMode('ALL')
+      setSelectedDate('')
       setResetVersion(
         (version) =>
           version + 1,
@@ -344,7 +359,7 @@ export function LiveVulnerableMapView({
 
       await loadMap(
         false,
-        'ALL',
+        '',
       )
 
       toast.success(
@@ -370,8 +385,7 @@ export function LiveVulnerableMapView({
   }
 
   const recapLabel =
-    getRecapLabel(
-      recapMode,
+    historicalLabel(
       selectedDate,
     )
 
@@ -391,68 +405,113 @@ export function LiveVulnerableMapView({
               {cycleStartedAt
                 ? ` · Cycle began ${new Date(cycleStartedAt).toLocaleString('en-PH')}`
                 : ''}
+              {resetIntervalDays && nextAutoResetAt && !selectedDate
+                ? ` · Auto reset every ${resetIntervalDays} day${resetIntervalDays === 1 ? '' : 's'} · Next ${new Date(nextAutoResetAt).toLocaleString('en-PH')}`
+                : ''}
               {lastUpdated
                 ? ` · Last synced ${lastUpdated.toLocaleTimeString('en-PH')}`
                 : ''}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={recapMode}
-              onValueChange={(
-                value,
-              ) =>
-                setRecapMode(
-                  value as RecapMode,
-                )
-              }
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">
-                  Current cycle
-                </SelectItem>
-                <SelectItem value="DAY">
-                  By day
-                </SelectItem>
-                <SelectItem value="WEEK">
-                  By week
-                </SelectItem>
-                <SelectItem value="MONTH">
-                  By month
-                </SelectItem>
-                <SelectItem value="DATE">
-                  Select date
-                </SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                Select date
+              </p>
+              <div className="flex items-center gap-1">
+                <div className="relative">
+                  <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    type="date"
+                    value={
+                      selectedDate
+                    }
+                    max={toDateInputValue(
+                      new Date(),
+                    )}
+                    onChange={(
+                      event,
+                    ) => {
+                      setSelectedDate(
+                        event.target
+                          .value,
+                      )
+                    }}
+                    className="w-[175px] pl-9"
+                    aria-label="Select historical map date"
+                  />
+                </div>
 
-            {recapMode ===
-            'DATE' ? (
-              <div className="relative">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  type="date"
-                  value={
-                    selectedDate
-                  }
-                  max={toDateInputValue(
-                    new Date(),
-                  )}
-                  onChange={(
-                    event,
-                  ) =>
-                    setSelectedDate(
-                      event.target
-                        .value,
-                    )
-                  }
-                  className="w-[175px] pl-9"
-                  aria-label="Select historical map date"
-                />
+                {selectedDate ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={() =>
+                      setSelectedDate('')
+                    }
+                    title="Return to current cycle"
+                    aria-label="Clear selected historical date"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+
+            {allowCycleReset ? (
+              <div className="space-y-1">
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Auto reset timer
+                </p>
+                <div className="flex items-center gap-1 rounded-md border bg-background px-2 shadow-xs">
+                  <Clock3 className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="whitespace-nowrap text-xs text-slate-600">
+                    Every
+                  </span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    step={1}
+                    value={
+                      resetIntervalInput
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setResetIntervalInput(
+                        event.target
+                          .value,
+                      )
+                      setTimerDirty(true)
+                    }}
+                    placeholder="Off"
+                    className="h-8 w-[72px] border-0 px-1 text-center shadow-none focus-visible:ring-0"
+                    aria-label="Automatic map reset interval in days"
+                  />
+                  <span className="text-xs text-slate-600">
+                    days
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2"
+                    onClick={() => {
+                      void saveAutoResetTimer()
+                    }}
+                    disabled={
+                      savingTimer
+                    }
+                  >
+                    {savingTimer
+                      ? 'Saving…'
+                      : 'Save'}
+                  </Button>
+                </div>
               </div>
             ) : null}
 
@@ -460,7 +519,7 @@ export function LiveVulnerableMapView({
               <Button
                 type="button"
                 variant="outline"
-                className="gap-2"
+                className="h-10 gap-2"
                 onClick={() =>
                   setResetDialogOpen(
                     true,
