@@ -164,8 +164,11 @@ export async function maybeAutoResetMapReliefCycle(
     )
 
   const baseTime =
-    latest?.resetAt ||
-    settings.updatedAt
+    latest?.resetAt &&
+    latest.resetAt >
+      settings.updatedAt
+      ? latest.resetAt
+      : settings.updatedAt
 
   const intervalMs =
     intervalDays *
@@ -197,8 +200,11 @@ export async function maybeAutoResetMapReliefCycle(
     )
 
   const effectiveBase =
-    latestBeforeInsert?.resetAt ||
-    settings.updatedAt
+    latestBeforeInsert?.resetAt &&
+    latestBeforeInsert.resetAt >
+      settings.updatedAt
+      ? latestBeforeInsert.resetAt
+      : settings.updatedAt
 
   if (
     now.getTime() <
