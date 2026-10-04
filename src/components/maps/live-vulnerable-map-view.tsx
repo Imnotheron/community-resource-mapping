@@ -442,18 +442,18 @@ export function LiveVulnerableMapView({
 
   return (
     <>
-      <div className="space-y-5 animate-fade-in">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="space-y-3 animate-fade-in sm:space-y-5">
+        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="hidden text-2xl font-semibold tracking-tight md:block">
               {title}
             </h1>
 
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 hidden text-sm text-muted-foreground md:block">
               {description}
             </p>
 
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-xs leading-5 text-muted-foreground md:mt-1">
               {recapLabel} · Showing {points.length} active vulnerable record{points.length === 1 ? '' : 's'}
               {cycleStartedAt
                 ? ` · Cycle began ${new Date(cycleStartedAt).toLocaleString('en-PH')}`
@@ -471,14 +471,14 @@ export function LiveVulnerableMapView({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="space-y-1">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto">
+            <div className="w-full space-y-1 sm:w-auto">
               <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
                 View map date
               </p>
 
-              <div className="flex items-center gap-1">
-                <div className="relative">
+              <div className="flex w-full items-center gap-1 sm:w-auto">
+                <div className="relative min-w-0 flex-1 sm:flex-none">
                   <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
                   <Input
@@ -497,7 +497,7 @@ export function LiveVulnerableMapView({
                           .value,
                       )
                     }}
-                    className="w-[175px] pl-9"
+                    className="w-full min-w-0 pl-9 sm:w-[175px]"
                     aria-label="Select historical map date"
                   />
                 </div>
@@ -521,13 +521,13 @@ export function LiveVulnerableMapView({
             </div>
 
             {allowCycleReset ? (
-              <div className="space-y-1">
+              <div className="w-full space-y-1 sm:w-auto">
                 <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
                   Auto reset date
                 </p>
 
-                <div className="flex items-center gap-1">
-                  <div className="relative">
+                <div className="flex w-full items-center gap-1 sm:w-auto">
+                  <div className="relative min-w-0 flex-1 sm:flex-none">
                     <CalendarClock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
                     <Input
@@ -549,7 +549,7 @@ export function LiveVulnerableMapView({
                           true,
                         )
                       }}
-                      className="w-[175px] pl-9"
+                      className="w-full min-w-0 pl-9 sm:w-[175px]"
                       aria-label="Select automatic map reset date"
                     />
                   </div>
@@ -623,8 +623,8 @@ export function LiveVulnerableMapView({
             className="h-[420px]"
           />
         ) : (
-          <Card>
-            <CardContent className="p-2">
+          <Card className="border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-sm">
+            <CardContent className="p-0 md:p-2">
               <VulnerableMap
                 points={points}
                 height={500}
