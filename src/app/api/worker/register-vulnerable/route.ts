@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { normalizeRegistrationDocuments } from '@/lib/registration-documents'
 
 function clean(value: unknown) {
   return String(value || '').trim()
@@ -113,6 +114,24 @@ export async function POST(request: NextRequest) {
           .slice(0, 30)
       : []
 
+    let registrationDocuments
+    try {
+      registrationDocuments = normalizeRegistrationDocuments(
+        body.documents,
+      )
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Invalid registration documents',
+        },
+        { status: 400 },
+      )
+    }
+
     const plainPassword = temporaryPassword()
     const hashedPassword = await bcrypt.hash(plainPassword, 10)
 
@@ -181,6 +200,17 @@ export async function POST(request: NextRequest) {
           createdAt: true,
         },
       })
+
+      for (const document of registrationDocuments) {
+        await transaction.vulnerabilityDocument.create({
+          data: {
+            profileId: profile.id,
+            documentType: document.documentType,
+            fileName: document.fileName,
+            fileUrl: document.fileUrl,
+          },
+        })
+      }
 
       return { user, profile }
     })
