@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { Buffer } from 'node:buffer'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
