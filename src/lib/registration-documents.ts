@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+
 export type StoredRegistrationDocument = {
   documentType: string
   fileName: string
