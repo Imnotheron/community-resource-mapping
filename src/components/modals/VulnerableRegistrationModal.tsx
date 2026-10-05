@@ -40,6 +40,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useLookupOptions } from '@/hooks/use-lookup-options'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
+import { apiFetch } from '@/lib/api-client'
 
 const AddressPickerMap = dynamic(() => import('@/components/maps/address-picker-map'), {
   ssr: false,
@@ -475,6 +476,15 @@ function getRequiredFieldIssues(
     )
   }
 
+  if (!form.civilStatus.trim()) {
+    addIssue(
+      'civilStatus',
+      'Civil status',
+      0,
+      'Civil status is required.',
+    )
+  }
+
   if (!form.mobileNumber.trim()) {
     addIssue(
       'mobileNumber',
@@ -844,8 +854,14 @@ export default function VulnerableRegistrationModal({
   open,
   onClose,
   onSubmit,
+  userRole = 'admin',
 }: VulnerableRegistrationModalProps) {
   const isMobile = useIsMobile()
+  const normalizedRole = String(userRole || 'admin').trim().toLowerCase()
+  const isWorker = normalizedRole === 'worker'
+  const draftBasePath = isWorker
+    ? '/api/worker/vulnerable-drafts'
+    : '/api/admin/vulnerable-drafts'
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(getEmptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -1052,9 +1068,9 @@ export default function VulnerableRegistrationModal({
   }
 
   const loadDrafts = useCallback(async () => {
-    const adminId = getCurrentAdminId()
+    const currentUserId = getCurrentAdminId()
 
-    if (!adminId) {
+    if (!currentUserId) {
       setDrafts([])
       return
     }
@@ -1062,13 +1078,13 @@ export default function VulnerableRegistrationModal({
     setLoadingDrafts(true)
 
     try {
-      const response = await fetch(
-        `/api/admin/vulnerable-drafts?adminId=${encodeURIComponent(adminId)}`,
-        { cache: 'no-store' }
+      const queryKey = isWorker ? 'workerId' : 'adminId'
+      const data = await apiFetch<any>(
+        `${draftBasePath}?${queryKey}=${encodeURIComponent(currentUserId)}`,
+        { cache: 'no-store' },
       )
-      const data = await response.json().catch(() => null)
 
-      if (!response.ok || !data?.success) {
+      if (!data?.success) {
         throw new Error(data?.message || 'Failed to load drafts')
       }
 
@@ -1080,7 +1096,7 @@ export default function VulnerableRegistrationModal({
     } finally {
       setLoadingDrafts(false)
     }
-  }, [])
+  }, [draftBasePath, isWorker])
 
   useEffect(() => {
     if (!open) return
@@ -1122,9 +1138,9 @@ export default function VulnerableRegistrationModal({
   }
 
   async function performSaveDraft() {
-    const adminId = getCurrentAdminId()
+    const currentUserId = getCurrentAdminId()
 
-    if (!adminId) {
+    if (!currentUserId) {
       toast.error('User session missing', {
         description: 'Please sign in again before saving a draft.',
       })
@@ -1134,20 +1150,22 @@ export default function VulnerableRegistrationModal({
     setSavingDraft(true)
 
     try {
-      const response = await fetch('/api/admin/vulnerable-drafts', {
+      const ownerField = isWorker
+        ? { workerId: currentUserId }
+        : { adminId: currentUserId }
+
+      const data = await apiFetch<any>(draftBasePath, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminId,
+          ...ownerField,
           draftId: currentDraftId,
           title: createDraftTitle(form),
           currentStep: step,
           formData: getSerializableForm(form),
         }),
       })
-      const data = await response.json().catch(() => null)
 
-      if (!response.ok || !data?.success) {
+      if (!data?.success) {
         throw new Error(data?.message || 'Failed to save draft')
       }
 
@@ -1180,9 +1198,9 @@ export default function VulnerableRegistrationModal({
   }
 
   async function performDeleteDraft(draftId: string) {
-    const adminId = getCurrentAdminId()
+    const currentUserId = getCurrentAdminId()
 
-    if (!adminId) {
+    if (!currentUserId) {
       toast.error('User session missing', {
         description: 'Please sign in again before deleting a draft.',
       })
@@ -1190,14 +1208,16 @@ export default function VulnerableRegistrationModal({
     }
 
     try {
-      const response = await fetch(`/api/admin/vulnerable-drafts/${draftId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminId }),
-      })
-      const data = await response.json().catch(() => null)
+      const ownerField = isWorker
+        ? { workerId: currentUserId }
+        : { adminId: currentUserId }
 
-      if (!response.ok || !data?.success) {
+      const data = await apiFetch<any>(`${draftBasePath}/${draftId}`, {
+        method: 'DELETE',
+        body: JSON.stringify(ownerField),
+      })
+
+      if (!data?.success) {
         throw new Error(data?.message || 'Failed to delete draft')
       }
 
@@ -1469,11 +1489,14 @@ export default function VulnerableRegistrationModal({
       await onSubmit(form)
 
       if (currentDraftId) {
-        const adminId = getCurrentAdminId()
-        await fetch(`/api/admin/vulnerable-drafts/${currentDraftId}`, {
+        const currentUserId = getCurrentAdminId()
+        const ownerField = isWorker
+          ? { workerId: currentUserId }
+          : { adminId: currentUserId }
+
+        await apiFetch(`${draftBasePath}/${currentDraftId}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminId }),
+          body: JSON.stringify(ownerField),
         }).catch(() => null)
       }
 
@@ -1555,13 +1578,14 @@ export default function VulnerableRegistrationModal({
             />
           </InputBlock>
 
-          <InputBlock label="Civil Status">
+          <InputBlock label="Civil Status" field="civilStatus" required error={errors.civilStatus}>
             <SmartEditableSelect
               value={form.civilStatus}
               onValueChange={(value) => updateField('civilStatus', value)}
               options={['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED']}
               storageKey="registration.civil-status"
               placeholder="Select or type civil status"
+              className={cn(errors.civilStatus && 'border-red-400')}
             />
           </InputBlock>
 
@@ -2235,8 +2259,9 @@ export default function VulnerableRegistrationModal({
                 Ready for registration
               </p>
               <p className="mt-1 text-sm text-emerald-800">
-                The system will create the user account, auto-approve the vulnerable profile,
-                and send the generated credentials to the citizen&apos;s email address.
+                {isWorker
+                  ? 'The system will create the citizen account and submit the vulnerable profile as PENDING for Administrator approval.'
+                  : 'The system will create the user account, auto-approve the vulnerable profile, and send the generated credentials to the citizen\'s email address.'}
               </p>
             </div>
           </div>
