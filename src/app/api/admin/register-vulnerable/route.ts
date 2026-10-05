@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { sendVulnerableRegistrationApprovedEmail } from '@/lib/email'
 import { requireRequestUser } from '@/lib/request-user-session'
+import { normalizeRegistrationDocuments } from '@/lib/registration-documents'
 
 function clean(value: unknown, max = 1000) {
   return String(value || '').trim().slice(0, max)
@@ -196,6 +197,24 @@ export async function POST(request: NextRequest) {
       disabilityType,
       needsAssistance,
     )
+
+    let registrationDocuments
+    try {
+      registrationDocuments = normalizeRegistrationDocuments(
+        body.documents,
+      )
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Invalid registration documents',
+        },
+        { status: 400 },
+      )
+    }
 
     const existingUser = await db.user.findUnique({
       where: { email: emailAddress },
@@ -391,43 +410,13 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        const documentFlags = [
-          [
-            body.hasPWDRegistrationForm,
-            'PWD_REGISTRATION_FORM',
-            'PWD Registration Form',
-          ],
-          [
-            body.hasMedicalCertificate,
-            'MEDICAL_CERTIFICATE',
-            'Medical Certificate',
-          ],
-          [
-            body.hasProofOfIdentity,
-            'PROOF_OF_IDENTITY',
-            'Proof of Identity',
-          ],
-          [
-            body.hasProofOfResidence,
-            'PROOF_OF_RESIDENCE',
-            'Proof of Residence',
-          ],
-        ] as const
-
-        for (const [
-          available,
-          documentType,
-          fileName,
-        ] of documentFlags) {
-          if (!available) continue
-
+        for (const document of registrationDocuments) {
           await transaction.vulnerabilityDocument.create({
             data: {
               profileId: profile.id,
-              documentType,
-              fileName,
-              fileUrl:
-                'recorded-as-available-no-file-upload',
+              documentType: document.documentType,
+              fileName: document.fileName,
+              fileUrl: document.fileUrl,
             },
           })
         }
