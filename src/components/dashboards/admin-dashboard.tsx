@@ -88,6 +88,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AnnouncementForm } from "@/components/forms/announcement-form";
 import { AnnouncementsCarousel } from "@/components/dashboards/announcements-carousel";
 import { apiFetch, AuthUser } from "@/lib/api-client";
+import { serializeRegistrationDocuments } from "@/lib/registration-documents-client";
 import {
   formatDate,
   formatDateTime,
@@ -1117,11 +1118,16 @@ function RegistrationsView() {
     }
 
     try {
+      const documents =
+        await serializeRegistrationDocuments(formData)
+
       const payload = {
         ...formData,
         adminId,
+        documents,
 
-        // Strip File objects because your current API route receives JSON only.
+        // File objects cannot be sent directly through JSON. They are encoded
+        // into the persistent documents payload above.
         pwdRegistrationForm: undefined,
         medicalCertificate: undefined,
         proofOfIdentity: undefined,
