@@ -28,7 +28,14 @@ export async function GET(request: NextRequest) {
           },
         },
         household: true,
-        documents: true,
+        documents: {
+          select: {
+            id: true,
+            documentType: true,
+            fileName: true,
+            uploadedAt: true,
+          },
+        },
         reliefDistributions: {
           orderBy: {
             distributionDate: 'desc',
@@ -69,7 +76,10 @@ export async function GET(request: NextRequest) {
 
         user: undefined,
         household: profile.household || null,
-        documents: profile.documents || [],
+        documents: (profile.documents || []).map((document) => ({
+          ...document,
+          fileUrl: `/api/documents/${document.id}`,
+        })),
       }
     })
 
