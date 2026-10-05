@@ -1,8 +1,10 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 function createDraftTitle(formData: any) {
   const fullName = [formData?.firstName, formData?.middleName, formData?.lastName]
@@ -24,7 +26,6 @@ function createDraftTitle(formData: any) {
 
 function parseDraftFormData(value: unknown) {
   if (!value) return {}
-
   if (typeof value === 'object') return value
 
   try {
@@ -62,44 +63,30 @@ async function ensureDraftTable() {
   `)
 
   await db.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS "VulnerableRegistrationDraft_adminId_idx" ON "VulnerableRegistrationDraft"("adminId")`
+    `CREATE INDEX IF NOT EXISTS "VulnerableRegistrationDraft_adminId_idx" ON "VulnerableRegistrationDraft"("adminId")`,
   )
-  await db.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS "VulnerableRegistrationDraft_status_idx" ON "VulnerableRegistrationDraft"("status")`
-  )
-  await db.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS "VulnerableRegistrationDraft_createdAt_idx" ON "VulnerableRegistrationDraft"("createdAt")`
-  )
-}
-
-function requireAdminId(adminId: string) {
-  if (!adminId) {
-    return NextResponse.json(
-      { success: false, message: 'Missing adminId. Please sign in again.' },
-      { status: 400 }
-    )
-  }
-
-  return null
 }
 
 export async function GET(request: NextRequest) {
   try {
+    const requestedAdminId =
+      request.nextUrl.searchParams.get('adminId') || ''
+
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+      requestedUserId: requestedAdminId || undefined,
+    })
+    if ('error' in auth) return auth.error
+
     await ensureDraftTable()
-
-    const { searchParams } = new URL(request.url)
-    const adminId = searchParams.get('adminId') || ''
-    const missingAdminResponse = requireAdminId(adminId)
-
-    if (missingAdminResponse) return missingAdminResponse
 
     const rows = await db.$queryRawUnsafe<any[]>(
       `SELECT * FROM "VulnerableRegistrationDraft"
        WHERE "adminId" = ? AND "status" = ?
        ORDER BY "updatedAt" DESC
        LIMIT 50`,
-      adminId,
-      'DRAFT'
+      auth.userId,
+      'DRAFT',
     )
 
     return NextResponse.json({
@@ -115,27 +102,29 @@ export async function GET(request: NextRequest) {
         message: 'Failed to load vulnerable registration drafts',
         error: error?.message || 'Unknown error',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json().catch(() => ({}))
+
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+      requestedUserId: String(body.adminId || '').trim() || undefined,
+    })
+    if ('error' in auth) return auth.error
+
     await ensureDraftTable()
 
-    const body = await request.json()
     const {
-      adminId = '',
       draftId = null,
       title = '',
       formData = {},
       currentStep = 0,
     } = body
-
-    const missingAdminResponse = requireAdminId(adminId)
-
-    if (missingAdminResponse) return missingAdminResponse
 
     const safeTitle = title || createDraftTitle(formData)
     const serializedFormData = JSON.stringify(formData || {})
@@ -152,21 +141,23 @@ export async function POST(request: NextRequest) {
         serializedFormData,
         safeCurrentStep,
         draftId,
-        adminId,
-        'DRAFT'
+        auth.userId,
+        'DRAFT',
       )
 
       if (!updateCount) {
         return NextResponse.json(
           { success: false, message: 'Draft not found' },
-          { status: 404 }
+          { status: 404 },
         )
       }
 
       const rows = await db.$queryRawUnsafe<any[]>(
-        `SELECT * FROM "VulnerableRegistrationDraft" WHERE "id" = ? AND "adminId" = ? LIMIT 1`,
+        `SELECT * FROM "VulnerableRegistrationDraft"
+         WHERE "id" = ? AND "adminId" = ?
+         LIMIT 1`,
         draftId,
-        adminId
+        auth.userId,
       )
 
       return NextResponse.json({
@@ -183,17 +174,19 @@ export async function POST(request: NextRequest) {
        ("id", "adminId", "title", "formData", "currentStep", "status", "createdAt", "updatedAt")
        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id,
-      adminId,
+      auth.userId,
       safeTitle,
       serializedFormData,
       safeCurrentStep,
-      'DRAFT'
+      'DRAFT',
     )
 
     const rows = await db.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "VulnerableRegistrationDraft" WHERE "id" = ? AND "adminId" = ? LIMIT 1`,
+      `SELECT * FROM "VulnerableRegistrationDraft"
+       WHERE "id" = ? AND "adminId" = ?
+       LIMIT 1`,
       id,
-      adminId
+      auth.userId,
     )
 
     return NextResponse.json({
@@ -210,7 +203,7 @@ export async function POST(request: NextRequest) {
         message: 'Failed to save vulnerable registration draft',
         error: error?.message || 'Unknown error',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
