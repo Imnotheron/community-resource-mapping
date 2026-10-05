@@ -2170,7 +2170,7 @@ export default function VulnerableRegistrationModal({
       <>
         <SectionTitle
           title="Documents"
-          subtitle="Attach available supporting documents. These are optional in the current API flow."
+          subtitle="Attach available supporting documents. Selected JPG, PNG, WebP, and PDF files are stored with the registration; keep the combined upload at 2.75 MB or less."
         />
 
         <div className="space-y-4">
