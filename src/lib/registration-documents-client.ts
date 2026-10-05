@@ -58,8 +58,20 @@ export async function serializeRegistrationDocuments(
     file: File
   }> = []
 
-  const add = (enabled: unknown, documentType: string, file: unknown) => {
-    if (!enabled || !(file instanceof File)) return
+  const add = (
+    enabled: unknown,
+    documentType: string,
+    file: unknown,
+    label: string,
+  ) => {
+    if (!enabled) return
+
+    if (!(file instanceof File)) {
+      throw new Error(
+        `Attach the selected ${label} file, or uncheck that document before submitting.`,
+      )
+    }
+
     candidates.push({ documentType, file })
   }
 
@@ -67,25 +79,39 @@ export async function serializeRegistrationDocuments(
     formData.hasPWDRegistrationForm,
     'PWD_REGISTRATION_FORM',
     formData.pwdRegistrationForm,
+    'PWD Registration Form',
   )
   add(
     formData.hasMedicalCertificate,
     'MEDICAL_CERTIFICATE',
     formData.medicalCertificate,
+    'Medical Certificate',
   )
   add(
     formData.hasProofOfIdentity,
     'PROOF_OF_IDENTITY',
     formData.proofOfIdentity,
+    'Proof of Identity',
   )
   add(
     formData.hasProofOfResidence,
     'PROOF_OF_RESIDENCE',
     formData.proofOfResidence,
+    'Proof of Residence',
   )
 
-  if (formData.hasIDPhotos && formData.idPhotos) {
-    for (const file of Array.from(formData.idPhotos as FileList)) {
+  if (formData.hasIDPhotos) {
+    const photos = formData.idPhotos
+      ? Array.from(formData.idPhotos as FileList)
+      : []
+
+    if (photos.length === 0) {
+      throw new Error(
+        'Attach at least one ID photo, or uncheck ID Photos before submitting.',
+      )
+    }
+
+    for (const file of photos) {
       if (file instanceof File) {
         candidates.push({
           documentType: 'ID_PHOTO',
