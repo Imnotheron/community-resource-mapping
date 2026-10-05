@@ -2227,7 +2227,7 @@ export default function VulnerableRegistrationModal({
                   <input
                     type="file"
                     multiple
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                     onChange={(e) => updateField('idPhotos', e.target.files)}
                     className="w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700"
                   />
@@ -2751,6 +2751,7 @@ function UploadCard({
             <UploadCloud className="h-5 w-5 text-slate-500" />
             <input
               type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
               onChange={(e) => onFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700"
             />
