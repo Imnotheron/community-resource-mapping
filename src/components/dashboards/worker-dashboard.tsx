@@ -33,6 +33,7 @@ import {
 import { AnnouncementsCarousel } from '@/components/dashboards/announcements-carousel'
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal'
 import { apiFetch, AuthUser, getStoredUser } from '@/lib/api-client'
+import { serializeRegistrationDocuments } from '@/lib/registration-documents-client'
 import { formatDate, formatDateTime, timeAgo, StatusBadge, PriorityBadge, formatVulnerabilityTypes } from './shared'
 
 const NAV_ITEMS: NavItem[] = [
@@ -846,15 +847,18 @@ function RegisterVulnerableView({ workerId }: { workerId: string }) {
     }
 
     try {
+      const documents =
+        await serializeRegistrationDocuments(formData)
+
       const data = await apiFetch('/api/worker/register-vulnerable', {
         method: 'POST',
         body: JSON.stringify({
           ...formData,
           workerId,
           vulnerabilityTypes,
+          documents,
 
-          // Files are not uploaded by the current worker API yet. Keep the boolean flags,
-          // but remove File objects so JSON.stringify does not break the request.
+          // File objects are converted into the persistent documents payload.
           pwdRegistrationForm: undefined,
           medicalCertificate: undefined,
           proofOfIdentity: undefined,
