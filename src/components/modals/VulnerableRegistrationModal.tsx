@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   Check,
@@ -866,6 +866,7 @@ export default function VulnerableRegistrationModal({
   const [form, setForm] = useState<FormState>(getEmptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const submitLockRef = useRef(false)
   const [drafts, setDrafts] = useState<SavedDraft[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [loadingDrafts, setLoadingDrafts] = useState(false)
@@ -1106,6 +1107,8 @@ export default function VulnerableRegistrationModal({
         ? null
         : getCenteredModalFrame(),
     )
+    submitLockRef.current = false
+    setSubmitting(false)
     setForm(getEmptyForm())
     setErrors({})
     setStep(0)
@@ -1266,6 +1269,10 @@ export default function VulnerableRegistrationModal({
   }
 
   function requestSubmit() {
+    if (submitting || submitLockRef.current) {
+      return
+    }
+
     if (!goToFirstMissingRequiredField()) {
       return
     }
@@ -1364,6 +1371,10 @@ export default function VulnerableRegistrationModal({
     }
 
     if (action.kind === 'submit') {
+      if (submitting || submitLockRef.current) {
+        return
+      }
+
       void performSubmit()
     }
   }
@@ -1483,6 +1494,14 @@ export default function VulnerableRegistrationModal({
   }
 
   async function performSubmit() {
+    if (submitLockRef.current) {
+      return
+    }
+
+    // A ref is used instead of state alone because it updates synchronously.
+    // This prevents a rapid double-click on the confirmation dialog from
+    // sending two registration POST requests before React can re-render.
+    submitLockRef.current = true
     setSubmitting(true)
 
     try {
@@ -1507,7 +1526,9 @@ export default function VulnerableRegistrationModal({
       await loadDrafts()
       onClose()
     } catch {
-      // handled by caller
+      // The caller already shows the specific registration error.
+      // Unlock only on failure so the user can correct the form and retry.
+      submitLockRef.current = false
     } finally {
       setSubmitting(false)
     }
