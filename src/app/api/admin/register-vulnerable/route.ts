@@ -218,15 +218,41 @@ export async function POST(request: NextRequest) {
 
     const existingUser = await db.user.findUnique({
       where: { email: emailAddress },
-      select: { id: true },
+      select: {
+        id: true,
+        role: true,
+        vulnerableProfile: {
+          select: {
+            id: true,
+            registrationStatus: true,
+          },
+        },
+      },
     })
 
     if (existingUser) {
+      const existingRole = String(
+        existingUser.role || '',
+      ).toUpperCase()
+
+      const conflictMessage =
+        existingUser.vulnerableProfile
+          ? `This email already belongs to a vulnerable profile (${existingUser.vulnerableProfile.registrationStatus}). Open the existing record in Users or Registrations instead of registering the same person again.`
+          : existingRole === 'VULNERABLE'
+            ? 'This email already belongs to a Vulnerable account. Open the existing account in Users before creating another registration.'
+            : `This email already belongs to an existing ${existingRole || 'user'} account. Use a different email address for this vulnerable person.`
+
       return NextResponse.json(
         {
           success: false,
-          error:
-            'This email address is already registered in the system',
+          error: conflictMessage,
+          code: 'EMAIL_ALREADY_REGISTERED',
+          existingUserId: existingUser.id,
+          existingProfileId:
+            existingUser.vulnerableProfile?.id || null,
+          existingRegistrationStatus:
+            existingUser.vulnerableProfile
+              ?.registrationStatus || null,
         },
         { status: 409 },
       )
@@ -467,7 +493,8 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            'This email address is already registered in the system',
+            'This email address became registered while the form was being submitted. Refresh Users or Registrations before trying again.',
+          code: 'EMAIL_ALREADY_REGISTERED',
         },
         { status: 409 },
       )
