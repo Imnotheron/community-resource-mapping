@@ -32,6 +32,8 @@ export default function DashboardRoute() {
   const [hasMounted, setHasMounted] = useState(false)
 
   useEffect(() => {
+    // Client hydration flag: this state transition intentionally happens after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasMounted(true)
   }, [])
 
