@@ -166,6 +166,19 @@ contains(
   'src/app/api/auth/register/route.ts: public registration must remain restricted to vulnerable accounts',
 )
 
+
+contains(
+  'src/lib/api-client.ts',
+  'attachUserId?: boolean',
+  'src/lib/api-client.ts: callers must be able to opt out of legacy userId injection',
+)
+
+contains(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'attachUserId: false',
+  'src/components/dashboards/admin-dashboard.tsx: admin feedback list must not be silently filtered to the admin userId',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
