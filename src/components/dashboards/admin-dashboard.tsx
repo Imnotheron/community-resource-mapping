@@ -3076,21 +3076,151 @@ function CreateWorkerDialog({
 }
 
 // =================== DISTRIBUTIONS (Approval) ===================
+const RELIEF_GENERAL_LABELS: Record<string, string> = {
+  FOOD: "Food",
+  MEDICAL: "Medical / Health",
+  FINANCIAL: "Financial",
+  SHELTER: "Shelter",
+  WATER: "Water",
+  HYGIENE: "Hygiene / Sanitation",
+  CLOTHING: "Clothing / Bedding",
+  LIVELIHOOD: "Livelihood",
+  OTHER: "Other Relief",
+};
+
+const VULNERABILITY_GENERAL_LABELS: Record<string, string> = {
+  SENIOR_CITIZEN: "Senior Citizen",
+  PWD: "Person with Disability",
+  NEEDS_ASSISTANCE: "Needs Assistance",
+  GENERAL_WELFARE: "General Welfare / Low Income",
+  CIVIL_REGISTRY: "Civil Registry Concern",
+  OTHER: "Other Vulnerability",
+};
+
+function reliefGeneralCategory(distribution: any) {
+  const text = [
+    distribution?.distributionType,
+    distribution?.itemsProvided,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (/food|rice|grocery|canned|meal|noodle/.test(text)) return "FOOD";
+  if (/medical|medicine|health|first aid|vitamin|drug/.test(text)) return "MEDICAL";
+  if (/cash|financial|money|allowance|peso/.test(text)) return "FINANCIAL";
+  if (/shelter|housing|roof|tent|tarpaulin|repair/.test(text)) return "SHELTER";
+  if (/water|drinking/.test(text)) return "WATER";
+  if (/hygiene|sanitary|soap|toiletr|cleaning/.test(text)) return "HYGIENE";
+  if (/clothing|clothes|blanket|bedding|garment/.test(text)) return "CLOTHING";
+  if (/livelihood|seed|farm|tool|business/.test(text)) return "LIVELIHOOD";
+
+  return "OTHER";
+}
+
+function vulnerabilityGeneralGroups(profile: any) {
+  if (!profile) return ["OTHER"];
+
+  const sectors = registrationSectorValues(profile);
+  const groups = new Set<string>();
+
+  for (const sector of sectors) {
+    const normalized = String(sector || "").toUpperCase();
+
+    if (normalized.includes("SENIOR")) {
+      groups.add("SENIOR_CITIZEN");
+    }
+
+    if (
+      normalized === "PWD" ||
+      normalized.includes("DISABILITY") ||
+      normalized.includes("DISABLED")
+    ) {
+      groups.add("PWD");
+    }
+
+    if (normalized.includes("NEEDS_ASSISTANCE")) {
+      groups.add("NEEDS_ASSISTANCE");
+    }
+
+    if (
+      normalized.includes("GENERAL_WELFARE") ||
+      normalized.includes("LOW_INCOME") ||
+      normalized.includes("INDIGENT") ||
+      normalized.includes("POVERTY")
+    ) {
+      groups.add("GENERAL_WELFARE");
+    }
+
+    if (normalized.includes("CIVIL_REGISTRY")) {
+      groups.add("CIVIL_REGISTRY");
+    }
+  }
+
+  if (groups.size === 0) groups.add("OTHER");
+
+  return Array.from(groups);
+}
+
+function distributionBeneficiaryName(distribution: any) {
+  if (distribution?.vulnerableProfile) {
+    return [
+      distribution.vulnerableProfile.firstName,
+      distribution.vulnerableProfile.middleName,
+      distribution.vulnerableProfile.lastName,
+      distribution.vulnerableProfile.suffix,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  return (
+    distribution?.household?.headOfHousehold ||
+    "Household Beneficiary"
+  );
+}
+
+function distributionBarangay(distribution: any) {
+  return (
+    distribution?.vulnerableProfile?.barangay ||
+    distribution?.household?.barangay ||
+    ""
+  );
+}
+
 function DistributionsView() {
   const [distributions, setDistributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("PENDING");
   const [sectorFilter, setSectorFilter] = useState("ALL");
+  const [vulnerabilityGroupFilter, setVulnerabilityGroupFilter] =
+    useState("ALL");
+  const [reliefCategoryFilter, setReliefCategoryFilter] =
+    useState("ALL");
+  const [reliefTypeFilter, setReliefTypeFilter] = useState("ALL");
+  const [barangayFilter, setBarangayFilter] = useState("ALL");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("DATE_DESC");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [actionTarget, setActionTarget] = useState<{
+    ids: string[];
+    action: "APPROVE" | "REJECT";
+    label: string;
+  } | null>(null);
+  const [actionReason, setActionReason] = useState("");
+  const [actionSaving, setActionSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiFetch("/api/admin/distributions");
       setDistributions(data.distributions || []);
+      setSelectedIds([]);
     } catch (err: any) {
-      toast.error("Failed to load distributions", { description: err.message });
+      toast.error("Failed to load distributions", {
+        description: err.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -3109,48 +3239,138 @@ function DistributionsView() {
       ),
     ),
   ).sort((a, b) =>
-    registrationSectorLabel(a).localeCompare(registrationSectorLabel(b)),
+    registrationSectorLabel(a).localeCompare(
+      registrationSectorLabel(b),
+    ),
   );
 
+  const vulnerabilityGroups = Array.from(
+    new Set(
+      distributions.flatMap((distribution) =>
+        vulnerabilityGeneralGroups(
+          distribution?.vulnerableProfile,
+        ),
+      ),
+    ),
+  ).sort((a, b) =>
+    (VULNERABILITY_GENERAL_LABELS[a] || a).localeCompare(
+      VULNERABILITY_GENERAL_LABELS[b] || b,
+    ),
+  );
+
+  const reliefCategories = Array.from(
+    new Set(
+      distributions.map((distribution) =>
+        reliefGeneralCategory(distribution),
+      ),
+    ),
+  ).sort((a, b) =>
+    (RELIEF_GENERAL_LABELS[a] || a).localeCompare(
+      RELIEF_GENERAL_LABELS[b] || b,
+    ),
+  );
+
+  const reliefTypes = Array.from(
+    new Set(
+      distributions
+        .map((distribution) =>
+          String(distribution?.distributionType || "").trim(),
+        )
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const barangays = Array.from(
+    new Set(
+      distributions
+        .map(distributionBarangay)
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
   const filtered = distributions
-    .filter((d) => filter === "ALL" || d.status === filter)
     .filter(
-      (d) =>
-        sectorFilter === "ALL" ||
-        (d.vulnerableProfile &&
-          registrationSectorValues(d.vulnerableProfile).includes(sectorFilter)),
+      (distribution) =>
+        filter === "ALL" ||
+        distribution.status === filter,
     )
-    .filter((d) => {
+    .filter(
+      (distribution) =>
+        reliefCategoryFilter === "ALL" ||
+        reliefGeneralCategory(distribution) ===
+          reliefCategoryFilter,
+    )
+    .filter(
+      (distribution) =>
+        reliefTypeFilter === "ALL" ||
+        String(distribution.distributionType || "") ===
+          reliefTypeFilter,
+    )
+    .filter(
+      (distribution) =>
+        barangayFilter === "ALL" ||
+        distributionBarangay(distribution) ===
+          barangayFilter,
+    )
+    .filter(
+      (distribution) =>
+        vulnerabilityGroupFilter === "ALL" ||
+        vulnerabilityGeneralGroups(
+          distribution?.vulnerableProfile,
+        ).includes(vulnerabilityGroupFilter),
+    )
+    .filter(
+      (distribution) =>
+        sectorFilter === "ALL" ||
+        (distribution.vulnerableProfile &&
+          registrationSectorValues(
+            distribution.vulnerableProfile,
+          ).includes(sectorFilter)),
+    )
+    .filter((distribution) => {
       const search = query.trim().toLowerCase();
       if (!search) return true;
 
       return [
-        d.distributionType,
-        d.itemsProvided,
-        d.status,
-        d.worker?.name,
-        d.vulnerableProfile?.firstName,
-        d.vulnerableProfile?.lastName,
-        d.vulnerableProfile?.barangay,
-        ...(d.vulnerableProfile
-          ? registrationSectorValues(d.vulnerableProfile).map(registrationSectorLabel)
+        distributionBeneficiaryName(distribution),
+        distribution.distributionType,
+        distribution.itemsProvided,
+        distribution.status,
+        distribution.worker?.name,
+        distributionBarangay(distribution),
+        RELIEF_GENERAL_LABELS[
+          reliefGeneralCategory(distribution)
+        ],
+        ...vulnerabilityGeneralGroups(
+          distribution?.vulnerableProfile,
+        ).map(
+          (group) =>
+            VULNERABILITY_GENERAL_LABELS[group] || group,
+        ),
+        ...(distribution.vulnerableProfile
+          ? registrationSectorValues(
+              distribution.vulnerableProfile,
+            ).map(registrationSectorLabel)
           : []),
-        d.notes,
+        distribution.notes,
       ]
         .join(" ")
         .toLowerCase()
         .includes(search);
     })
     .sort((a, b) => {
-      if (sortBy === "SECTOR") {
-        const aSector = a?.vulnerableProfile
-          ? registrationSectorLabel(registrationSectorValues(a.vulnerableProfile)[0])
-          : "ZZZ";
-        const bSector = b?.vulnerableProfile
-          ? registrationSectorLabel(registrationSectorValues(b.vulnerableProfile)[0])
-          : "ZZZ";
-        const compared = aSector.localeCompare(bSector);
-        if (compared !== 0) return compared;
+      if (sortBy === "RELIEF_GENERAL") {
+        return String(
+          RELIEF_GENERAL_LABELS[
+            reliefGeneralCategory(a)
+          ] || "",
+        ).localeCompare(
+          String(
+            RELIEF_GENERAL_LABELS[
+              reliefGeneralCategory(b)
+            ] || "",
+          ),
+        );
       }
 
       if (sortBy === "TYPE") {
@@ -3159,9 +3379,56 @@ function DistributionsView() {
         );
       }
 
+      if (sortBy === "BARANGAY") {
+        return distributionBarangay(a).localeCompare(
+          distributionBarangay(b),
+        );
+      }
+
+      if (sortBy === "VULNERABILITY_GENERAL") {
+        const aGroup =
+          VULNERABILITY_GENERAL_LABELS[
+            vulnerabilityGeneralGroups(
+              a.vulnerableProfile,
+            )[0]
+          ] || "";
+        const bGroup =
+          VULNERABILITY_GENERAL_LABELS[
+            vulnerabilityGeneralGroups(
+              b.vulnerableProfile,
+            )[0]
+          ] || "";
+        return aGroup.localeCompare(bGroup);
+      }
+
+      if (sortBy === "SECTOR") {
+        const aSector = a?.vulnerableProfile
+          ? registrationSectorLabel(
+              registrationSectorValues(
+                a.vulnerableProfile,
+              )[0],
+            )
+          : "ZZZ";
+        const bSector = b?.vulnerableProfile
+          ? registrationSectorLabel(
+              registrationSectorValues(
+                b.vulnerableProfile,
+              )[0],
+            )
+          : "ZZZ";
+        const compared = aSector.localeCompare(bSector);
+        if (compared !== 0) return compared;
+      }
+
       if (sortBy === "LAST_NAME") {
-        return String(a.vulnerableProfile?.lastName || "").localeCompare(
-          String(b.vulnerableProfile?.lastName || ""),
+        return String(
+          a.vulnerableProfile?.lastName ||
+            distributionBeneficiaryName(a),
+        ).localeCompare(
+          String(
+            b.vulnerableProfile?.lastName ||
+              distributionBeneficiaryName(b),
+          ),
         );
       }
 
@@ -3172,39 +3439,152 @@ function DistributionsView() {
       }
 
       if (sortBy === "STATUS") {
-        return String(a.status || "").localeCompare(String(b.status || ""));
+        return String(a.status || "").localeCompare(
+          String(b.status || ""),
+        );
       }
 
       if (sortBy === "DATE_ASC") {
         return (
-          new Date(a.distributionDate || a.createdAt || 0).getTime() -
-          new Date(b.distributionDate || b.createdAt || 0).getTime()
+          new Date(
+            a.distributionDate || a.createdAt || 0,
+          ).getTime() -
+          new Date(
+            b.distributionDate || b.createdAt || 0,
+          ).getTime()
         );
       }
 
       return (
-        new Date(b.distributionDate || b.createdAt || 0).getTime() -
-        new Date(a.distributionDate || a.createdAt || 0).getTime()
+        new Date(
+          b.distributionDate || b.createdAt || 0,
+        ).getTime() -
+        new Date(
+          a.distributionDate || a.createdAt || 0,
+        ).getTime()
       );
     });
 
-  const act = async (id: string, action: "APPROVE" | "REJECT") => {
-    const reason =
-      action === "REJECT"
-        ? prompt("Reason for rejection (optional):") || ""
-        : "";
-    try {
-      await apiFetch("/api/admin/relief-approval", {
-        method: "POST",
-        body: JSON.stringify({ distributionId: id, action, reason }),
-      });
-      toast.success(
-        `Distribution ${action === "APPROVE" ? "approved" : "rejected"}`,
+  const filteredPending = filtered.filter(
+    (distribution) => distribution.status === "PENDING",
+  );
+
+  const visiblePendingIds = filteredPending.map(
+    (distribution) => distribution.id,
+  );
+
+  const selectedVisibleIds = visiblePendingIds.filter(
+    (id) => selectedIds.includes(id),
+  );
+
+  const allVisibleSelected =
+    visiblePendingIds.length > 0 &&
+    selectedVisibleIds.length ===
+      visiblePendingIds.length;
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    );
+  };
+
+  const toggleAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((current) =>
+        current.filter(
+          (id) => !visiblePendingIds.includes(id),
+        ),
       );
-      load();
-    } catch (err: any) {
-      toast.error("Action failed", { description: err.message });
+      return;
     }
+
+    setSelectedIds((current) =>
+      Array.from(
+        new Set([...current, ...visiblePendingIds]),
+      ),
+    );
+  };
+
+  const openAction = (
+    ids: string[],
+    action: "APPROVE" | "REJECT",
+    label: string,
+  ) => {
+    const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+    if (uniqueIds.length === 0) {
+      toast.error("No pending relief records selected");
+      return;
+    }
+
+    setActionReason("");
+    setActionTarget({
+      ids: uniqueIds,
+      action,
+      label,
+    });
+  };
+
+  const runAction = async () => {
+    if (!actionTarget || actionSaving) return;
+
+    setActionSaving(true);
+
+    try {
+      const data = await apiFetch(
+        "/api/admin/relief-approval",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            distributionIds: actionTarget.ids,
+            action: actionTarget.action,
+            reason:
+              actionTarget.action === "REJECT"
+                ? actionReason.trim()
+                : "",
+          }),
+        },
+      );
+
+      const count =
+        Number(data?.updatedCount) ||
+        actionTarget.ids.length;
+
+      toast.success(
+        `${count} relief distribution${count === 1 ? "" : "s"} ${
+          actionTarget.action === "APPROVE"
+            ? "approved"
+            : "rejected"
+        }`,
+      );
+
+      setSelectedIds((current) =>
+        current.filter(
+          (id) => !actionTarget.ids.includes(id),
+        ),
+      );
+      setActionTarget(null);
+      setActionReason("");
+      await load();
+    } catch (err: any) {
+      toast.error("Action failed", {
+        description: err.message,
+      });
+    } finally {
+      setActionSaving(false);
+    }
+  };
+
+  const resetFilters = () => {
+    setQuery("");
+    setFilter("PENDING");
+    setSectorFilter("ALL");
+    setVulnerabilityGroupFilter("ALL");
+    setReliefCategoryFilter("ALL");
+    setReliefTypeFilter("ALL");
+    setBarangayFilter("ALL");
+    setSortBy("DATE_DESC");
   };
 
   return (
@@ -3215,43 +3595,189 @@ function DistributionsView() {
             Relief Distribution Approval
           </h1>
           <p className="text-sm text-muted-foreground">
-            Review relief distributions recorded by field workers.
+            Review relief distributions by beneficiary, relief type,
+            barangay, and vulnerability before approving or rejecting
+            them.
           </p>
         </div>
 
-        <div className="grid w-full min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(280px,1.6fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(180px,0.9fr)]">
-          <div className="relative min-w-0">
+        <div className="grid w-full min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="relative min-w-0 xl:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search beneficiary, worker, items..."
+              onChange={(event) =>
+                setQuery(event.target.value)
+              }
+              placeholder="Search beneficiary, relief, worker, barangay..."
               className="w-full min-w-0 pl-9"
             />
           </div>
 
-          <Select value={filter} onValueChange={setFilter}>
+          <Select
+            value={filter}
+            onValueChange={setFilter}
+          >
             <SelectTrigger className="w-full min-w-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="ALL">All statuses</SelectItem>
+              <SelectItem value="PENDING">
+                Pending
+              </SelectItem>
+              <SelectItem value="APPROVED">
+                Approved
+              </SelectItem>
+              <SelectItem value="REJECTED">
+                Rejected
+              </SelectItem>
+              <SelectItem value="ALL">
+                All statuses
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={sortBy}
+            onValueChange={setSortBy}
+          >
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DATE_DESC">
+                Newest first
+              </SelectItem>
+              <SelectItem value="DATE_ASC">
+                Oldest first
+              </SelectItem>
+              <SelectItem value="RELIEF_GENERAL">
+                General relief type
+              </SelectItem>
+              <SelectItem value="TYPE">
+                Specific relief type
+              </SelectItem>
+              <SelectItem value="BARANGAY">
+                Barangay
+              </SelectItem>
+              <SelectItem value="VULNERABILITY_GENERAL">
+                General vulnerability
+              </SelectItem>
+              <SelectItem value="SECTOR">
+                Specific vulnerability
+              </SelectItem>
+              <SelectItem value="LAST_NAME">
+                Beneficiary name
+              </SelectItem>
+              <SelectItem value="WORKER">
+                Worker
+              </SelectItem>
+              <SelectItem value="STATUS">
+                Status
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid w-full min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-5">
+          <Select
+            value={reliefCategoryFilter}
+            onValueChange={setReliefCategoryFilter}
+          >
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue placeholder="General relief type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">
+                All general relief
+              </SelectItem>
+              {reliefCategories.map((category) => (
+                <SelectItem
+                  key={category}
+                  value={category}
+                >
+                  {RELIEF_GENERAL_LABELS[category] ||
+                    category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <SearchableSelect
+            value={reliefTypeFilter}
+            onValueChange={setReliefTypeFilter}
+            placeholder="Specific relief type"
+            searchPlaceholder="Search relief type..."
+            className="w-full min-w-0"
+            options={[
+              {
+                value: "ALL",
+                label: "All specific relief types",
+              },
+              ...reliefTypes.map((type) => ({
+                value: type,
+                label: type,
+                keywords: type,
+              })),
+            ]}
+          />
+
+          <SearchableSelect
+            value={barangayFilter}
+            onValueChange={setBarangayFilter}
+            placeholder="Barangay"
+            searchPlaceholder="Search barangay..."
+            className="w-full min-w-0"
+            options={[
+              {
+                value: "ALL",
+                label: "All barangays",
+              },
+              ...barangays.map((barangay) => ({
+                value: barangay,
+                label: barangay,
+                keywords: barangay,
+              })),
+            ]}
+          />
+
+          <Select
+            value={vulnerabilityGroupFilter}
+            onValueChange={
+              setVulnerabilityGroupFilter
+            }
+          >
+            <SelectTrigger className="w-full min-w-0">
+              <SelectValue placeholder="General vulnerability" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">
+                All general vulnerabilities
+              </SelectItem>
+              {vulnerabilityGroups.map((group) => (
+                <SelectItem
+                  key={group}
+                  value={group}
+                >
+                  {VULNERABILITY_GENERAL_LABELS[
+                    group
+                  ] || group}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
           <SearchableSelect
             value={sectorFilter}
             onValueChange={setSectorFilter}
-            placeholder="All sectors"
-            searchPlaceholder="Type a sector..."
+            placeholder="Specific vulnerability"
+            searchPlaceholder="Search vulnerability..."
             className="w-full min-w-0"
             options={[
               {
                 value: "ALL",
-                label: "All sectors",
+                label:
+                  "All specific vulnerabilities",
               },
               ...distributionSectors.map(
                 (sector) => ({
@@ -3265,21 +3791,112 @@ function DistributionsView() {
               ),
             ]}
           />
+        </div>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="DATE_DESC">Newest first</SelectItem>
-              <SelectItem value="DATE_ASC">Oldest first</SelectItem>
-              <SelectItem value="SECTOR">Sector</SelectItem>
-              <SelectItem value="TYPE">Distribution type</SelectItem>
-              <SelectItem value="LAST_NAME">Last name</SelectItem>
-              <SelectItem value="WORKER">Worker</SelectItem>
-              <SelectItem value="STATUS">Status</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+            >
+              Reset filters
+            </Button>
+
+            {filteredPending.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={toggleAllVisible}
+              >
+                {allVisibleSelected
+                  ? "Clear visible selection"
+                  : `Select all visible (${filteredPending.length})`}
+              </Button>
+            ) : null}
+
+            <span className="text-xs text-muted-foreground">
+              {selectedVisibleIds.length} selected ·{" "}
+              {filteredPending.length} pending in current
+              results
+            </span>
+          </div>
+
+          {filteredPending.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  selectedVisibleIds.length === 0
+                }
+                onClick={() =>
+                  openAction(
+                    selectedVisibleIds,
+                    "APPROVE",
+                    `Approve ${selectedVisibleIds.length} selected relief record${selectedVisibleIds.length === 1 ? "" : "s"}`,
+                  )
+                }
+                className="gap-1.5"
+              >
+                <Check className="h-4 w-4" />
+                Approve Selected
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={
+                  selectedVisibleIds.length === 0
+                }
+                onClick={() =>
+                  openAction(
+                    selectedVisibleIds,
+                    "REJECT",
+                    `Reject ${selectedVisibleIds.length} selected relief record${selectedVisibleIds.length === 1 ? "" : "s"}`,
+                  )
+                }
+                className="gap-1.5"
+              >
+                <X className="h-4 w-4" />
+                Reject Selected
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  openAction(
+                    visiblePendingIds,
+                    "APPROVE",
+                    `Approve all ${visiblePendingIds.length} pending records in the current filtered results`,
+                  )
+                }
+              >
+                Approve All
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                onClick={() =>
+                  openAction(
+                    visiblePendingIds,
+                    "REJECT",
+                    `Reject all ${visiblePendingIds.length} pending records in the current filtered results`,
+                  )
+                }
+              >
+                Reject All
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -3292,87 +3909,297 @@ function DistributionsView() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No {filter.toLowerCase()} distributions.
+            No distributions match the current filters.
           </CardContent>
         </Card>
       ) : (
         <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-2">
-          {filtered.map((d) => (
-            <Card key={d.id}>
-              <CardContent className="p-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{d.distributionType}</h3>
-                      <StatusBadge status={d.status} />
+          {filtered.map((distribution) => {
+            const beneficiaryName =
+              distributionBeneficiaryName(distribution);
+            const sectors =
+              distribution.vulnerableProfile
+                ? registrationSectorValues(
+                    distribution.vulnerableProfile,
+                  )
+                : [];
+            const generalGroups =
+              vulnerabilityGeneralGroups(
+                distribution.vulnerableProfile,
+              );
+            const barangay =
+              distributionBarangay(distribution);
+            const pending =
+              distribution.status === "PENDING";
+            const selected =
+              selectedIds.includes(distribution.id);
+
+            return (
+              <Card
+                key={distribution.id}
+                className={
+                  selected
+                    ? "border-emerald-300 bg-emerald-50/30"
+                    : undefined
+                }
+              >
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      {pending ? (
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() =>
+                            toggleSelected(
+                              distribution.id,
+                            )
+                          }
+                          aria-label={`Select relief record for ${beneficiaryName}`}
+                          className="mt-1 h-4 w-4 shrink-0 accent-emerald-600"
+                        />
+                      ) : null}
+
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+                            {beneficiaryName}
+                          </h3>
+                          <StatusBadge
+                            status={
+                              distribution.status
+                            }
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <span>
+                            <b className="text-foreground">
+                              Relief:
+                            </b>{" "}
+                            {
+                              distribution.distributionType
+                            }
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              General type:
+                            </b>{" "}
+                            {
+                              RELIEF_GENERAL_LABELS[
+                                reliefGeneralCategory(
+                                  distribution,
+                                )
+                              ]
+                            }
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              Items:
+                            </b>{" "}
+                            {distribution.itemsProvided}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-5">
+                          <span>
+                            <b className="text-foreground">
+                              Barangay:
+                            </b>{" "}
+                            {barangay || "—"}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              Vulnerability:
+                            </b>{" "}
+                            {sectors.length
+                              ? sectors
+                                  .map(
+                                    registrationSectorLabel,
+                                  )
+                                  .join(", ")
+                              : "—"}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              General group:
+                            </b>{" "}
+                            {generalGroups
+                              .map(
+                                (group) =>
+                                  VULNERABILITY_GENERAL_LABELS[
+                                    group
+                                  ] || group,
+                              )
+                              .join(", ")}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              Worker:
+                            </b>{" "}
+                            {distribution.worker?.name ||
+                              "—"}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              Quantity:
+                            </b>{" "}
+                            {distribution.quantity}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
+                              Date:
+                            </b>{" "}
+                            {formatDate(
+                              distribution.distributionDate,
+                            )}
+                          </span>
+                        </div>
+
+                        {distribution.notes ? (
+                          <p className="text-xs italic text-muted-foreground">
+                            "{distribution.notes}"
+                          </p>
+                        ) : null}
+
+                        {distribution.rejectionReason ? (
+                          <p className="text-xs text-destructive">
+                            <b>Reason:</b>{" "}
+                            {
+                              distribution.rejectionReason
+                            }
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {d.itemsProvided}
-                    </p>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground md:grid-cols-4">
-                      <span>
-                        <b className="text-foreground">Beneficiary:</b>{" "}
-                        {d.vulnerableProfile
-                          ? `${d.vulnerableProfile.firstName} ${d.vulnerableProfile.lastName}`
-                          : "Household"}
-                      </span>
-                      <span>
-                        <b className="text-foreground">Sector:</b>{" "}
-                        {d.vulnerableProfile
-                          ? registrationSectorValues(d.vulnerableProfile)
-                              .map(registrationSectorLabel)
-                              .join(", ")
-                          : "—"}
-                      </span>
-                      <span>
-                        <b className="text-foreground">Worker:</b>{" "}
-                        {d.worker?.name}
-                      </span>
-                      <span>
-                        <b className="text-foreground">Quantity:</b>{" "}
-                        {d.quantity}
-                      </span>
-                      <span>
-                        <b className="text-foreground">Date:</b>{" "}
-                        {formatDate(d.distributionDate)}
-                      </span>
-                    </div>
-                    {d.notes && (
-                      <p className="text-xs italic text-muted-foreground">
-                        "{d.notes}"
-                      </p>
-                    )}
-                    {d.rejectionReason && (
-                      <p className="text-xs text-destructive">
-                        <b>Reason:</b> {d.rejectionReason}
-                      </p>
-                    )}
+
+                    {pending ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            openAction(
+                              [distribution.id],
+                              "APPROVE",
+                              `Approve relief for ${beneficiaryName}`,
+                            )
+                          }
+                          className="gap-1.5"
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() =>
+                            openAction(
+                              [distribution.id],
+                              "REJECT",
+                              `Reject relief for ${beneficiaryName}`,
+                            )
+                          }
+                          className="gap-1.5"
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
-                  {d.status === "PENDING" && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => act(d.id, "APPROVE")}
-                        className="gap-1.5"
-                      >
-                        <Check className="h-4 w-4" /> Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => act(d.id, "REJECT")}
-                        className="gap-1.5"
-                      >
-                        <X className="h-4 w-4" /> Reject
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(actionTarget)}
+        onOpenChange={(open) => {
+          if (!open && !actionSaving) {
+            setActionTarget(null);
+            setActionReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {actionTarget?.action === "REJECT"
+                ? "Reject relief distribution?"
+                : "Approve relief distribution?"}
+            </DialogTitle>
+            <DialogDescription>
+              {actionTarget?.label ||
+                "Confirm this relief approval action."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {actionTarget?.action === "REJECT" ? (
+            <div className="space-y-2">
+              <Label htmlFor="relief-rejection-reason">
+                Rejection reason
+              </Label>
+              <Textarea
+                id="relief-rejection-reason"
+                value={actionReason}
+                onChange={(event) =>
+                  setActionReason(event.target.value)
+                }
+                placeholder="Explain why the selected relief record(s) are being rejected."
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">
+                The same reason will be applied to all
+                selected records in this action.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Only records that are still Pending will be
+              approved. Records already processed are
+              automatically skipped.
+            </p>
+          )}
+
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={actionSaving}
+              onClick={() => {
+                setActionTarget(null);
+                setActionReason("");
+              }}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              variant={
+                actionTarget?.action === "REJECT"
+                  ? "destructive"
+                  : "default"
+              }
+              disabled={actionSaving}
+              onClick={runAction}
+            >
+              {actionSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : actionTarget?.action === "REJECT" ? (
+                "Confirm Reject"
+              ) : (
+                "Confirm Approve"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
