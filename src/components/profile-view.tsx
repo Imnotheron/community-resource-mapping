@@ -271,7 +271,6 @@ export function ProfileView({
       cancelled = true
     }
     // Load once for this profile session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
