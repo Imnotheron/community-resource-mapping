@@ -4138,6 +4138,12 @@ function DistributionsView() {
                           </span>
                           <span>
                             <b className="text-foreground">
+                              Evidence:
+                            </b>{" "}
+                            {Number(distribution.supportingDocumentCount || 0)} photo{Number(distribution.supportingDocumentCount || 0) === 1 ? "" : "s"}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
                               Date:
                             </b>{" "}
                             {formatDate(
