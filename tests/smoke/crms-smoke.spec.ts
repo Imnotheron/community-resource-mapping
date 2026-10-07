@@ -523,7 +523,7 @@ test('Approval Center Approve All and Reject All act only on the filtered pendin
   ).toBe('APPROVED')
 })
 
-test('Worker relief recording flows to Admin approval and Vulnerable relief history', async ({ request }) => {
+test('Worker relief recording requires supporting photo evidence and flows to Admin review', async ({ request }) => {
   const worker = await login(
     request,
     'worker@sampolicarpo.gov',
@@ -538,7 +538,7 @@ test('Worker relief recording flows to Admin approval and Vulnerable relief hist
     'vulnerable',
   )
 
-  const record = await request.post('/api/worker/distribute', {
+  const missingEvidence = await request.post('/api/worker/distribute', {
     headers: bearer(worker.token),
     data: {
       workerId: worker.user.id,
@@ -549,10 +549,43 @@ test('Worker relief recording flows to Admin approval and Vulnerable relief hist
       notes: 'Smoke workflow',
     },
   })
+  expect(missingEvidence.status()).toBe(400)
+
+  const record = await request.post('/api/worker/distribute', {
+    headers: bearer(worker.token),
+    data: {
+      workerId: worker.user.id,
+      vulnerableProfileId: 'profile-approved',
+      distributionType: 'Hygiene Kit',
+      itemsProvided: 'Soap and hygiene supplies',
+      quantity: 2,
+      notes: 'Smoke workflow',
+      supportingDocuments: [
+        {
+          fileName: 'distribution-proof.png',
+          mimeType: 'image/png',
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        },
+      ],
+    },
+  })
 
   expect(record.status(), await record.text()).toBe(201)
   const recorded = await record.json()
   expect(recorded.distribution.status).toBe('PENDING')
+  expect(recorded.distribution.supportingDocumentCount).toBe(1)
+
+  const adminDetail = await request.get(
+    `/api/admin/distributions/${recorded.distribution.id}`,
+    { headers: bearer(admin.token) },
+  )
+  expect(adminDetail.status(), await adminDetail.text()).toBe(200)
+  const adminDetailData = await adminDetail.json()
+  expect(adminDetailData.distribution.supportingDocuments).toHaveLength(1)
+  expect(adminDetailData.distribution.itemsProvided).toBe(
+    'Soap and hygiene supplies',
+  )
 
   const approval = await request.post('/api/admin/relief-approval', {
     headers: bearer(admin.token),
@@ -592,6 +625,30 @@ test('Worker relief recording flows to Admin approval and Vulnerable relief hist
       (item: any) => item.id === recorded.distribution.id,
     ),
   ).toBe(true)
+})
+
+
+test('Relief Approval exposes View and Daily Reports mirrors relief sorting controls', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+
+  await page.goto('/admin/dashboard#distributions')
+  await dismissWelcomeGuide(page)
+  await expect(
+    page.getByRole('heading', { name: 'Relief Distribution Approval' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
+
+  await page.goto('/admin/dashboard#reports')
+  await expect(page.getByRole('heading', { name: 'Daily Reports' })).toBeVisible()
+  await expect(page.getByText('General relief type', { exact: true })).toBeVisible()
+  await expect(page.getByText('Specific relief type', { exact: true })).toBeVisible()
+  await expect(page.getByText('General vulnerability', { exact: true })).toBeVisible()
+  await expect(page.getByText('Specific vulnerability', { exact: true })).toBeVisible()
+  await expect(page.getByText('Relief status', { exact: true })).toBeVisible()
 })
 
 test('Vulnerable relief feedback is ownership-scoped and Admin general feedback view is complete', async ({ request }) => {
