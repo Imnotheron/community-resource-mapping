@@ -3415,6 +3415,76 @@ function DistributionsView() {
     ),
   ).sort((a, b) => a.localeCompare(b));
 
+  const statusOptionsKey = statusOptions.join("|");
+  const reliefCategoriesKey = reliefCategories.join("|");
+  const reliefTypesKey = reliefTypes.join("|");
+  const barangaysKey = barangays.join("|");
+  const vulnerabilityGroupsKey =
+    vulnerabilityGroups.join("|");
+  const distributionSectorsKey =
+    distributionSectors.join("|");
+
+  useEffect(() => {
+    if (
+      filter !== "ALL" &&
+      !statusOptions.includes(filter)
+    ) {
+      setFilter("ALL");
+    }
+  }, [filter, statusOptionsKey]);
+
+  useEffect(() => {
+    if (
+      reliefCategoryFilter !== "ALL" &&
+      !reliefCategories.includes(
+        reliefCategoryFilter,
+      )
+    ) {
+      setReliefCategoryFilter("ALL");
+    }
+  }, [reliefCategoryFilter, reliefCategoriesKey]);
+
+  useEffect(() => {
+    if (
+      reliefTypeFilter !== "ALL" &&
+      !reliefTypes.includes(reliefTypeFilter)
+    ) {
+      setReliefTypeFilter("ALL");
+    }
+  }, [reliefTypeFilter, reliefTypesKey]);
+
+  useEffect(() => {
+    if (
+      barangayFilter !== "ALL" &&
+      !barangays.includes(barangayFilter)
+    ) {
+      setBarangayFilter("ALL");
+    }
+  }, [barangayFilter, barangaysKey]);
+
+  useEffect(() => {
+    if (
+      vulnerabilityGroupFilter !== "ALL" &&
+      !vulnerabilityGroups.includes(
+        vulnerabilityGroupFilter,
+      )
+    ) {
+      setVulnerabilityGroupFilter("ALL");
+    }
+  }, [
+    vulnerabilityGroupFilter,
+    vulnerabilityGroupsKey,
+  ]);
+
+  useEffect(() => {
+    if (
+      sectorFilter !== "ALL" &&
+      !distributionSectors.includes(sectorFilter)
+    ) {
+      setSectorFilter("ALL");
+    }
+  }, [sectorFilter, distributionSectorsKey]);
+
   const filtered = distributions
     .filter((distribution) =>
       matchesFacets(distribution),
