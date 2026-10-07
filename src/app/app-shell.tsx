@@ -76,6 +76,24 @@ function ViewLoader({
   return <CrmsLoadingScreen label={label} />
 }
 
+function clearLocationHash() {
+  if (
+    typeof window === 'undefined' ||
+    !window.location.hash
+  ) {
+    return
+  }
+
+  const cleanUrl =
+    `${window.location.pathname}${window.location.search}`
+
+  window.history.replaceState(
+    window.history.state,
+    '',
+    cleanUrl,
+  )
+}
+
 function AppShellContent() {
   const router = useRouter()
 
@@ -97,6 +115,11 @@ function AppShellContent() {
 
   const finishWelcome = useCallback(() => {
     setWelcomeUser(null)
+  }, [])
+
+  const openAuth = useCallback(() => {
+    clearLocationHash()
+    setMode('auth')
   }, [])
 
   if (loading) {
@@ -178,7 +201,7 @@ function AppShellContent() {
         }
       >
         <LandingPage
-          onAccessPortal={() => setMode('auth')}
+          onAccessPortal={openAuth}
         />
       </Suspense>
     )
@@ -186,6 +209,7 @@ function AppShellContent() {
 
   const handleLogout = async () => {
     setWelcomeUser(null)
+    clearLocationHash()
     await logout()
     setMode('landing')
   }
