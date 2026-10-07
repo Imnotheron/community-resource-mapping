@@ -849,6 +849,57 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
     vulnerabilityLabel(a).localeCompare(vulnerabilityLabel(b)),
   )
 
+  const reliefStatusOptionsKey = reliefStatusOptions.join('|')
+  const reliefCategoriesKey = reliefCategories.join('|')
+  const reliefTypesKey = reliefTypes.join('|')
+  const vulnerabilityGroupsKey = vulnerabilityGroups.join('|')
+  const distributionSectorsKey = distributionSectors.join('|')
+
+  useEffect(() => {
+    if (
+      reliefStatusFilter !== 'ALL' &&
+      !reliefStatusOptions.includes(reliefStatusFilter)
+    ) {
+      setReliefStatusFilter('ALL')
+    }
+  }, [reliefStatusFilter, reliefStatusOptionsKey])
+
+  useEffect(() => {
+    if (
+      reliefCategoryFilter !== 'ALL' &&
+      !reliefCategories.includes(reliefCategoryFilter)
+    ) {
+      setReliefCategoryFilter('ALL')
+    }
+  }, [reliefCategoryFilter, reliefCategoriesKey])
+
+  useEffect(() => {
+    if (
+      reliefTypeFilter !== 'ALL' &&
+      !reliefTypes.includes(reliefTypeFilter)
+    ) {
+      setReliefTypeFilter('ALL')
+    }
+  }, [reliefTypeFilter, reliefTypesKey])
+
+  useEffect(() => {
+    if (
+      vulnerabilityGroupFilter !== 'ALL' &&
+      !vulnerabilityGroups.includes(vulnerabilityGroupFilter)
+    ) {
+      setVulnerabilityGroupFilter('ALL')
+    }
+  }, [vulnerabilityGroupFilter, vulnerabilityGroupsKey])
+
+  useEffect(() => {
+    if (
+      sectorFilter !== 'ALL' &&
+      !distributionSectors.includes(sectorFilter)
+    ) {
+      setSectorFilter('ALL')
+    }
+  }, [sectorFilter, distributionSectorsKey])
+
   const displayReport = useMemo(() => {
     if (!report) return report
 
