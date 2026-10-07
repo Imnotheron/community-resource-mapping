@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: stability-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   stability-contracts:
     name: Stability contracts
