@@ -116,8 +116,14 @@ excludes(
 )
 excludes(
   'src/app/api/admin/create-worker/route.ts',
-  /\n\s*temporaryPassword,\n/,
-  'src/app/api/admin/create-worker/route.ts: generated plaintext credentials must not be returned in JSON',
+  /temporaryPassword\s*:/,
+  'src/app/api/admin/create-worker/route.ts: generated plaintext credentials must not be returned as a JSON property',
+)
+
+contains(
+  'src/hooks/use-user-sync.ts',
+  "status === 'offline' ? 'DELETE' : 'POST'",
+  'src/hooks/use-user-sync.ts: logout must send DELETE so the server records the user as offline',
 )
 
 excludes(
