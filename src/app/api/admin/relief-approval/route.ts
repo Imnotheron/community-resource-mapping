@@ -1,17 +1,27 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
 import { createNotification } from '@/lib/notification-service'
+import { requireRequestUser } from '@/lib/request-user-session'
 
-// GET - Get all pending relief distributions
+// GET - Get relief distributions for Administrator review.
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status') || 'PENDING'
 
     const distributions = await db.reliefDistribution.findMany({
-      where: { status: status as any },
+      where:
+        status === 'ALL'
+          ? undefined
+          : { status },
       include: {
         vulnerableProfile: {
           include: {
@@ -44,71 +54,157 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching relief distributions:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch distributions' },
-      { status: 500 }
+      {
+        success: false,
+        message: 'Failed to fetch distributions',
+      },
+      { status: 500 },
     )
   }
 }
 
-// POST - Approve or reject relief distribution
+// POST - Approve or reject one or many pending relief distributions.
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { distributionId, action, reason } = body // action: 'APPROVE' | 'REJECT'
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
 
-    if (!distributionId || !action) {
+    const body = await request.json().catch(() => ({}))
+    const action = String(body.action || '')
+      .trim()
+      .toUpperCase()
+    const reason = String(body.reason || '').trim()
+
+    const rawIds = Array.isArray(body.distributionIds)
+      ? body.distributionIds
+      : body.distributionId
+        ? [body.distributionId]
+        : []
+
+    const distributionIds = Array.from(
+      new Set(
+        rawIds
+          .map((value: unknown) => String(value || '').trim())
+          .filter(Boolean),
+      ),
+    ).slice(0, 500)
+
+    if (
+      distributionIds.length === 0 ||
+      !['APPROVE', 'REJECT'].includes(action)
+    ) {
       return NextResponse.json(
-        { success: false, message: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    // Get the distribution
-    const distribution = await db.reliefDistribution.findUnique({
-      where: { id: distributionId },
-      include: {
-        vulnerableProfile: {
-          include: { user: true },
+        {
+          success: false,
+          message:
+            'Choose at least one distribution and a valid action.',
         },
-      },
-    })
-
-    if (!distribution) {
-      return NextResponse.json(
-        { success: false, message: 'Distribution not found' },
-        { status: 404 }
+        { status: 400 },
       )
     }
 
-    // Update distribution status
-    const updatedDistribution = await db.reliefDistribution.update({
-      where: { id: distributionId },
-      data: {
-        status: action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-        rejectionReason: action === 'REJECT' ? reason : null,
-      },
-    })
-
-    // Send notification to user
-    if (distribution.vulnerableProfile?.userId) {
-      const notificationType = action === 'APPROVE' ? 'RELIEF_APPROVED' : 'RELIEF_REJECTED'
-      await createNotification({
-        userId: distribution.vulnerableProfile.userId,
-        type: notificationType,
-        reason: reason || undefined,
-        details: `${distribution.distributionType} - ${distribution.itemsProvided}`,
+    const distributions =
+      await db.reliefDistribution.findMany({
+        where: {
+          id: { in: distributionIds },
+          status: 'PENDING',
+        },
+        include: {
+          vulnerableProfile: {
+            include: {
+              user: true,
+            },
+          },
+        },
       })
+
+    if (distributions.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'None of the selected relief distributions are still pending.',
+        },
+        { status: 409 },
+      )
+    }
+
+    const activeIds = distributions.map(
+      (distribution) => distribution.id,
+    )
+
+    const updateResult =
+      await db.reliefDistribution.updateMany({
+        where: {
+          id: { in: activeIds },
+          status: 'PENDING',
+        },
+        data: {
+          status:
+            action === 'APPROVE'
+              ? 'APPROVED'
+              : 'REJECTED',
+          rejectionReason:
+            action === 'REJECT'
+              ? reason || null
+              : null,
+        },
+      })
+
+    const notificationType =
+      action === 'APPROVE'
+        ? 'RELIEF_APPROVED'
+        : 'RELIEF_REJECTED'
+
+    const notificationResults =
+      await Promise.allSettled(
+        distributions
+          .filter(
+            (distribution) =>
+              distribution.vulnerableProfile?.userId,
+          )
+          .map((distribution) =>
+            createNotification({
+              userId:
+                distribution.vulnerableProfile!.userId,
+              type: notificationType,
+              reason:
+                action === 'REJECT'
+                  ? reason || undefined
+                  : undefined,
+              details: `${distribution.distributionType} - ${distribution.itemsProvided}`,
+            }),
+          ),
+      )
+
+    for (const result of notificationResults) {
+      if (result.status === 'rejected') {
+        console.error(
+          'Relief approval notification failed:',
+          result.reason,
+        )
+      }
     }
 
     return NextResponse.json({
       success: true,
-      distribution: updatedDistribution,
+      action,
+      updatedCount: updateResult.count,
+      requestedCount: distributionIds.length,
+      skippedCount:
+        distributionIds.length - updateResult.count,
+      distributionIds: activeIds,
     })
   } catch (error) {
-    console.error('Error updating distribution:', error)
+    console.error('Error updating relief distribution:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to update distribution' },
-      { status: 500 }
+      {
+        success: false,
+        message: 'Failed to update distribution',
+      },
+      { status: 500 },
     )
   }
 }
