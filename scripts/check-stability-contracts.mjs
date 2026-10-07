@@ -211,6 +211,31 @@ excludes(
   'src/lib/request-user-session.ts: query userId must remain application data, not implicit caller identity',
 )
 
+
+contains(
+  'prisma/schema.prisma',
+  '@@unique([announcementId, userId])',
+  'prisma/schema.prisma: announcement notifications must be unique per announcement and recipient',
+)
+
+contains(
+  'src/app/api/announcements/route.ts',
+  'announcementId_userId',
+  'src/app/api/announcements/route.ts: announcement fan-out must use the composite announcement/recipient key',
+)
+
+contains(
+  'src/app/api/announcements/route.ts',
+  'db.notification.upsert',
+  'src/app/api/announcements/route.ts: announcement fan-out must be idempotent instead of blindly inserting duplicates',
+)
+
+contains(
+  'scripts/migrate-turso.mjs',
+  'Notification_announcementId_userId_key',
+  'scripts/migrate-turso.mjs: Turso migration must enforce announcement notification uniqueness',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
