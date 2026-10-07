@@ -1,3 +1,4 @@
+import { createClient } from '@libsql/client'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 type LoginResult = {
@@ -33,6 +34,16 @@ function bearer(token: string) {
   return {
     Authorization: `Bearer ${token}`,
   }
+}
+
+function smokeDbClient() {
+  const rawUrl = process.env.DATABASE_URL || 'file:./smoke.db'
+  const url =
+    rawUrl.startsWith('file:./') && !rawUrl.startsWith('file:./prisma/')
+      ? rawUrl.replace('file:./', 'file:./prisma/')
+      : rawUrl
+
+  return createClient({ url })
 }
 
 async function browserLogin(
@@ -648,6 +659,51 @@ test('Announcements, operations history, and map data reflect current records', 
     },
   })
   expect(createAnnouncement.status(), await createAnnouncement.text()).toBe(201)
+  const createdAnnouncement = await createAnnouncement.json()
+  const announcementId = createdAnnouncement.announcement.id
+
+  const smokeDb = smokeDbClient()
+  try {
+    const workerNotification = await smokeDb.execute({
+      sql: `
+        SELECT COUNT(*) AS "count"
+        FROM "Notification"
+        WHERE "announcementId" = ? AND "userId" = ?
+      `,
+      args: [announcementId, worker.user.id],
+    })
+    expect(Number(workerNotification.rows[0]?.count || 0)).toBe(1)
+
+    const vulnerableNotification = await smokeDb.execute({
+      sql: `
+        SELECT COUNT(*) AS "count"
+        FROM "Notification"
+        WHERE "announcementId" = ? AND "userId" = ?
+      `,
+      args: [announcementId, vulnerable.user.id],
+    })
+    expect(Number(vulnerableNotification.rows[0]?.count || 0)).toBe(0)
+
+    await expect(
+      smokeDb.execute({
+        sql: `
+          INSERT INTO "Notification" (
+            "id", "userId", "announcementId", "type", "title", "message",
+            "status", "sentViaEmail", "sentViaSms", "createdAt", "updatedAt"
+          ) VALUES (?, ?, ?, 'ANNOUNCEMENT', ?, ?, 'PENDING', false, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `,
+        args: [
+          'duplicate-announcement-notification-smoke',
+          worker.user.id,
+          announcementId,
+          'Worker Smoke Notice',
+          'Duplicate delivery must be rejected.',
+        ],
+      }),
+    ).rejects.toThrow()
+  } finally {
+    smokeDb.close()
+  }
 
   const workerAnnouncements = await request.get('/api/announcements', {
     headers: bearer(worker.token),
