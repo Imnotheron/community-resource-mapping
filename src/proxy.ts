@@ -3,10 +3,6 @@ import type { NextRequest } from 'next/server'
 
 import { verifySessionToken } from '@/lib/session-token'
 
-function isMobileUserAgent(ua: string): boolean {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(ua)
-}
-
 function readToken(request: NextRequest) {
   const authorization = request.headers.get('authorization') || ''
   const bearer = authorization.startsWith('Bearer ')
@@ -110,16 +106,6 @@ export async function proxy(request: NextRequest) {
           : '/vulnerable/dashboard'
     url.search = ''
     return NextResponse.redirect(url)
-  }
-
-  if (pathname.startsWith('/admin')) {
-    const userAgent = request.headers.get('user-agent') || ''
-    if (isMobileUserAgent(userAgent)) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/intro'
-      url.search = ''
-      return NextResponse.redirect(url)
-    }
   }
 
   return NextResponse.next()
