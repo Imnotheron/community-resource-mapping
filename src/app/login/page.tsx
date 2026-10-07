@@ -74,14 +74,14 @@ function LoginContent() {
 
     if (normalizedRole === 'admin') {
       window.location.assign(
-        '/admin/dashboard',
+        '/admin/dashboard#overview',
       )
       return
     }
 
     if (normalizedRole === 'worker') {
       window.location.assign(
-        '/worker/dashboard',
+        '/worker/dashboard#overview',
       )
       return
     }
@@ -90,7 +90,7 @@ function LoginContent() {
       normalizedRole === 'vulnerable'
     ) {
       window.location.assign(
-        '/vulnerable/dashboard',
+        '/vulnerable/dashboard#overview',
       )
       return
     }
