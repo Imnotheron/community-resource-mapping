@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 type UserColumn = {
   name: string
@@ -35,28 +37,32 @@ async function ensureOnlineColumns() {
   }
 }
 
-function getUserId(request: NextRequest, body: any) {
-  return (
+function getRequestedUserId(request: NextRequest, body: any) {
+  return String(
     body?.userId ||
-    request.headers.get('x-user-id') ||
-    request.headers.get('X-User-Id') ||
-    ''
-  )
+      request.headers.get('x-user-id') ||
+      '',
+  ).trim()
+}
+
+async function authorizeHeartbeat(
+  request: NextRequest,
+  body: any,
+) {
+  const requestedUserId = getRequestedUserId(request, body)
+
+  return requireRequestUser(request, {
+    requestedUserId,
+  })
 }
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureOnlineColumns()
-
     const body = await request.json().catch(() => ({}))
-    const userId = getUserId(request, body)
+    const auth = await authorizeHeartbeat(request, body)
+    if ('error' in auth) return auth.error
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, message: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    await ensureOnlineColumns()
 
     const now = new Date()
 
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
         "isOnline" = true,
         "lastSeenAt" = ${now},
         "updatedAt" = ${now}
-      WHERE "id" = ${userId}
+      WHERE "id" = ${auth.userId}
     `
 
     return NextResponse.json({
@@ -80,26 +86,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || 'Heartbeat failed',
+        message: 'Heartbeat failed',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    await ensureOnlineColumns()
-
     const body = await request.json().catch(() => ({}))
-    const userId = getUserId(request, body)
+    const auth = await authorizeHeartbeat(request, body)
+    if ('error' in auth) return auth.error
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, message: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    await ensureOnlineColumns()
 
     const now = new Date()
 
@@ -109,7 +109,7 @@ export async function DELETE(request: NextRequest) {
         "isOnline" = false,
         "lastSeenAt" = ${now},
         "updatedAt" = ${now}
-      WHERE "id" = ${userId}
+      WHERE "id" = ${auth.userId}
     `
 
     return NextResponse.json({
@@ -123,9 +123,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || 'Offline update failed',
+        message: 'Offline update failed',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
