@@ -5,24 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SilkLightBackground } from '@/components/ui/silk-light-background'
-import { User, Shield, Users, LogIn, CheckCircle, Monitor, ArrowLeft } from 'lucide-react'
+import { User, Shield, Users, LogIn, CheckCircle, ArrowLeft } from 'lucide-react'
 
-const DESKTOP_BREAKPOINT = 1024
 
 export default function RoleSelectionPage() {
   const router = useRouter()
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
-  const [isDesktop, setIsDesktop] = useState(true)
 
   // Force light mode for this page
-  // Detect desktop (>= 1024px) — admin is only shown on desktop
-  useEffect(() => {
-    const checkDesktop = () => setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT)
-    checkDesktop()
-    window.addEventListener('resize', checkDesktop)
-    return () => window.removeEventListener('resize', checkDesktop)
-  }, [])
-
   useEffect(() => {
     document.documentElement.classList.remove('dark')
     document.documentElement.classList.add('light')
@@ -175,9 +165,7 @@ export default function RoleSelectionPage() {
               Select Your Role to Continue
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {roles
-                .filter(role => !(role.id === 'admin' && !isDesktop))
-                .map((role) => {
+              {roles.map((role) => {
                 const RoleIcon = role.icon
                 const colors = getRoleColor(role.color)
                 return (
@@ -220,14 +208,6 @@ export default function RoleSelectionPage() {
               })}
             </div>
           </div>
-
-          {/* Notice about admin access on non-desktop devices */}
-          {!isDesktop && (
-            <div className="flex items-center justify-center gap-2 mb-8 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-              <Monitor className="w-4 h-4 flex-shrink-0" />
-              <span>Admin access is available on desktop computers only.</span>
-            </div>
-          )}
 
           {/* Quick Info */}
           <Card className="border border-white/80 bg-white/72 shadow-[0_18px_55px_rgba(15,23,42,0.06)] backdrop-blur-xl">
