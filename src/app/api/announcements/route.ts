@@ -182,7 +182,6 @@ async function createNotificationsForTarget(announcement: {
         message: announcement.content,
         status: 'PENDING',
       })),
-      skipDuplicates: true,
     })
   } catch (error) {
     console.warn('Announcement created, but notification fan-out was skipped:', error)
