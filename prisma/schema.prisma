@@ -150,6 +150,7 @@ model ReliefDistribution {
   itemsProvided       String
   quantity            Int
   notes               String?
+  supportingDocuments String             @default("[]")
   status              String             @default("PENDING")
   rejectionReason     String?
   createdAt           DateTime           @default(now())
