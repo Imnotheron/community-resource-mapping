@@ -5,6 +5,19 @@ import { apiFetch, getStoredUser, setStoredUser, clearStoredUser, AuthUser } fro
 
 const HEARTBEAT_INTERVAL_MS = 30 * 1000
 
+function resetDashboardToOverview() {
+  if (typeof window === 'undefined') return
+
+  const nextUrl =
+    `${window.location.pathname}${window.location.search}#overview`
+
+  window.history.replaceState(
+    window.history.state,
+    '',
+    nextUrl,
+  )
+}
+
 async function sendHeartbeat(userId: string, status: 'online' | 'offline' = 'online') {
   if (!userId) return
 
@@ -91,6 +104,7 @@ export function useUserSync() {
       data.token
     ) {
       setStoredUser(data.user, data.token)
+      resetDashboardToOverview()
       setUser(data.user)
 
       if (data.user.id) {
@@ -124,6 +138,7 @@ export function useUserSync() {
     )
 
     setStoredUser(data.user, data.token)
+    resetDashboardToOverview()
     setUser(data.user)
 
     if (data.user?.id) {
