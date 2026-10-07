@@ -11,6 +11,16 @@ import { CalendarDays, FileText, Printer, RefreshCw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { apiFetch, type AuthUser } from '@/lib/api-client'
+import {
+  RELIEF_GENERAL_LABELS,
+  VULNERABILITY_GENERAL_LABELS,
+  reliefGeneralCategory,
+  vulnerabilityGeneralGroups,
+} from '@/lib/relief-classification'
+import {
+  formatVulnerabilityTypes,
+  vulnerabilityLabel,
+} from '@/components/dashboards/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -533,6 +543,98 @@ function WorkerReport({
   )
 }
 
+
+function distributionSectorValues(distribution: any) {
+  const sectors = formatVulnerabilityTypes(
+    distribution?.vulnerableProfile?.vulnerabilityTypes,
+  )
+  return sectors.length ? sectors : ['OTHER']
+}
+
+function distributionBeneficiaryName(distribution: any) {
+  if (distribution?.vulnerableProfile) {
+    return [
+      distribution.vulnerableProfile.lastName,
+      distribution.vulnerableProfile.firstName,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
+
+  return distribution?.household?.headOfHousehold || ''
+}
+
+function distributionBarangay(distribution: any) {
+  return (
+    distribution?.vulnerableProfile?.barangay ||
+    distribution?.household?.barangay ||
+    ''
+  )
+}
+
+type ReliefFacet =
+  | 'status'
+  | 'reliefGeneral'
+  | 'reliefType'
+  | 'vulnerabilityGeneral'
+  | 'sector'
+
+function matchesReliefFilters(
+  distribution: any,
+  filters: {
+    status: string
+    reliefGeneral: string
+    reliefType: string
+    vulnerabilityGeneral: string
+    sector: string
+  },
+  omit?: ReliefFacet,
+) {
+  if (
+    omit !== 'status' &&
+    filters.status !== 'ALL' &&
+    distribution.status !== filters.status
+  ) {
+    return false
+  }
+
+  if (
+    omit !== 'reliefGeneral' &&
+    filters.reliefGeneral !== 'ALL' &&
+    reliefGeneralCategory(distribution) !== filters.reliefGeneral
+  ) {
+    return false
+  }
+
+  if (
+    omit !== 'reliefType' &&
+    filters.reliefType !== 'ALL' &&
+    String(distribution.distributionType || '') !== filters.reliefType
+  ) {
+    return false
+  }
+
+  if (
+    omit !== 'vulnerabilityGeneral' &&
+    filters.vulnerabilityGeneral !== 'ALL' &&
+    !vulnerabilityGeneralGroups(distribution?.vulnerableProfile).includes(
+      filters.vulnerabilityGeneral,
+    )
+  ) {
+    return false
+  }
+
+  if (
+    omit !== 'sector' &&
+    filters.sector !== 'ALL' &&
+    !distributionSectorValues(distribution).includes(filters.sector)
+  ) {
+    return false
+  }
+
+  return true
+}
+
 export function DailyReportsView({ user }: { user: AuthUser }) {
   const isAdmin = String(user.role).toUpperCase() === 'ADMIN'
   const [date, setDate] = useState(todayInputValue())
@@ -540,7 +642,13 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
   const [workerId, setWorkerId] = useState('ALL')
   const [personId, setPersonId] = useState('ALL')
   const [lastName, setLastName] = useState('ALL')
-  const [sortBy, setSortBy] = useState('LAST_NAME')
+  const [reliefStatusFilter, setReliefStatusFilter] = useState('ALL')
+  const [reliefCategoryFilter, setReliefCategoryFilter] = useState('ALL')
+  const [reliefTypeFilter, setReliefTypeFilter] = useState('ALL')
+  const [vulnerabilityGroupFilter, setVulnerabilityGroupFilter] =
+    useState('ALL')
+  const [sectorFilter, setSectorFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState('DATE_DESC')
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [savingReportSettings, setSavingReportSettings] =
@@ -676,63 +784,206 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
     }
   }, [lastName, lastNames])
 
+
+  const baseDistributions = report?.distributions || []
+  const activeReliefFilters = {
+    status: reliefStatusFilter,
+    reliefGeneral: reliefCategoryFilter,
+    reliefType: reliefTypeFilter,
+    vulnerabilityGeneral: vulnerabilityGroupFilter,
+    sector: sectorFilter,
+  }
+
+  const recordsForReliefFacet = (facet: ReliefFacet) =>
+    baseDistributions.filter((distribution: any) =>
+      matchesReliefFilters(distribution, activeReliefFilters, facet),
+    )
+
+  const reliefStatusOptions = Array.from(
+    new Set(
+      recordsForReliefFacet('status')
+        .map((item: any) => String(item.status || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort()
+
+  const reliefCategories = Array.from(
+    new Set(
+      recordsForReliefFacet('reliefGeneral').map((item: any) =>
+        reliefGeneralCategory(item),
+      ),
+    ),
+  ).sort((a, b) =>
+    (RELIEF_GENERAL_LABELS[a] || a).localeCompare(
+      RELIEF_GENERAL_LABELS[b] || b,
+    ),
+  )
+
+  const reliefTypes = Array.from(
+    new Set(
+      recordsForReliefFacet('reliefType')
+        .map((item: any) => String(item.distributionType || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const vulnerabilityGroups = Array.from(
+    new Set(
+      recordsForReliefFacet('vulnerabilityGeneral').flatMap((item: any) =>
+        vulnerabilityGeneralGroups(item?.vulnerableProfile),
+      ),
+    ),
+  ).sort((a, b) =>
+    (VULNERABILITY_GENERAL_LABELS[a] || a).localeCompare(
+      VULNERABILITY_GENERAL_LABELS[b] || b,
+    ),
+  )
+
+  const distributionSectors = Array.from(
+    new Set(
+      recordsForReliefFacet('sector').flatMap((item: any) =>
+        distributionSectorValues(item),
+      ),
+    ),
+  ).sort((a, b) =>
+    vulnerabilityLabel(a).localeCompare(vulnerabilityLabel(b)),
+  )
+
   const displayReport = useMemo(() => {
     if (!report) return report
 
-    const personName = (item: any) =>
-      item?.vulnerableProfile
-        ? `${item.vulnerableProfile.lastName || ''} ${item.vulnerableProfile.firstName || ''}`
-        : item?.lastName
-          ? `${item.lastName || ''} ${item.firstName || ''}`
-          : item?.household?.headOfHousehold || ''
-
-    const barangayName = (item: any) =>
-      item?.vulnerableProfile?.barangay ||
-      item?.barangay ||
-      item?.household?.barangay ||
-      ''
-
-    const typeName = (item: any) => {
-      if (item?.distributionType) return String(item.distributionType)
-      const raw = String(item?.vulnerabilityTypes || '')
-      if (!raw) return ''
-      try {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) return String(parsed[0] || '')
-      } catch {
-        // Fall through to the stored text value.
-      }
-      return raw.split(/[,;|]/)[0] || ''
-    }
-
-    const sortRecords = (items: any[]) =>
-      [...(items || [])].sort((a, b) => {
-        if (sortBy === 'BARANGAY') {
-          const compared = barangayName(a).localeCompare(barangayName(b))
-          if (compared !== 0) return compared
+    const filteredDistributions = (report.distributions || [])
+      .filter((distribution: any) =>
+        matchesReliefFilters(distribution, {
+          status: reliefStatusFilter,
+          reliefGeneral: reliefCategoryFilter,
+          reliefType: reliefTypeFilter,
+          vulnerabilityGeneral: vulnerabilityGroupFilter,
+          sector: sectorFilter,
+        }),
+      )
+      .sort((a: any, b: any) => {
+        if (sortBy === 'RELIEF_GENERAL') {
+          return String(
+            RELIEF_GENERAL_LABELS[reliefGeneralCategory(a)] || '',
+          ).localeCompare(
+            String(RELIEF_GENERAL_LABELS[reliefGeneralCategory(b)] || ''),
+          )
         }
 
         if (sortBy === 'TYPE') {
-          const compared = typeName(a).localeCompare(typeName(b))
+          return String(a.distributionType || '').localeCompare(
+            String(b.distributionType || ''),
+          )
+        }
+
+        if (sortBy === 'BARANGAY') {
+          return distributionBarangay(a).localeCompare(distributionBarangay(b))
+        }
+
+        if (sortBy === 'VULNERABILITY_GENERAL') {
+          const aGroup =
+            VULNERABILITY_GENERAL_LABELS[
+              vulnerabilityGeneralGroups(a.vulnerableProfile)[0]
+            ] || ''
+          const bGroup =
+            VULNERABILITY_GENERAL_LABELS[
+              vulnerabilityGeneralGroups(b.vulnerableProfile)[0]
+            ] || ''
+          return aGroup.localeCompare(bGroup)
+        }
+
+        if (sortBy === 'SECTOR') {
+          return vulnerabilityLabel(distributionSectorValues(a)[0]).localeCompare(
+            vulnerabilityLabel(distributionSectorValues(b)[0]),
+          )
+        }
+
+        if (sortBy === 'LAST_NAME') {
+          return distributionBeneficiaryName(a).localeCompare(
+            distributionBeneficiaryName(b),
+          )
+        }
+
+        if (sortBy === 'WORKER') {
+          return String(a.worker?.name || '').localeCompare(
+            String(b.worker?.name || ''),
+          )
+        }
+
+        if (sortBy === 'STATUS') {
+          return String(a.status || '').localeCompare(String(b.status || ''))
+        }
+
+        const aDate = new Date(a.distributionDate || a.createdAt || 0).getTime()
+        const bDate = new Date(b.distributionDate || b.createdAt || 0).getTime()
+
+        if (sortBy === 'DATE_ASC') return aDate - bDate
+        return bDate - aDate
+      })
+
+    const sortOtherRecords = (items: any[]) =>
+      [...(items || [])].sort((a, b) => {
+        if (sortBy === 'BARANGAY') {
+          const compared = String(a.barangay || '').localeCompare(
+            String(b.barangay || ''),
+          )
           if (compared !== 0) return compared
         }
 
-        if (sortBy === 'DATE') {
-          const aDate = new Date(a.distributionDate || a.createdAt || 0).getTime()
-          const bDate = new Date(b.distributionDate || b.createdAt || 0).getTime()
-          return bDate - aDate
-        }
-
-        return personName(a).localeCompare(personName(b))
+        return String(a.lastName || '').localeCompare(String(b.lastName || ''))
       })
+
+    const approvedDistributions = filteredDistributions.filter(
+      (item: any) => item.status === 'APPROVED',
+    ).length
+    const pendingDistributions = filteredDistributions.filter(
+      (item: any) => item.status === 'PENDING',
+    ).length
+    const rejectedDistributions = filteredDistributions.filter(
+      (item: any) => item.status === 'REJECTED',
+    ).length
+    const totalQuantity = filteredDistributions.reduce(
+      (sum: number, item: any) => sum + Number(item.quantity || 0),
+      0,
+    )
+
+    const filteredBarangayCounts = new Map<string, number>()
+    for (const item of filteredDistributions) {
+      const key = distributionBarangay(item) || 'Unspecified'
+      filteredBarangayCounts.set(
+        key,
+        (filteredBarangayCounts.get(key) || 0) + 1,
+      )
+    }
 
     return {
       ...report,
-      citizenRecords: sortRecords(report.citizenRecords || []),
-      distributions: sortRecords(report.distributions || []),
-      registrations: sortRecords(report.registrations || []),
+      summary: {
+        ...report.summary,
+        distributionsRecorded: filteredDistributions.length,
+        approvedDistributions,
+        pendingDistributions,
+        rejectedDistributions,
+        totalQuantity,
+      },
+      citizenRecords: sortOtherRecords(report.citizenRecords || []),
+      registrations: sortOtherRecords(report.registrations || []),
+      distributions: filteredDistributions,
+      barangaySummary: (report.barangaySummary || []).map((item: any) => ({
+        ...item,
+        distributions: filteredBarangayCounts.get(item.name) || 0,
+      })),
     }
-  }, [report, sortBy])
+  }, [
+    reliefCategoryFilter,
+    reliefStatusFilter,
+    reliefTypeFilter,
+    report,
+    sectorFilter,
+    sortBy,
+    vulnerabilityGroupFilter,
+  ])
 
   return (
     <div className="daily-reports-screen space-y-5 animate-fade-in">
@@ -1322,6 +1573,105 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             )}
           </>
 
+
+            <div className="space-y-2">
+              <Label>Relief status</Label>
+              <Select
+                value={reliefStatusFilter}
+                onValueChange={setReliefStatusFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All statuses</SelectItem>
+                  {['PENDING', 'APPROVED', 'REJECTED']
+                    .filter((status) => reliefStatusOptions.includes(status))
+                    .map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.charAt(0) + status.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>General relief type</Label>
+              <Select
+                value={reliefCategoryFilter}
+                onValueChange={setReliefCategoryFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All general relief" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All general relief</SelectItem>
+                  {reliefCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {RELIEF_GENERAL_LABELS[category] || category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Specific relief type</Label>
+              <SearchableSelect
+                value={reliefTypeFilter}
+                onValueChange={setReliefTypeFilter}
+                placeholder="All specific relief types"
+                searchPlaceholder="Search relief type..."
+                options={[
+                  { value: 'ALL', label: 'All specific relief types' },
+                  ...reliefTypes.map((type) => ({
+                    value: type,
+                    label: type,
+                    keywords: type,
+                  })),
+                ]}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>General vulnerability</Label>
+              <Select
+                value={vulnerabilityGroupFilter}
+                onValueChange={setVulnerabilityGroupFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All general vulnerabilities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All general vulnerabilities</SelectItem>
+                  {vulnerabilityGroups.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {VULNERABILITY_GENERAL_LABELS[group] || group}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Specific vulnerability</Label>
+              <SearchableSelect
+                value={sectorFilter}
+                onValueChange={setSectorFilter}
+                placeholder="All specific vulnerabilities"
+                searchPlaceholder="Search vulnerability..."
+                options={[
+                  { value: 'ALL', label: 'All specific vulnerabilities' },
+                  ...distributionSectors.map((sector) => ({
+                    value: sector,
+                    label: vulnerabilityLabel(sector),
+                    keywords: sector,
+                  })),
+                ]}
+              />
+            </div>
+
           <div className="space-y-2">
             <Label>Sort printed lists by</Label>
             <Select value={sortBy} onValueChange={setSortBy}>
@@ -1329,10 +1679,16 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="LAST_NAME">Last name / Person</SelectItem>
+                <SelectItem value="DATE_DESC">Newest first</SelectItem>
+                <SelectItem value="DATE_ASC">Oldest first</SelectItem>
+                <SelectItem value="RELIEF_GENERAL">General relief type</SelectItem>
+                <SelectItem value="TYPE">Specific relief type</SelectItem>
                 <SelectItem value="BARANGAY">Barangay</SelectItem>
-                <SelectItem value="TYPE">Type / Vulnerability</SelectItem>
-                <SelectItem value="DATE">Latest date</SelectItem>
+                <SelectItem value="VULNERABILITY_GENERAL">General vulnerability</SelectItem>
+                <SelectItem value="SECTOR">Specific vulnerability</SelectItem>
+                <SelectItem value="LAST_NAME">Beneficiary name</SelectItem>
+                {isAdmin ? <SelectItem value="WORKER">Worker</SelectItem> : null}
+                <SelectItem value="STATUS">Status</SelectItem>
               </SelectContent>
             </Select>
           </div>
