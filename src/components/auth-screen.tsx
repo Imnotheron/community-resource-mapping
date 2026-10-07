@@ -222,17 +222,6 @@ export function AuthScreen({
   })
 
   useEffect(() => {
-    if (isMobile && role === 'admin') {
-      setRole('vulnerable')
-      setMode('select')
-      setErrorMessage(null)
-      setChallengeId('')
-      setOtp('')
-      loginForm.reset()
-    }
-  }, [isMobile, role, loginForm])
-
-  useEffect(() => {
     if (resendCooldown <= 0) return
 
     const timer = window.setInterval(() => {
@@ -299,17 +288,6 @@ export function AuthScreen({
   async function handleLogin(
     values: z.infer<typeof loginSchema>,
   ) {
-    if (isMobile && role === 'admin') {
-      const message =
-        'Administrator access is available on a desktop or laptop.'
-
-      setErrorMessage(message)
-      toast.error('Desktop required', {
-        description: message,
-      })
-      return
-    }
-
     setSubmitting(true)
     setErrorMessage(null)
 
@@ -620,16 +598,7 @@ export function AuthScreen({
               <div className="grid grid-cols-1 gap-3 sm:gap-5 md:grid-cols-3">
                 {(Object.keys(
                   ROLE_INFO,
-                ) as Role[])
-                  .filter(
-                    (availableRole) =>
-                      !(
-                        isMobile &&
-                        availableRole ===
-                          'admin'
-                      ),
-                  )
-                  .map((nextRole) => {
+                ) as Role[]).map((nextRole) => {
                     const info =
                       ROLE_INFO[nextRole]
                     const Icon = info.icon
@@ -646,9 +615,6 @@ export function AuthScreen({
                         }
                         className={cn(
                           'auth-role-card relative flex min-h-[150px] flex-col items-start gap-3 overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br p-5 text-left shadow-md transition md:min-h-[190px] md:p-6',
-                          nextRole ===
-                            'admin' &&
-                            'hidden md:flex',
                           colors.gradient,
                           colors.border,
                           !minimalMotion &&
@@ -690,13 +656,6 @@ export function AuthScreen({
                   })}
               </div>
 
-              {isMobile ? (
-                <p className="mt-4 text-center text-xs leading-relaxed text-muted-foreground">
-                  Administrator tools are
-                  available on desktop or
-                  laptop for the alpha test.
-                </p>
-              ) : null}
             </motion.div>
           ) : (
             <motion.div
