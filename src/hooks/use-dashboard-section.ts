@@ -6,9 +6,10 @@ export function useDashboardSection(
   sections: string[],
   fallback: string,
 ) {
+  const sectionsKey = sections.join('|')
   const allowed = useMemo(
     () => new Set(sections),
-    [sections.join('|')],
+    [sectionsKey],
   )
   const [section, setSection] = useState(fallback)
 
