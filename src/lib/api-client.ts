@@ -216,7 +216,23 @@ export async function apiFetch<T = any>(
       (typeof data === 'string' && data) ||
       `Request failed (${response.status})`
 
-    throw new Error(message)
+    const error = new Error(message) as Error & {
+      status?: number
+      code?: string
+      data?: any
+    }
+
+    error.status = response.status
+    error.code =
+      data && typeof data === 'object'
+        ? data.code
+        : undefined
+    error.data =
+      data && typeof data === 'object'
+        ? data
+        : undefined
+
+    throw error
   }
 
   return data as T
