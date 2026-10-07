@@ -401,7 +401,8 @@ function TourOverlay({
         onSkip()
       } else if (event.key === 'ArrowRight') {
         event.preventDefault()
-        isLast ? onFinish() : onNext()
+        if (isLast) onFinish()
+        else onNext()
       } else if (event.key === 'ArrowLeft' && stepIndex > 0) {
         event.preventDefault()
         onBack()
