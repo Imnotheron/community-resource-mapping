@@ -294,11 +294,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message:
-          'Login failed: ' +
-          (error instanceof Error
-            ? error.message
-            : String(error)),
+        message: 'Login failed. Please try again.',
       },
       { status: 500 },
     )
