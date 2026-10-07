@@ -275,10 +275,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unable to send the verification code.',
+          message: retryAfterSeconds
+            ? `Please wait ${retryAfterSeconds} seconds before requesting another code.`
+            : 'Unable to send the verification code. Please try again or contact the system administrator.',
           ...(retryAfterSeconds
             ? { retryAfterSeconds }
             : {}),
