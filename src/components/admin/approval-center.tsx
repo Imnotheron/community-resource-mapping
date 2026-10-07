@@ -784,7 +784,8 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
 
     setter((current) => {
       const next = new Set(current)
-      checked ? next.add(id) : next.delete(id)
+      if (checked) next.add(id)
+      else next.delete(id)
       return next
     })
   }
@@ -797,7 +798,8 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
       const next = new Set(current)
 
       visibleIds.forEach((id) => {
-        checked ? next.add(id) : next.delete(id)
+        if (checked) next.add(id)
+        else next.delete(id)
       })
 
       return next
