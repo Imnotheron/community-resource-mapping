@@ -1,141 +1,217 @@
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
-import { randomUUID } from 'crypto'
+import { randomInt } from 'crypto'
+import { NextRequest, NextResponse } from 'next/server'
+
+import { db } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
+import { requireRequestUser } from '@/lib/request-user-session'
+
+function randomCharacter(characters: string) {
+  return characters[randomInt(0, characters.length)]
+}
 
 function generateTemporaryPassword() {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const lower = 'abcdefghijkmnopqrstuvwxyz'
   const numbers = '23456789'
-  const symbols = '!@#$%'
+  const symbols = '!@#$%&*'
+  const all = upper + lower + numbers + symbols
 
-  let password = ''
-  for (let i = 0; i < 5; i++) password += letters[Math.floor(Math.random() * letters.length)]
-  for (let i = 0; i < 2; i++) password += numbers[Math.floor(Math.random() * numbers.length)]
-  password += symbols[Math.floor(Math.random() * symbols.length)]
+  const characters = [
+    randomCharacter(upper),
+    randomCharacter(lower),
+    randomCharacter(numbers),
+    randomCharacter(symbols),
+  ]
 
-  return password
-    .split('')
-    .sort(() => Math.random() - 0.5)
-    .join('')
+  while (characters.length < 14) {
+    characters.push(randomCharacter(all))
+  }
+
+  for (let index = characters.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(0, index + 1)
+    ;[characters[index], characters[swapIndex]] = [
+      characters[swapIndex],
+      characters[index],
+    ]
+  }
+
+  return characters.join('')
 }
 
 export async function POST(request: NextRequest) {
+  let createdUserId: string | null = null
+
   try {
-    const { name, email, phone, adminId } = await request.json()
+    const body = await request.json().catch(() => ({}))
+    const requestedAdminId = String(body?.adminId || '').trim()
 
-    if (!name || !email || !adminId) {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+      requestedUserId: requestedAdminId,
+    })
+    if ('error' in auth) return auth.error
+
+    const cleanName = String(body?.name || '').trim()
+    const cleanEmail = String(body?.email || '').trim().toLowerCase()
+    const cleanPhone = String(body?.phone || '').trim()
+
+    if (!cleanName || !cleanEmail) {
       return NextResponse.json(
-        { success: false, message: 'Name, email, and admin ID are required' },
-        { status: 400 }
+        {
+          success: false,
+          message: 'Name and email are required',
+        },
+        { status: 400 },
       )
     }
 
-    const cleanName = String(name).trim()
-    const cleanEmail = String(email).trim().toLowerCase()
-    const cleanPhone = phone ? String(phone).trim() : null
-
-    const adminRows = await db.$queryRaw<Array<{ id: string; role: string }>>`
-      SELECT "id", "role"
-      FROM "User"
-      WHERE "id" = ${adminId}
-      LIMIT 1
-    `
-
-    const admin = adminRows[0]
-
-    if (!admin || admin.role !== 'ADMIN') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized. Only admins can create worker accounts.' },
-        { status: 403 }
+        {
+          success: false,
+          message: 'Enter a valid email address',
+        },
+        { status: 400 },
       )
     }
 
-    const existingRows = await db.$queryRaw<Array<{ id: string; email: string }>>`
-      SELECT "id", "email"
-      FROM "User"
-      WHERE lower("email") = lower(${cleanEmail})
-      LIMIT 1
-    `
-
-    if (existingRows.length > 0) {
+    if (cleanName.length > 120 || cleanPhone.length > 40) {
       return NextResponse.json(
-        { success: false, message: 'A user with this email already exists' },
-        { status: 400 }
+        {
+          success: false,
+          message: 'One or more account fields are too long',
+        },
+        { status: 400 },
+      )
+    }
+
+    const existing = await db.user.findFirst({
+      where: {
+        email: cleanEmail,
+      },
+      select: { id: true },
+    })
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'A user with this email already exists',
+        },
+        { status: 409 },
       )
     }
 
     const temporaryPassword = generateTemporaryPassword()
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10)
-    const userId = randomUUID()
-    const now = new Date()
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 12)
 
-    await db.$executeRaw`
-      INSERT INTO "User" (
-        "id",
-        "email",
-        "password",
-        "name",
-        "role",
-        "phone",
-        "createdAt",
-        "updatedAt"
-      )
-      VALUES (
-        ${userId},
-        ${cleanEmail},
-        ${hashedPassword},
-        ${cleanName},
-        'WORKER',
-        ${cleanPhone},
-        ${now},
-        ${now}
-      )
-    `
-
-    const emailResult = await sendWelcomeEmail(
-      cleanEmail,
-      cleanName || 'Worker',
-      'WORKER',
-      temporaryPassword
-    ).catch((error) => {
-      console.error('Failed to send worker welcome email:', error)
-      return { success: false, message: error?.message || 'Email failed' }
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: emailResult?.success
-        ? 'Worker account created successfully. Login credentials were sent to their email.'
-        : 'Worker account created successfully, but the email notification failed.',
-      user: {
-        id: userId,
+    const user = await db.user.create({
+      data: {
         name: cleanName,
         email: cleanEmail,
+        phone: cleanPhone || null,
         role: 'WORKER',
-        phone: cleanPhone,
-        createdAt: now,
+        password: hashedPassword,
+        temporaryPasswordIssued: true,
+        passwordChangedAt: null,
+        onboardingReminderDismissedAt: null,
       },
-      tempPassword: temporaryPassword,
-      temporaryPassword,
-      notification: {
-        emailSent: !!emailResult?.success,
-        smsSent: false,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
       },
     })
+    createdUserId = user.id
+
+    const emailResult = await sendWelcomeEmail(
+      user.email,
+      user.name || 'Worker',
+      'WORKER',
+      temporaryPassword,
+    ).catch((error) => {
+      console.error('Failed to send worker welcome email:', error)
+      return {
+        success: false,
+        message: 'Email delivery failed',
+      }
+    })
+
+    if (!emailResult?.success) {
+      let accountRemoved = false
+
+      try {
+        await db.user.delete({
+          where: { id: user.id },
+        })
+        accountRemoved = true
+        createdUserId = null
+      } catch (rollbackError) {
+        console.error(
+          'Failed to roll back worker after email failure:',
+          rollbackError,
+        )
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: accountRemoved
+            ? 'The worker account was not created because the welcome email could not be delivered.'
+            : 'The welcome email failed and the incomplete account could not be removed automatically.',
+          accountRemoved,
+        },
+        { status: accountRemoved ? 502 : 500 },
+      )
+    }
+
+    createdUserId = null
+
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          'Worker account created successfully. Login credentials were sent to their email.',
+        user,
+        notification: {
+          emailSent: true,
+          smsSent: false,
+        },
+      },
+      { status: 201 },
+    )
   } catch (error: any) {
+    if (createdUserId) {
+      await db.user.delete({
+        where: { id: createdUserId },
+      }).catch((rollbackError) =>
+        console.error('Worker rollback failed:', rollbackError),
+      )
+    }
+
+    const duplicateEmail =
+      error?.code === 'P2002' ||
+      String(error?.message || '')
+        .toLowerCase()
+        .includes('unique constraint')
+
     console.error('Error creating worker account:', error)
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          'Failed to create worker account: ' +
-          (error?.message || error?.toString() || 'Unknown error'),
+        message: duplicateEmail
+          ? 'A user with this email already exists'
+          : 'Failed to create worker account',
       },
-      { status: 500 }
+      { status: duplicateEmail ? 409 : 500 },
     )
   }
 }

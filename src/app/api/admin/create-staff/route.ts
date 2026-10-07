@@ -12,6 +12,7 @@ import {
 } from 'next/server'
 
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 import {
   getStaffEmailConfiguration,
   sendStaffWelcomeEmail,
@@ -276,6 +277,11 @@ export async function POST(
     | null = null
 
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     const body =
       await request.json()
 
@@ -292,45 +298,19 @@ export async function POST(
       body.role,
     )
 
-    const adminId =
-      request.headers.get(
-        'x-user-id',
-      ) ||
-      cleanText(body.adminId) ||
-      request.nextUrl.searchParams.get(
-        'userId',
-      ) ||
-      ''
-
-    if (!adminId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Administrator session is required. Sign in again and retry.',
-        },
-        { status: 401 },
-      )
-    }
-
     const administrator =
       await findAdministrator(
-        adminId,
+        auth.userId,
       )
 
-    if (
-      !administrator ||
-      String(
-        administrator.role,
-      ).toUpperCase() !== 'ADMIN'
-    ) {
+    if (!administrator) {
       return NextResponse.json(
         {
           success: false,
           error:
-            'Only an Administrator can create staff accounts.',
+            'Administrator session is no longer available. Sign in again.',
         },
-        { status: 403 },
+        { status: 401 },
       )
     }
 
