@@ -15,7 +15,8 @@
     "db:seed": "bun run prisma/seed.ts",
     "test:live-config": "bun run scripts/check-live-config.ts",
     "test:assistant": "bun run scripts/check-assistant-behavior.ts",
-    "test:stability": "node scripts/check-stability-contracts.mjs"
+    "test:stability": "node scripts/check-stability-contracts.mjs",
+    "test:smoke": "playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
