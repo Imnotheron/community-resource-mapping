@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
 import { requireRequestUser } from '@/lib/request-user-session'
 import { normalizeRegistrationDocuments } from '@/lib/registration-documents'
+import { findVulnerableRegistrationDuplicates } from '@/lib/vulnerable-duplicate-check'
 
 function clean(value: unknown) {
   return String(value || '').trim()
@@ -95,6 +96,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const duplicateCheck =
+      await findVulnerableRegistrationDuplicates({
+        emailAddress,
+        firstName,
+        middleName: body.middleName,
+        lastName,
+        dateOfBirth: dateOfBirthText,
+        mobileNumber: body.mobileNumber,
+        pwdIdNumber:
+          body.pwdIdNumber ||
+          body.disabilityIdNumber,
+      })
+
+    if (duplicateCheck.hasDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            duplicateCheck.conflicts[0]?.message ||
+            'A matching vulnerable registration already exists.',
+          code: 'DUPLICATE_REGISTRATION',
+          conflicts: duplicateCheck.conflicts,
+        },
+        { status: 409 },
+      )
+    }
+
     const latitude = coordinate(body.latitude)
     const longitude = coordinate(body.longitude)
     if (
@@ -180,7 +208,10 @@ export async function POST(request: NextRequest) {
           ),
           disabilityType: optional(body.disabilityType),
           disabilityCause: optional(body.disabilityCause),
-          disabilityIdNumber: optional(body.disabilityIdNumber),
+          disabilityIdNumber: optional(
+            body.pwdIdNumber ||
+              body.disabilityIdNumber,
+          ),
           emergencyContact,
           emergencyPhone,
           hasMedicalCondition: Boolean(body.hasMedicalCondition),
@@ -241,7 +272,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'This email address is already registered in the system',
+          error:
+            'This email address became registered while the form was being submitted. Refresh the registration records before trying again.',
+          code: 'DUPLICATE_REGISTRATION',
         },
         { status: 409 },
       )
