@@ -162,6 +162,7 @@ test('Administrator role and sign-in stay available on mobile UI', async ({ page
   await page.locator('#password').fill('admin123')
   await page.getByRole('button', { name: 'Continue securely' }).click()
 
+  await expect(page).toHaveURL(/\/admin\/dashboard#overview$/)
   await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
 })
 
