@@ -1,7 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
-test.describe.configure({ mode: 'serial' })
-
 type LoginResult = {
   token: string
   user: {
