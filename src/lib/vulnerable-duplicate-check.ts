@@ -29,18 +29,6 @@ function normalizeName(value: unknown) {
     .replace(/\s+/g, ' ')
 }
 
-function normalizePhone(value: unknown) {
-  let digits = clean(value, 80).replace(/\D+/g, '')
-
-  if (digits.startsWith('63') && digits.length === 12) {
-    digits = `0${digits.slice(2)}`
-  } else if (digits.startsWith('9') && digits.length === 10) {
-    digits = `0${digits}`
-  }
-
-  return digits
-}
-
 function dateRange(value: unknown) {
   const raw = clean(value, 40)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
@@ -60,7 +48,6 @@ export async function findVulnerableRegistrationDuplicates(
   const conflicts: VulnerableDuplicateConflict[] = []
   const emailAddress = clean(input.emailAddress).toLowerCase()
   const firstName = normalizeName(input.firstName)
-  const middleName = normalizeName(input.middleName)
   const lastName = normalizeName(input.lastName)
   const pwdIdNumber = clean(input.pwdIdNumber, 160).toLowerCase()
   const dobRange = dateRange(input.dateOfBirth)
@@ -137,11 +124,6 @@ export async function findVulnerableRegistrationDuplicates(
 
       if (!sameFirst || !sameLast) return false
 
-      const existingMiddle = normalizeName(profile.middleName)
-      if (middleName && existingMiddle) {
-        return existingMiddle === middleName
-      }
-
       return true
     })
 
@@ -166,16 +148,25 @@ export async function findVulnerableRegistrationDuplicates(
   }
 
   if (pwdIdNumber) {
-    const pwdMatch = await db.vulnerableProfile.findFirst({
-      where: {
-        disabilityIdNumber: clean(input.pwdIdNumber, 160),
-      },
-      select: {
-        id: true,
-        userId: true,
-        registrationStatus: true,
-      },
-    })
+    const pwdRows = await db.$queryRaw<
+      Array<{
+        id: string
+        userId: string
+        registrationStatus: string
+      }>
+    >`
+      SELECT
+        "id",
+        "userId",
+        "registrationStatus"
+      FROM "VulnerableProfile"
+      WHERE "disabilityIdNumber" IS NOT NULL
+        AND lower(trim("disabilityIdNumber")) =
+          lower(trim(${clean(input.pwdIdNumber, 160)}))
+      LIMIT 1
+    `
+
+    const pwdMatch = pwdRows[0] || null
 
     if (
       pwdMatch &&
