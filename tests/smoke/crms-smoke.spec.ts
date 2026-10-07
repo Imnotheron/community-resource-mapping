@@ -166,6 +166,23 @@ test('Administrator role and sign-in stay available on mobile UI', async ({ page
   await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
 })
 
+test('fresh Worker and Vulnerable UI logins start on overview', async ({ page }) => {
+  const workerPage = page
+  await workerPage.goto('/login?role=worker')
+  await workerPage.getByLabel('Email address').fill('worker@sampolicarpo.gov')
+  await workerPage.locator('#password').fill('worker123')
+  await workerPage.getByRole('button', { name: 'Continue securely' }).click()
+  await expect(workerPage).toHaveURL(/\/worker\/dashboard#overview$/)
+
+  const vulnerablePage = await page.context().newPage()
+  await vulnerablePage.goto('/login?role=vulnerable')
+  await vulnerablePage.getByLabel('Email address').fill('maria.garcia@email.com')
+  await vulnerablePage.locator('#password').fill('vulnerable123')
+  await vulnerablePage.getByRole('button', { name: 'Continue securely' }).click()
+  await expect(vulnerablePage).toHaveURL(/\/vulnerable\/dashboard#overview$/)
+  await vulnerablePage.close()
+})
+
 test('OTP validation enforces attempts and accepts the correct challenge', async ({ request }) => {
   const wrong = await request.post('/api/auth/verify-otp', {
     data: {
