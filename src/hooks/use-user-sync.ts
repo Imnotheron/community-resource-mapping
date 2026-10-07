@@ -21,8 +21,15 @@ async function sendHeartbeat(userId: string, status: 'online' | 'offline' = 'onl
  * - Sends a heartbeat every 30 seconds so admins can see Online / Offline / Last seen
  */
 export function useUserSync() {
-  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser())
-  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Hydrate browser-only auth state after the server/client hydration boundary.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUser(getStoredUser())
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
     if (!user?.id) return
