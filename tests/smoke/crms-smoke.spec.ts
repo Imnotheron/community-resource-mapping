@@ -243,6 +243,77 @@ test('duplicate registration check catches email, mobile, identity, and PWD ID c
   expect(pwdData.conflicts.some((item: any) => item.type === 'PWD_ID')).toBe(true)
 })
 
+test('Admin account creation rejects duplicates and appears in the users list', async ({ request }) => {
+  const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const headers = bearer(admin.token)
+
+  const create = await request.post('/api/admin/users', {
+    headers,
+    data: {
+      name: 'Smoke Created Worker',
+      email: 'created.worker@smoke.test',
+      password: 'workerPass123!',
+      role: 'WORKER',
+      phone: '09173334444',
+    },
+  })
+  expect(create.status(), await create.text()).toBe(201)
+  expect((await create.json()).success).toBe(true)
+
+  const duplicate = await request.post('/api/admin/users', {
+    headers,
+    data: {
+      name: 'Smoke Duplicate Worker',
+      email: 'created.worker@smoke.test',
+      password: 'workerPass123!',
+      role: 'WORKER',
+    },
+  })
+  expect(duplicate.status()).toBe(400)
+
+  const list = await request.get('/api/admin/users', { headers })
+  expect(list.status(), await list.text()).toBe(200)
+  const data = await list.json()
+  expect(
+    data.users.some(
+      (user: any) =>
+        user.email === 'created.worker@smoke.test' &&
+        user.role === 'WORKER',
+    ),
+  ).toBe(true)
+})
+
+test('presence lifecycle marks a signed-in user online and offline correctly', async ({ request }) => {
+  const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const headers = bearer(admin.token)
+
+  const online = await request.post('/api/user/heartbeat', {
+    headers,
+    data: { userId: admin.user.id },
+  })
+  expect(online.status(), await online.text()).toBe(200)
+  expect((await online.json()).isOnline).toBe(true)
+
+  const onlineList = await request.get('/api/admin/users', { headers })
+  const onlineData = await onlineList.json()
+  expect(
+    onlineData.users.find((user: any) => user.id === admin.user.id).onlineStatus,
+  ).toBe('ONLINE')
+
+  const offline = await request.delete('/api/user/heartbeat', {
+    headers,
+    data: { userId: admin.user.id },
+  })
+  expect(offline.status(), await offline.text()).toBe(200)
+  expect((await offline.json()).isOnline).toBe(false)
+
+  const offlineList = await request.get('/api/admin/users', { headers })
+  const offlineData = await offlineList.json()
+  expect(
+    offlineData.users.find((user: any) => user.id === admin.user.id).onlineStatus,
+  ).toBe('OFFLINE')
+})
+
 test('Admin, Worker, and Vulnerable dashboards render without browser exceptions', async ({ page }) => {
   await assertNoPageErrors(page, async () => {
     await browserLogin(page, {
@@ -300,6 +371,25 @@ test('Approval Center filter options reflect the records in the active Pending s
   await expect(
     page.getByText('Barangay No. 3 (Poblacion)', { exact: true }),
   ).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  const vulnerabilitySelect = page
+    .getByRole('combobox')
+    .filter({ hasText: 'All vulnerabilities' })
+    .first()
+  await vulnerabilitySelect.click()
+  await expect(page.getByText('PWD', { exact: true }).last()).toBeVisible()
+  await expect(page.getByText('SENIOR_CITIZEN', { exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('tab', { name: /Relief Distributions/i }).click()
+  const distributionTypeSelect = page
+    .getByRole('combobox')
+    .filter({ hasText: 'All distribution types' })
+    .first()
+  await distributionTypeSelect.click()
+  await expect(page.getByText('Food Pack', { exact: true }).last()).toBeVisible()
+  await expect(page.getByText('Medicine', { exact: true })).toHaveCount(0)
 })
 
 test('Approval Center supports selected approval and rejection with signed Admin session', async ({ request }) => {
@@ -314,7 +404,7 @@ test('Approval Center supports selected approval and rejection with signed Admin
   const beforeData = await before.json()
   expect(
     beforeData.registrations.filter((item: any) => item.registrationStatus === 'PENDING'),
-  ).toHaveLength(2)
+  ).toHaveLength(5)
 
   const approve = await request.post('/api/admin/approval-center', {
     headers,
@@ -349,6 +439,59 @@ test('Approval Center supports selected approval and rejection with signed Admin
     afterData.registrations.find((item: any) => item.id === 'profile-pending-two')
       .registrationStatus,
   ).toBe('REJECTED')
+})
+
+test('Approval Center Approve All and Reject All act only on the filtered pending view', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+
+  await page.goto('/admin/dashboard#approval-center')
+  await dismissWelcomeGuide(page)
+
+  const search = page.getByPlaceholder('Search...').first()
+  await search.fill('Pending Three')
+
+  await expect(page.getByRole('button', { name: 'Approve All' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reject All' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Reject All' }).click()
+  await expect(page.getByRole('heading', { name: 'Reject records?' })).toBeVisible()
+  await page.getByLabel('Rejection reason').fill('Filtered reject-all smoke test')
+  await page.getByRole('button', { name: 'Confirm Rejection' }).click()
+  await expect(page.getByRole('heading', { name: 'Reject records?' })).not.toBeVisible()
+
+  await search.clear()
+  await page.getByRole('button', { name: 'Approve All' }).click()
+  await expect(page.getByRole('heading', { name: 'Approve records?' })).toBeVisible()
+  await expect(page.getByText(/update 2 record\(s\)/i)).toBeVisible()
+  await page.getByRole('button', { name: 'Confirm Approval' }).click()
+  await expect(page.getByRole('heading', { name: 'Approve records?' })).not.toBeVisible()
+
+  const admin = await login(page.request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const response = await page.request.get('/api/admin/approval-center', {
+    headers: {
+      ...bearer(admin.token),
+      'x-user-id': admin.user.id,
+    },
+  })
+  expect(response.status(), await response.text()).toBe(200)
+  const data = await response.json()
+
+  expect(
+    data.registrations.find((item: any) => item.id === 'profile-pending-three')
+      .registrationStatus,
+  ).toBe('REJECTED')
+  expect(
+    data.registrations.find((item: any) => item.id === 'profile-pending-four')
+      .registrationStatus,
+  ).toBe('APPROVED')
+  expect(
+    data.registrations.find((item: any) => item.id === 'profile-pending-five')
+      .registrationStatus,
+  ).toBe('APPROVED')
 })
 
 test('Worker relief recording flows to Admin approval and Vulnerable relief history', async ({ request }) => {
@@ -527,6 +670,11 @@ test('Announcements, operations history, and map data reflect current records', 
   const mapData = await map.json()
   expect(mapData.approvedProfiles).toBeGreaterThanOrEqual(2)
   expect(mapData.mappedProfiles).toBeGreaterThanOrEqual(2)
+  expect(mapData.mappedProfiles).toBe(mapData.points.length)
+  expect(mapData.approvedProfiles).toBeGreaterThanOrEqual(mapData.mappedProfiles)
+  expect(new Set(mapData.points.map((point: any) => point.id)).size).toBe(
+    mapData.points.length,
+  )
   expect(mapData.points.every((point: any) => Number.isFinite(point.latitude))).toBe(true)
   expect(mapData.points.every((point: any) => Number.isFinite(point.longitude))).toBe(true)
 })
@@ -630,6 +778,38 @@ test('CRMS chatbot database lookup works without external model access and respe
     expect(data.success).toBe(true)
     expect(String(data.reply)).toMatch(/Maria Garcia/i)
   }
+})
+
+test('Assistant UI exposes history, new-chat, language, and voice controls', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+
+  await page.goto('/admin/dashboard')
+  await dismissWelcomeGuide(page)
+
+  const launcher = page.getByRole('button', { name: 'Open CRMS Assistant' })
+  await expect(launcher).toBeVisible()
+  await launcher.click()
+
+  await expect(page.getByText('CRMS Assistant', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'History' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New chat' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Voice Chat' })).toBeVisible()
+
+  const language = page.getByLabel('Choose CRMS Assistant language')
+  await expect(language).toBeVisible()
+  await language.selectOption('tl')
+  await expect(language).toHaveValue('tl')
+  await language.selectOption('war')
+  await expect(language).toHaveValue('war')
+  await language.selectOption('en')
+  await expect(language).toHaveValue('en')
+
+  await page.getByRole('button', { name: 'History' }).click()
+  await expect(page.getByText('Chat history', { exact: true })).toBeVisible()
 })
 
 test('Admin dashboard remains within the mobile viewport', async ({ page }) => {
