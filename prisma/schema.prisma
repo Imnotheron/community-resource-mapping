@@ -247,8 +247,9 @@ model Announcement {
   isActive   Boolean   @default(true)
   priority   String    @default("NORMAL")
   createdBy  String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  notifications Notification[]
 }
 
 model Feedback {
