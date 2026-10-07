@@ -3230,12 +3230,135 @@ function DistributionsView() {
     load();
   }, [load]);
 
+  type ReliefFacet =
+    | "status"
+    | "reliefGeneral"
+    | "reliefType"
+    | "barangay"
+    | "vulnerabilityGeneral"
+    | "sector";
+
+  const matchesSearch = (distribution: any) => {
+    const search = query.trim().toLowerCase();
+    if (!search) return true;
+
+    return [
+      distributionBeneficiaryName(distribution),
+      distribution.distributionType,
+      distribution.itemsProvided,
+      distribution.status,
+      distribution.worker?.name,
+      distributionBarangay(distribution),
+      RELIEF_GENERAL_LABELS[
+        reliefGeneralCategory(distribution)
+      ],
+      ...vulnerabilityGeneralGroups(
+        distribution?.vulnerableProfile,
+      ).map(
+        (group) =>
+          VULNERABILITY_GENERAL_LABELS[group] || group,
+      ),
+      ...(distribution.vulnerableProfile
+        ? registrationSectorValues(
+            distribution.vulnerableProfile,
+          ).map(registrationSectorLabel)
+        : []),
+      distribution.notes,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  };
+
+  const matchesFacets = (
+    distribution: any,
+    omit?: ReliefFacet,
+  ) => {
+    if (
+      omit !== "status" &&
+      filter !== "ALL" &&
+      distribution.status !== filter
+    ) {
+      return false;
+    }
+
+    if (
+      omit !== "reliefGeneral" &&
+      reliefCategoryFilter !== "ALL" &&
+      reliefGeneralCategory(distribution) !==
+        reliefCategoryFilter
+    ) {
+      return false;
+    }
+
+    if (
+      omit !== "reliefType" &&
+      reliefTypeFilter !== "ALL" &&
+      String(distribution.distributionType || "") !==
+        reliefTypeFilter
+    ) {
+      return false;
+    }
+
+    if (
+      omit !== "barangay" &&
+      barangayFilter !== "ALL" &&
+      distributionBarangay(distribution) !==
+        barangayFilter
+    ) {
+      return false;
+    }
+
+    if (
+      omit !== "vulnerabilityGeneral" &&
+      vulnerabilityGroupFilter !== "ALL" &&
+      !vulnerabilityGeneralGroups(
+        distribution?.vulnerableProfile,
+      ).includes(vulnerabilityGroupFilter)
+    ) {
+      return false;
+    }
+
+    if (
+      omit !== "sector" &&
+      sectorFilter !== "ALL" &&
+      !(
+        distribution.vulnerableProfile &&
+        registrationSectorValues(
+          distribution.vulnerableProfile,
+        ).includes(sectorFilter)
+      )
+    ) {
+      return false;
+    }
+
+    return matchesSearch(distribution);
+  };
+
+  const recordsForFacet = (facet: ReliefFacet) =>
+    distributions.filter((distribution) =>
+      matchesFacets(distribution, facet),
+    );
+
+  const statusOptions = Array.from(
+    new Set(
+      recordsForFacet("status")
+        .map((distribution) =>
+          String(distribution.status || "").trim(),
+        )
+        .filter(Boolean),
+    ),
+  ).sort();
+
   const distributionSectors = Array.from(
     new Set(
-      distributions.flatMap((distribution) =>
-        distribution?.vulnerableProfile
-          ? registrationSectorValues(distribution.vulnerableProfile)
-          : [],
+      recordsForFacet("sector").flatMap(
+        (distribution) =>
+          distribution?.vulnerableProfile
+            ? registrationSectorValues(
+                distribution.vulnerableProfile,
+              )
+            : [],
       ),
     ),
   ).sort((a, b) =>
@@ -3246,10 +3369,11 @@ function DistributionsView() {
 
   const vulnerabilityGroups = Array.from(
     new Set(
-      distributions.flatMap((distribution) =>
-        vulnerabilityGeneralGroups(
-          distribution?.vulnerableProfile,
-        ),
+      recordsForFacet("vulnerabilityGeneral").flatMap(
+        (distribution) =>
+          vulnerabilityGeneralGroups(
+            distribution?.vulnerableProfile,
+          ),
       ),
     ),
   ).sort((a, b) =>
@@ -3260,8 +3384,9 @@ function DistributionsView() {
 
   const reliefCategories = Array.from(
     new Set(
-      distributions.map((distribution) =>
-        reliefGeneralCategory(distribution),
+      recordsForFacet("reliefGeneral").map(
+        (distribution) =>
+          reliefGeneralCategory(distribution),
       ),
     ),
   ).sort((a, b) =>
@@ -3272,9 +3397,11 @@ function DistributionsView() {
 
   const reliefTypes = Array.from(
     new Set(
-      distributions
+      recordsForFacet("reliefType")
         .map((distribution) =>
-          String(distribution?.distributionType || "").trim(),
+          String(
+            distribution?.distributionType || "",
+          ).trim(),
         )
         .filter(Boolean),
     ),
@@ -3282,82 +3409,16 @@ function DistributionsView() {
 
   const barangays = Array.from(
     new Set(
-      distributions
+      recordsForFacet("barangay")
         .map(distributionBarangay)
         .filter(Boolean),
     ),
   ).sort((a, b) => a.localeCompare(b));
 
   const filtered = distributions
-    .filter(
-      (distribution) =>
-        filter === "ALL" ||
-        distribution.status === filter,
+    .filter((distribution) =>
+      matchesFacets(distribution),
     )
-    .filter(
-      (distribution) =>
-        reliefCategoryFilter === "ALL" ||
-        reliefGeneralCategory(distribution) ===
-          reliefCategoryFilter,
-    )
-    .filter(
-      (distribution) =>
-        reliefTypeFilter === "ALL" ||
-        String(distribution.distributionType || "") ===
-          reliefTypeFilter,
-    )
-    .filter(
-      (distribution) =>
-        barangayFilter === "ALL" ||
-        distributionBarangay(distribution) ===
-          barangayFilter,
-    )
-    .filter(
-      (distribution) =>
-        vulnerabilityGroupFilter === "ALL" ||
-        vulnerabilityGeneralGroups(
-          distribution?.vulnerableProfile,
-        ).includes(vulnerabilityGroupFilter),
-    )
-    .filter(
-      (distribution) =>
-        sectorFilter === "ALL" ||
-        (distribution.vulnerableProfile &&
-          registrationSectorValues(
-            distribution.vulnerableProfile,
-          ).includes(sectorFilter)),
-    )
-    .filter((distribution) => {
-      const search = query.trim().toLowerCase();
-      if (!search) return true;
-
-      return [
-        distributionBeneficiaryName(distribution),
-        distribution.distributionType,
-        distribution.itemsProvided,
-        distribution.status,
-        distribution.worker?.name,
-        distributionBarangay(distribution),
-        RELIEF_GENERAL_LABELS[
-          reliefGeneralCategory(distribution)
-        ],
-        ...vulnerabilityGeneralGroups(
-          distribution?.vulnerableProfile,
-        ).map(
-          (group) =>
-            VULNERABILITY_GENERAL_LABELS[group] || group,
-        ),
-        ...(distribution.vulnerableProfile
-          ? registrationSectorValues(
-              distribution.vulnerableProfile,
-            ).map(registrationSectorLabel)
-          : []),
-        distribution.notes,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(search);
-    })
     .sort((a, b) => {
       if (sortBy === "RELIEF_GENERAL") {
         return String(
@@ -3622,18 +3683,22 @@ function DistributionsView() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="PENDING">
-                Pending
-              </SelectItem>
-              <SelectItem value="APPROVED">
-                Approved
-              </SelectItem>
-              <SelectItem value="REJECTED">
-                Rejected
-              </SelectItem>
               <SelectItem value="ALL">
                 All statuses
               </SelectItem>
+              {["PENDING", "APPROVED", "REJECTED"]
+                .filter((status) =>
+                  statusOptions.includes(status),
+                )
+                .map((status) => (
+                  <SelectItem
+                    key={status}
+                    value={status}
+                  >
+                    {status.charAt(0) +
+                      status.slice(1).toLowerCase()}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
 
