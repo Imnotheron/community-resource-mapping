@@ -236,6 +236,36 @@ contains(
   'scripts/migrate-turso.mjs: Turso migration must enforce announcement notification uniqueness',
 )
 
+contains(
+  'src/app/api/worker/distribute/route.ts',
+  'normalizeReliefEvidence',
+  'src/app/api/worker/distribute/route.ts: new relief distributions must require validated supporting photo evidence',
+)
+
+contains(
+  'prisma/schema.prisma',
+  'supportingDocuments String',
+  'prisma/schema.prisma: relief distributions must persist supporting evidence without adding another capstone table',
+)
+
+contains(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'Relief Distribution Details',
+  'src/components/dashboards/admin-dashboard.tsx: Relief Approval must provide a minimal View workflow for supporting evidence',
+)
+
+contains(
+  'src/components/reports/daily-reports-view.tsx',
+  'General relief type',
+  'src/components/reports/daily-reports-view.tsx: Daily Reports must expose Relief Approval general relief filtering',
+)
+
+contains(
+  'src/components/reports/daily-reports-view.tsx',
+  'Specific vulnerability',
+  'src/components/reports/daily-reports-view.tsx: Daily Reports must expose Relief Approval vulnerability filtering',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
