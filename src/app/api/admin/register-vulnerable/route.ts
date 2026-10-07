@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { sendVulnerableRegistrationApprovedEmail } from '@/lib/email'
 import { requireRequestUser } from '@/lib/request-user-session'
 import { normalizeRegistrationDocuments } from '@/lib/registration-documents'
+import { findVulnerableRegistrationDuplicates } from '@/lib/vulnerable-duplicate-check'
 
 function clean(value: unknown, max = 1000) {
   return String(value || '').trim().slice(0, max)
@@ -198,6 +199,31 @@ export async function POST(request: NextRequest) {
       needsAssistance,
     )
 
+    const duplicateCheck =
+      await findVulnerableRegistrationDuplicates({
+        emailAddress,
+        firstName,
+        middleName,
+        lastName,
+        dateOfBirth: dateOfBirthRaw,
+        mobileNumber,
+        pwdIdNumber: body.pwdIdNumber,
+      })
+
+    if (duplicateCheck.hasDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            duplicateCheck.conflicts[0]?.message ||
+            'A matching vulnerable registration already exists.',
+          code: 'DUPLICATE_REGISTRATION',
+          conflicts: duplicateCheck.conflicts,
+        },
+        { status: 409 },
+      )
+    }
+
     let registrationDocuments
     try {
       registrationDocuments = normalizeRegistrationDocuments(
@@ -213,48 +239,6 @@ export async function POST(request: NextRequest) {
               : 'Invalid registration documents',
         },
         { status: 400 },
-      )
-    }
-
-    const existingUser = await db.user.findUnique({
-      where: { email: emailAddress },
-      select: {
-        id: true,
-        role: true,
-        vulnerableProfile: {
-          select: {
-            id: true,
-            registrationStatus: true,
-          },
-        },
-      },
-    })
-
-    if (existingUser) {
-      const existingRole = String(
-        existingUser.role || '',
-      ).toUpperCase()
-
-      const conflictMessage =
-        existingUser.vulnerableProfile
-          ? `This email already belongs to a vulnerable profile (${existingUser.vulnerableProfile.registrationStatus}). Open the existing record in Users or Registrations instead of registering the same person again.`
-          : existingRole === 'VULNERABLE'
-            ? 'This email already belongs to a Vulnerable account. Open the existing account in Users before creating another registration.'
-            : `This email already belongs to an existing ${existingRole || 'user'} account. Use a different email address for this vulnerable person.`
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: conflictMessage,
-          code: 'EMAIL_ALREADY_REGISTERED',
-          existingUserId: existingUser.id,
-          existingProfileId:
-            existingUser.vulnerableProfile?.id || null,
-          existingRegistrationStatus:
-            existingUser.vulnerableProfile
-              ?.registrationStatus || null,
-        },
-        { status: 409 },
       )
     }
 
