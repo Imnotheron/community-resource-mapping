@@ -6,7 +6,6 @@ import { db } from '@/lib/db'
 import { createNotification } from '@/lib/notification-service'
 import { requireRequestUser } from '@/lib/request-user-session'
 
-// GET - Get relief distributions for Administrator review.
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireRequestUser(request, {
@@ -63,7 +62,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Approve or reject one or many pending relief distributions.
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireRequestUser(request, {
@@ -105,22 +103,42 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const distributions =
-      await db.reliefDistribution.findMany({
-        where: {
-          id: { in: distributionIds },
-          status: 'PENDING',
+    if (action === 'REJECT' && !reason) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'A rejection reason is required.',
         },
-        include: {
-          vulnerableProfile: {
-            include: {
-              user: true,
-            },
-          },
-        },
-      })
+        { status: 400 },
+      )
+    }
 
-    if (distributions.length === 0) {
+    const transitionResults = await db.$transaction(
+      distributionIds.map((id) =>
+        db.reliefDistribution.updateMany({
+          where: {
+            id,
+            status: 'PENDING',
+          },
+          data: {
+            status:
+              action === 'APPROVE'
+                ? 'APPROVED'
+                : 'REJECTED',
+            rejectionReason:
+              action === 'REJECT'
+                ? reason
+                : null,
+          },
+        }),
+      ),
+    )
+
+    const updatedIds = distributionIds.filter(
+      (_id, index) => transitionResults[index]?.count === 1,
+    )
+
+    if (updatedIds.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -131,25 +149,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const activeIds = distributions.map(
-      (distribution) => distribution.id,
-    )
-
-    const updateResult =
-      await db.reliefDistribution.updateMany({
+    const updatedDistributions =
+      await db.reliefDistribution.findMany({
         where: {
-          id: { in: activeIds },
-          status: 'PENDING',
+          id: { in: updatedIds },
         },
-        data: {
-          status:
-            action === 'APPROVE'
-              ? 'APPROVED'
-              : 'REJECTED',
-          rejectionReason:
-            action === 'REJECT'
-              ? reason || null
-              : null,
+        include: {
+          vulnerableProfile: {
+            include: {
+              user: true,
+            },
+          },
         },
       })
 
@@ -160,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     const notificationResults =
       await Promise.allSettled(
-        distributions
+        updatedDistributions
           .filter(
             (distribution) =>
               distribution.vulnerableProfile?.userId,
@@ -172,7 +182,7 @@ export async function POST(request: NextRequest) {
               type: notificationType,
               reason:
                 action === 'REJECT'
-                  ? reason || undefined
+                  ? reason
                   : undefined,
               details: `${distribution.distributionType} - ${distribution.itemsProvided}`,
             }),
@@ -191,11 +201,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       action,
-      updatedCount: updateResult.count,
+      updatedCount: updatedIds.length,
       requestedCount: distributionIds.length,
       skippedCount:
-        distributionIds.length - updateResult.count,
-      distributionIds: activeIds,
+        distributionIds.length - updatedIds.length,
+      updatedIds,
+      distributionIds: updatedIds,
     })
   } catch (error) {
     console.error('Error updating relief distribution:', error)

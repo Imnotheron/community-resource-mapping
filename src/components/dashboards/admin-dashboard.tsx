@@ -3660,6 +3660,17 @@ function DistributionsView() {
   const runAction = async () => {
     if (!actionTarget || actionSaving) return;
 
+    if (
+      actionTarget.action === "REJECT" &&
+      !actionReason.trim()
+    ) {
+      toast.error("Rejection reason required", {
+        description:
+          "Enter a reason before rejecting relief records.",
+      });
+      return;
+    }
+
     setActionSaving(true);
 
     try {
@@ -3679,8 +3690,9 @@ function DistributionsView() {
       );
 
       const count =
-        Number(data?.updatedCount) ||
-        actionTarget.ids.length;
+        data?.updatedCount === undefined
+          ? actionTarget.ids.length
+          : Number(data.updatedCount);
 
       toast.success(
         `${count} relief distribution${count === 1 ? "" : "s"} ${
