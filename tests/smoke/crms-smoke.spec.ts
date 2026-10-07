@@ -71,8 +71,10 @@ async function assertNoPageErrors(page: Page, action: () => Promise<void>) {
 
 async function dismissWelcomeGuide(page: Page) {
   const skip = page.getByRole('button', { name: 'Skip walkthrough' })
-  if (await skip.isVisible({ timeout: 1_500 }).catch(() => false)) {
+
+  if (await skip.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false)) {
     await skip.click()
+    await skip.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {})
   }
 }
 
@@ -157,7 +159,7 @@ test('Administrator role and sign-in stay available on mobile UI', async ({ page
   await page.goto('/login?role=admin')
   await expect(page.getByText('Administrator account', { exact: true })).toBeVisible()
   await page.getByLabel('Email address').fill('admin@crms.gov.ph')
-  await page.getByLabel('Password').fill('admin123')
+  await page.locator('#password').fill('admin123')
   await page.getByRole('button', { name: 'Continue securely' }).click()
 
   await expect(page.getByText(/Smoke Administrator/i).first()).toBeVisible()
