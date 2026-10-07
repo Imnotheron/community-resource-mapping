@@ -198,8 +198,10 @@ type RegistrationConfirmAction =
   | null
 
 type DuplicateConflict = {
-  type: 'EMAIL' | 'IDENTITY' | 'PWD_ID'
-  field: 'emailAddress' | 'identity' | 'pwdIdNumber'
+  type: 'EMAIL' | 'MOBILE' | 'IDENTITY' | 'PWD_ID'
+  field: 'emailAddress' | 'mobileNumber' | 'identity' | 'pwdIdNumber'
+  label: string
+  value?: string | null
   message: string
   existingUserId?: string | null
   existingProfileId?: string | null
@@ -1288,6 +1290,58 @@ export default function VulnerableRegistrationModal({
     })
   }
 
+  function showDuplicateResult(
+    duplicateResult: DuplicateCheckResponse,
+  ) {
+    const duplicateErrors: Record<string, string> = {}
+    let targetStep = 0
+
+    for (const conflict of duplicateResult.conflicts) {
+      if (conflict.field === 'emailAddress') {
+        duplicateErrors.emailAddress =
+          'This email is already registered.'
+        targetStep = 0
+      }
+
+      if (conflict.field === 'mobileNumber') {
+        duplicateErrors.mobileNumber =
+          'This mobile number is already registered.'
+        targetStep = 0
+      }
+
+      if (conflict.field === 'identity') {
+        duplicateErrors.firstName =
+          'A matching vulnerable profile already exists.'
+        duplicateErrors.lastName =
+          'A matching vulnerable profile already exists.'
+        duplicateErrors.dateOfBirth =
+          'A matching vulnerable profile already exists.'
+        targetStep = 0
+      }
+
+      if (conflict.field === 'pwdIdNumber') {
+        duplicateErrors.pwdIdNumber =
+          'This PWD / disability ID is already registered.'
+
+        if (
+          !duplicateErrors.emailAddress &&
+          !duplicateErrors.mobileNumber &&
+          !duplicateErrors.firstName
+        ) {
+          targetStep = 1
+        }
+      }
+    }
+
+    setErrors((previous) => ({
+      ...previous,
+      ...duplicateErrors,
+    }))
+    setStep(targetStep)
+    setConfirmAction(null)
+    setDuplicateNotice(duplicateResult)
+  }
+
   async function requestSubmit() {
     if (
       submitting ||
@@ -1323,46 +1377,7 @@ export default function VulnerableRegistrationModal({
         )
 
       if (duplicateResult.hasDuplicate) {
-        const duplicateErrors: Record<string, string> = {}
-        let targetStep = 0
-
-        for (const conflict of duplicateResult.conflicts) {
-          if (conflict.field === 'emailAddress') {
-            duplicateErrors.emailAddress =
-              'This email is already registered.'
-            targetStep = 0
-          }
-
-          if (conflict.field === 'identity') {
-            duplicateErrors.firstName =
-              'A matching vulnerable profile already exists.'
-            duplicateErrors.lastName =
-              'A matching vulnerable profile already exists.'
-            duplicateErrors.dateOfBirth =
-              'A matching vulnerable profile already exists.'
-            targetStep = 0
-          }
-
-          if (conflict.field === 'pwdIdNumber') {
-            duplicateErrors.pwdIdNumber =
-              'This PWD / disability ID is already registered.'
-
-            if (
-              !duplicateErrors.emailAddress &&
-              !duplicateErrors.firstName
-            ) {
-              targetStep = 1
-            }
-          }
-        }
-
-        setErrors((previous) => ({
-          ...previous,
-          ...duplicateErrors,
-        }))
-        setStep(targetStep)
-        setConfirmAction(null)
-        setDuplicateNotice(duplicateResult)
+        showDuplicateResult(duplicateResult)
         return
       }
 
@@ -1626,9 +1641,19 @@ export default function VulnerableRegistrationModal({
       setCurrentDraftId(null)
       await loadDrafts()
       onClose()
-    } catch {
-      // The caller already shows the specific registration error.
-      // Unlock only on failure so the user can correct the form and retry.
+    } catch (error: any) {
+      if (
+        error?.code === 'DUPLICATE_REGISTRATION' &&
+        Array.isArray(error?.data?.conflicts)
+      ) {
+        showDuplicateResult({
+          success: false,
+          hasDuplicate: true,
+          conflicts: error.data.conflicts,
+        })
+      }
+
+      // Unlock on failure so the user can correct the form and retry.
       submitLockRef.current = false
     } finally {
       setSubmitting(false)
@@ -2849,13 +2874,50 @@ export default function VulnerableRegistrationModal({
       open={Boolean(duplicateNotice)}
       onClose={() => setDuplicateNotice(null)}
       onConfirm={() => setDuplicateNotice(null)}
-      title="Duplicate registration detected"
+      title="Duplicate data detected"
       description={
-        duplicateNotice
-          ? `${duplicateNotice.conflicts
-              .map((conflict) => conflict.message)
-              .join(' ')} Registration confirmation has been blocked. Review the highlighted information or open the existing record instead.`
-          : 'A matching registration already exists.'
+        duplicateNotice ? (
+          <div className="space-y-3 text-left">
+            <p>
+              CRMS found information that is already used by an existing
+              record. Registration confirmation is blocked until the
+              conflicting data is reviewed.
+            </p>
+
+            <div className="space-y-2">
+              {duplicateNotice.conflicts.map((conflict, index) => (
+                <div
+                  key={`${conflict.type}-${conflict.existingProfileId || conflict.existingUserId || index}`}
+                  className="rounded-lg border border-red-200 bg-red-50 p-3"
+                >
+                  <p className="font-semibold text-red-900">
+                    {conflict.label}
+                  </p>
+                  {conflict.value ? (
+                    <p className="mt-1 break-words text-sm text-red-800">
+                      {conflict.value}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-sm text-red-700">
+                    {conflict.message}
+                  </p>
+                  {conflict.existingRegistrationStatus ? (
+                    <p className="mt-1 text-xs font-medium uppercase tracking-wide text-red-600">
+                      Existing status: {conflict.existingRegistrationStatus}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <p className="text-sm">
+              Review the highlighted fields in the form or open the existing
+              record instead of creating another copy.
+            </p>
+          </div>
+        ) : (
+          'A matching registration already exists.'
+        )
       }
       confirmLabel="Review registration"
       variant="destructive"
