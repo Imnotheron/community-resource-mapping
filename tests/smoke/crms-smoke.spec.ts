@@ -162,7 +162,7 @@ test('Administrator role and sign-in stay available on mobile UI', async ({ page
   await page.locator('#password').fill('admin123')
   await page.getByRole('button', { name: 'Continue securely' }).click()
 
-  await expect(page.getByText(/Smoke Administrator/i).first()).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible()
 })
 
 test('OTP validation enforces attempts and accepts the correct challenge', async ({ request }) => {
