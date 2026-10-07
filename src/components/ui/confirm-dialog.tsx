@@ -21,6 +21,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string
   cancelLabel?: string
   variant?: 'default' | 'destructive'
+  showCancel?: boolean
+  confirmDisabled?: boolean
 }
 
 export function ConfirmDialog({
@@ -31,7 +33,9 @@ export function ConfirmDialog({
   description,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
-  variant = 'default'
+  variant = 'default',
+  showCancel = true,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
@@ -56,13 +60,19 @@ export function ConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-3">
-          <AlertDialogCancel className="flex-1">{cancelLabel}</AlertDialogCancel>
+          {showCancel ? (
+            <AlertDialogCancel className="flex-1">
+              {cancelLabel}
+            </AlertDialogCancel>
+          ) : null}
           <AlertDialogAction
+            disabled={confirmDisabled}
             onClick={() => {
+              if (confirmDisabled) return
               onConfirm()
               onClose()
             }}
-            className={`flex-1 ${
+            className={`${showCancel ? 'flex-1' : 'w-full'} ${
               variant === 'destructive' 
                 ? 'bg-red-600 hover:bg-red-700' 
                 : ''
