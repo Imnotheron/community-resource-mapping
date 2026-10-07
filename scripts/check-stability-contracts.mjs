@@ -204,6 +204,13 @@ excludes(
   'src/app/api/auth/resend-otp/route.ts: raw OTP/provider errors must not be exposed to clients',
 )
 
+
+excludes(
+  'src/lib/request-user-session.ts',
+  /request\.nextUrl\.searchParams\.get\('userId'\)/,
+  'src/lib/request-user-session.ts: query userId must remain application data, not implicit caller identity',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
