@@ -383,6 +383,8 @@ export function VulnerableMap({
 
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
+      // Seed browser network state once listeners are attached on the client.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsOnline(navigator.onLine)
     }
 
