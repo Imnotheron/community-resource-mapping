@@ -87,6 +87,8 @@ type FetchOptions = RequestInit & {
   useUserHeader?: boolean
   /** Override which userId to send in body/header. Defaults to current stored user. */
   userId?: string
+  /** Disable legacy userId injection for requests whose query userId is a data filter, not caller identity. */
+  attachUserId?: boolean
 }
 
 export async function apiFetch<T = any>(
@@ -96,12 +98,15 @@ export async function apiFetch<T = any>(
   const {
     useUserHeader = false,
     userId,
+    attachUserId = true,
     ...fetchOpts
   } = options
 
   const user = getStoredUser()
   const token = getStoredToken()
-  const effectiveUserId = userId ?? user?.id
+  const effectiveUserId = attachUserId
+    ? (userId ?? user?.id)
+    : undefined
 
   const isFormData =
     typeof FormData !== 'undefined' &&
