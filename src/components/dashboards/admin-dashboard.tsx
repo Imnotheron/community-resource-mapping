@@ -1156,9 +1156,11 @@ function RegistrationsView() {
       setShowRegisterVulnerable(false)
       await load()
     } catch (err: any) {
-      toast.error('Registration failed', {
-        description: err.message || 'Unable to register vulnerable person.',
-      })
+      if (err?.code !== 'DUPLICATE_REGISTRATION') {
+        toast.error('Registration failed', {
+          description: err.message || 'Unable to register vulnerable person.',
+        })
+      }
 
       throw err
     }
