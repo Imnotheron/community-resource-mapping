@@ -181,13 +181,7 @@ export async function findVulnerableRegistrationDuplicates(
       return true
     })
 
-    if (
-      identityMatch &&
-      !conflicts.some(
-        (conflict) =>
-          conflict.existingProfileId === identityMatch.id,
-      )
-    ) {
+    if (identityMatch) {
       conflicts.push({
         type: 'IDENTITY',
         field: 'identity',
@@ -224,13 +218,7 @@ export async function findVulnerableRegistrationDuplicates(
 
     const pwdMatch = pwdRows[0] || null
 
-    if (
-      pwdMatch &&
-      !conflicts.some(
-        (conflict) =>
-          conflict.existingProfileId === pwdMatch.id,
-      )
-    ) {
+    if (pwdMatch) {
       conflicts.push({
         type: 'PWD_ID',
         field: 'pwdIdNumber',
