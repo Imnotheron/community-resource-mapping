@@ -160,6 +160,7 @@ Records of relief goods/services distributed to vulnerable individuals.
 | `itemsProvided` | String | Required | JSON array of item descriptions |
 | `quantity` | Int | Required | Number of items/packs |
 | `notes` | String | Optional | Additional notes |
+| `supportingDocuments` | String (JSON) | Required for new records; default: `[]` | Validated supporting photo evidence for Administrator review |
 | `status` | DistributionStatus | Default: `PENDING` | Distribution approval status |
 | `rejectionReason` | String | Optional | Reason if rejected |
 | `createdAt` | DateTime | Default: `now()` | Creation timestamp |
