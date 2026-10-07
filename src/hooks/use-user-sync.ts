@@ -182,6 +182,7 @@ export function useUserSync() {
     )
 
     setStoredUser(data.user, data.token)
+    resetDashboardToOverview()
     setUser(data.user)
 
     if (data.user?.id) {
