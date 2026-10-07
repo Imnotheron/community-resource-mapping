@@ -179,6 +179,31 @@ contains(
   'src/components/dashboards/admin-dashboard.tsx: admin feedback list must not be silently filtered to the admin userId',
 )
 
+
+contains(
+  'package-lock.json',
+  '"node_modules/lightningcss-linux-x64-gnu"',
+  'package-lock.json: Linux Lightning CSS native package must be locked for portable CI/deploy builds',
+)
+
+contains(
+  'package-lock.json',
+  '"node_modules/@tailwindcss/oxide-linux-x64-gnu"',
+  'package-lock.json: Linux Tailwind Oxide native package must be locked for portable CI/deploy builds',
+)
+
+excludes(
+  'src/app/api/auth/login/route.ts',
+  /message:\s*\n\s*error instanceof Error\s*\n\s*\? error\.message/,
+  'src/app/api/auth/login/route.ts: raw OTP/provider errors must not be exposed to clients',
+)
+
+excludes(
+  'src/app/api/auth/resend-otp/route.ts',
+  /message:\s*\n\s*error instanceof Error\s*\n\s*\? error\.message/,
+  'src/app/api/auth/resend-otp/route.ts: raw OTP/provider errors must not be exposed to clients',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
