@@ -1,8 +1,10 @@
 import { db } from '@/lib/db'
 
 export type VulnerableDuplicateConflict = {
-  type: 'EMAIL' | 'IDENTITY' | 'PWD_ID'
-  field: 'emailAddress' | 'identity' | 'pwdIdNumber'
+  type: 'EMAIL' | 'MOBILE' | 'IDENTITY' | 'PWD_ID'
+  field: 'emailAddress' | 'mobileNumber' | 'identity' | 'pwdIdNumber'
+  label: string
+  value?: string | null
   message: string
   existingUserId?: string | null
   existingProfileId?: string | null
@@ -29,6 +31,13 @@ function normalizeName(value: unknown) {
     .replace(/\s+/g, ' ')
 }
 
+function normalizePhone(value: unknown) {
+  const digits = clean(value, 80).replace(/\D+/g, '')
+  return digits.length >= 10
+    ? digits.slice(-10)
+    : digits
+}
+
 function dateRange(value: unknown) {
   const raw = clean(value, 40)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
@@ -49,6 +58,7 @@ export async function findVulnerableRegistrationDuplicates(
   const emailAddress = clean(input.emailAddress).toLowerCase()
   const firstName = normalizeName(input.firstName)
   const lastName = normalizeName(input.lastName)
+  const mobileNumber = normalizePhone(input.mobileNumber)
   const pwdIdNumber = clean(input.pwdIdNumber, 160).toLowerCase()
   const dobRange = dateRange(input.dateOfBirth)
 
@@ -85,13 +95,57 @@ export async function findVulnerableRegistrationDuplicates(
       conflicts.push({
         type: 'EMAIL',
         field: 'emailAddress',
+        label: 'Email address',
+        value: emailAddress,
         message: existingUser.vulnerableProfile
-          ? `The email ${emailAddress} is already connected to an existing vulnerable profile${status ? ` (${status})` : ''}.`
-          : `The email ${emailAddress} already belongs to an existing ${String(existingUser.role || 'user').toLowerCase()} account.`,
+          ? `Already connected to an existing vulnerable profile${status ? ` (${status})` : ''}.`
+          : `Already belongs to an existing ${String(existingUser.role || 'user').toLowerCase()} account.`,
         existingUserId: existingUser.id,
         existingProfileId:
           existingUser.vulnerableProfile?.id || null,
         existingRegistrationStatus: status,
+      })
+    }
+  }
+
+  if (mobileNumber) {
+    const mobileRows = await db.$queryRaw<
+      Array<{
+        id: string
+        userId: string
+        mobileNumber: string
+        registrationStatus: string
+      }>
+    >`
+      SELECT
+        "id",
+        "userId",
+        "mobileNumber",
+        "registrationStatus"
+      FROM "VulnerableProfile"
+      WHERE "mobileNumber" IS NOT NULL
+        AND length(trim("mobileNumber")) > 0
+      LIMIT 5000
+    `
+
+    const mobileMatch = mobileRows.find(
+      (row) =>
+        normalizePhone(row.mobileNumber) ===
+        mobileNumber,
+    )
+
+    if (mobileMatch) {
+      conflicts.push({
+        type: 'MOBILE',
+        field: 'mobileNumber',
+        label: 'Mobile number',
+        value: clean(input.mobileNumber, 80),
+        message:
+          'Already used by an existing vulnerable profile.',
+        existingUserId: mobileMatch.userId,
+        existingProfileId: mobileMatch.id,
+        existingRegistrationStatus:
+          mobileMatch.registrationStatus,
       })
     }
   }
@@ -137,8 +191,10 @@ export async function findVulnerableRegistrationDuplicates(
       conflicts.push({
         type: 'IDENTITY',
         field: 'identity',
+        label: 'Name + date of birth',
+        value: `${clean(input.firstName, 120)} ${clean(input.lastName, 120)} · ${clean(input.dateOfBirth, 40)}`,
         message:
-          'A vulnerable profile already exists with the same name and date of birth. Review the existing record before creating another one.',
+          'Matches an existing vulnerable profile.',
         existingUserId: identityMatch.userId,
         existingProfileId: identityMatch.id,
         existingRegistrationStatus:
@@ -178,8 +234,10 @@ export async function findVulnerableRegistrationDuplicates(
       conflicts.push({
         type: 'PWD_ID',
         field: 'pwdIdNumber',
+        label: 'PWD / disability ID',
+        value: clean(input.pwdIdNumber, 160),
         message:
-          'This PWD / disability identification number is already attached to an existing vulnerable profile.',
+          'Already attached to an existing vulnerable profile.',
         existingUserId: pwdMatch.userId,
         existingProfileId: pwdMatch.id,
         existingRegistrationStatus:
