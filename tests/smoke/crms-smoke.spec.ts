@@ -69,6 +69,13 @@ async function assertNoPageErrors(page: Page, action: () => Promise<void>) {
   expect(errors, `Browser page errors: ${errors.join(' | ')}`).toEqual([])
 }
 
+async function dismissWelcomeGuide(page: Page) {
+  const skip = page.getByRole('button', { name: 'Skip walkthrough' })
+  if (await skip.isVisible({ timeout: 1_500 }).catch(() => false)) {
+    await skip.click()
+  }
+}
+
 test('health endpoint responds', async ({ request }) => {
   const response = await request.get('/api/health')
   expect(response.status()).toBe(200)
@@ -261,6 +268,7 @@ test('Approval Center filter options reflect the records in the active Pending s
   })
 
   await page.goto('/admin/dashboard#approval-center')
+  await dismissWelcomeGuide(page)
   await expect(page.getByText('Approval Center', { exact: true }).first()).toBeVisible()
 
   const barangaySelect = page.getByRole('combobox').filter({ hasText: 'All barangays' }).first()
@@ -615,7 +623,11 @@ test('Admin dashboard remains within the mobile viewport', async ({ page }) => {
 
   await assertNoPageErrors(page, async () => {
     await page.goto('/admin/dashboard')
-    await expect(page.getByText('Approval Center', { exact: true }).first()).toBeVisible()
+    const mobileNav = page.getByRole('navigation', { name: 'Mobile navigation' })
+    await expect(mobileNav).toBeVisible()
+    await expect(
+      mobileNav.getByRole('button', { name: 'Approval Center' }),
+    ).toBeVisible()
   })
 
   const dimensions = await page.evaluate(() => ({
@@ -663,6 +675,7 @@ test('Admin Excel import parses a registration and creates an approved citizen r
   })
 
   await page.goto('/admin/dashboard#registrations')
+  await dismissWelcomeGuide(page)
   await expect(page.getByText('Import Excel', { exact: true }).first()).toBeVisible()
 
   const input = page.locator('input[type="file"][accept*=".xlsx"]').first()
@@ -673,6 +686,6 @@ test('Admin Excel import parses a registration and creates an approved citizen r
     buffer: Buffer.from('controlled smoke workbook'),
   })
 
-  await expect(page.getByText(/1 registration imported/i)).toBeVisible()
+  await expect(page.getByText(/1 person registered successfully/i)).toBeVisible()
   await expect(page.getByText(/Excel Smoke/i).first()).toBeVisible()
 })
