@@ -4699,7 +4699,9 @@ function FeedbackView() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch("/api/admin/feedback?adminView=true");
+      const data = await apiFetch("/api/admin/feedback?adminView=true", {
+        attachUserId: false,
+      });
       setFeedback(data.feedback || []);
     } catch (err: any) {
       toast.error("Failed to load feedback", { description: err.message });
