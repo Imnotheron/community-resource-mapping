@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 // GET single feedback by ID
 export async function GET(
@@ -9,6 +10,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN', 'WORKER', 'VULNERABLE'],
+    })
+    if ('error' in auth) return auth.error
+
     const { id } = await params
     const feedback = await db.feedback.findUnique({
       where: { id },
@@ -27,7 +33,14 @@ export async function GET(
     if (!feedback) {
       return NextResponse.json(
         { error: 'Feedback not found' },
-        { status: 404 }
+        { status: 404 },
+      )
+    }
+
+    if (auth.role !== 'ADMIN' && feedback.userId !== auth.userId) {
+      return NextResponse.json(
+        { error: 'You can only view feedback from your own account' },
+        { status: 403 },
       )
     }
 
@@ -47,14 +60,18 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const body = await request.json()
-    const { response, status, userId } = body
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
 
-    // Validate required fields
-    if (!response || !userId) {
+    const body = await request.json()
+    const { response, status } = body
+
+    if (!response) {
       return NextResponse.json(
-        { error: 'Missing required fields: response and userId' },
-        { status: 400 }
+        { error: 'Response is required' },
+        { status: 400 },
       )
     }
 
@@ -69,18 +86,6 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Feedback not found' },
         { status: 404 }
-      )
-    }
-
-    // Verify the user is an admin
-    const requestingUser = await db.user.findUnique({
-      where: { id: userId }
-    })
-
-    if (!requestingUser || requestingUser.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Unauthorized. Only admins can respond to feedback.' },
-        { status: 403 }
       )
     }
 
@@ -123,15 +128,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
 
     // Verify the feedback exists
     const { id } = await params
@@ -143,18 +143,6 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Feedback not found' },
         { status: 404 }
-      )
-    }
-
-    // Verify the user is an admin
-    const requestingUser = await db.user.findUnique({
-      where: { id: userId }
-    })
-
-    if (!requestingUser || requestingUser.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Unauthorized. Only admins can delete feedback.' },
-        { status: 403 }
       )
     }
 
