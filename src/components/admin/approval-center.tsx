@@ -823,6 +823,14 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
   const partlySelected = visibleIds.some((id) => selected.has(id)) && !allVisibleSelected
+  const visiblePendingIds =
+    tab === 'registrations'
+      ? filteredRegistrations
+          .filter((record) => status(record.registrationStatus) === 'PENDING')
+          .map((record) => record.id)
+      : filteredDistributions
+          .filter((record) => status(record.status) === 'PENDING')
+          .map((record) => record.id)
 
   const actionableIds = useMemo(() => {
     if (tab === 'registrations') {
@@ -1236,7 +1244,25 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
             <p className="text-sm">
               <b>{selected.size}</b> selected • <b>{actionableIds.length}</b> pending
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => ask('APPROVE', visiblePendingIds)}
+                disabled={!visiblePendingIds.length || processing}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Approve All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => ask('REJECT', visiblePendingIds)}
+                disabled={!visiblePendingIds.length || processing}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Reject All
+              </Button>
               <Button
                 size="sm"
                 onClick={() => ask('APPROVE')}
@@ -1431,8 +1457,8 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
           <DialogHeader>
             <DialogTitle>
               {pendingAction?.action === 'APPROVE'
-                ? 'Approve selected records?'
-                : 'Reject selected records?'}
+                ? 'Approve records?'
+                : 'Reject records?'}
             </DialogTitle>
             <DialogDescription>
               This will update {pendingAction?.ids.length || 0} record(s) and notify
