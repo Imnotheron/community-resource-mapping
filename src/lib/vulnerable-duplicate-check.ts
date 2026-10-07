@@ -62,26 +62,34 @@ export async function findVulnerableRegistrationDuplicates(
   const firstName = normalizeName(input.firstName)
   const middleName = normalizeName(input.middleName)
   const lastName = normalizeName(input.lastName)
-  const mobileNumber = normalizePhone(input.mobileNumber)
   const pwdIdNumber = clean(input.pwdIdNumber, 160).toLowerCase()
   const dobRange = dateRange(input.dateOfBirth)
 
   if (emailAddress) {
-    const existingUser = await db.user.findFirst({
-      where: {
-        email: emailAddress,
-      },
-      select: {
-        id: true,
-        role: true,
-        vulnerableProfile: {
+    const emailRows = await db.$queryRaw<
+      Array<{ id: string }>
+    >`
+      SELECT "id"
+      FROM "User"
+      WHERE lower("email") = lower(${emailAddress})
+      LIMIT 1
+    `
+
+    const existingUser = emailRows[0]
+      ? await db.user.findUnique({
+          where: { id: emailRows[0].id },
           select: {
             id: true,
-            registrationStatus: true,
+            role: true,
+            vulnerableProfile: {
+              select: {
+                id: true,
+                registrationStatus: true,
+              },
+            },
           },
-        },
-      },
-    })
+        })
+      : null
 
     if (existingUser) {
       const status =
@@ -154,32 +162,6 @@ export async function findVulnerableRegistrationDuplicates(
         existingRegistrationStatus:
           identityMatch.registrationStatus,
       })
-    } else if (mobileNumber) {
-      const phoneMatch = sameBirthDateProfiles.find((profile) => {
-        return (
-          normalizePhone(profile.mobileNumber) === mobileNumber &&
-          normalizeName(profile.lastName) === lastName
-        )
-      })
-
-      if (
-        phoneMatch &&
-        !conflicts.some(
-          (conflict) =>
-            conflict.existingProfileId === phoneMatch.id,
-        )
-      ) {
-        conflicts.push({
-          type: 'IDENTITY',
-          field: 'identity',
-          message:
-            'A vulnerable profile with the same date of birth, surname, and mobile number already exists. Review the existing record before continuing.',
-          existingUserId: phoneMatch.userId,
-          existingProfileId: phoneMatch.id,
-          existingRegistrationStatus:
-            phoneMatch.registrationStatus,
-        })
-      }
     }
   }
 
