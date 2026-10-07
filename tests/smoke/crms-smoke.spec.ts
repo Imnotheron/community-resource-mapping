@@ -146,6 +146,23 @@ test('demo logins work for Admin, Worker, and Vulnerable roles', async ({ reques
   expect(wrongRole.status()).toBe(403)
 })
 
+test('Administrator role and sign-in stay available on mobile UI', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+
+  await page.goto('/role-selection')
+  await expect(
+    page.getByRole('button', { name: /Continue as Administrator/i }),
+  ).toBeVisible()
+
+  await page.goto('/login?role=admin')
+  await expect(page.getByText('Administrator account', { exact: true })).toBeVisible()
+  await page.getByLabel('Email address').fill('admin@crms.gov.ph')
+  await page.getByLabel('Password').fill('admin123')
+  await page.getByRole('button', { name: 'Continue securely' }).click()
+
+  await expect(page.getByText(/Smoke Administrator/i).first()).toBeVisible()
+})
+
 test('OTP validation enforces attempts and accepts the correct challenge', async ({ request }) => {
   const wrong = await request.post('/api/auth/verify-otp', {
     data: {
