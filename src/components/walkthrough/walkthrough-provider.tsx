@@ -555,6 +555,8 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
   const [stepIndex, setStepIndex] = useState(0)
 
   useEffect(() => {
+    // Progress is stored in browser localStorage and can only be hydrated after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProgress(readProgress())
     setHydrated(true)
   }, [])
