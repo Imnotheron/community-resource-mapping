@@ -1,62 +1,96 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { db } from '@/lib/db'
 import { sendVulnerableRegistrationApprovedEmail } from '@/lib/email'
+import { requireRequestUser } from '@/lib/request-user-session'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     const { profileId } = await request.json()
 
     if (!profileId) {
       return NextResponse.json(
         { success: false, message: 'Profile ID is required' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    // Get the profile with user information before updating
     const profile = await db.vulnerableProfile.findUnique({
       where: { id: profileId },
       include: {
-        user: true
-      }
+        user: true,
+      },
     })
 
     if (!profile) {
       return NextResponse.json(
         { success: false, message: 'Profile not found' },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
-    // Update the profile status
-    const updatedProfile = await db.vulnerableProfile.update({
-      where: { id: profileId },
+    if (profile.registrationStatus !== 'PENDING') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'This registration has already been processed',
+        },
+        { status: 409 },
+      )
+    }
+
+    const result = await db.vulnerableProfile.updateMany({
+      where: {
+        id: profileId,
+        registrationStatus: 'PENDING',
+      },
       data: {
         registrationStatus: 'APPROVED',
-        rejectionReason: null
-      }
+        rejectionReason: null,
+      },
     })
 
-    // Send email notification (without password for security)
+    if (result.count !== 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'This registration was processed by another Administrator. Refresh and try again.',
+        },
+        { status: 409 },
+      )
+    }
+
     if (profile.user.email) {
-      sendVulnerableRegistrationApprovedEmail(
+      void sendVulnerableRegistrationApprovedEmail(
         profile.user.email,
-        `${profile.firstName} ${profile.lastName}`
-      ).catch(err => console.error('Failed to send email:', err))
+        `${profile.firstName} ${profile.lastName}`,
+      ).catch((error) =>
+        console.error('Failed to send approval email:', error),
+      )
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Registration approved successfully. Login credentials have been sent to the user.',
-      profile: updatedProfile
+      message: 'Registration approved successfully.',
+      profile: {
+        ...profile,
+        registrationStatus: 'APPROVED',
+        rejectionReason: null,
+      },
     })
   } catch (error) {
     console.error('Approval error:', error)
     return NextResponse.json(
       { success: false, message: 'Failed to approve registration' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

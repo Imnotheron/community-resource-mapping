@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { requireRequestUser } from '@/lib/request-user-session'
 import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000
@@ -140,6 +141,11 @@ export async function GET(
   request: NextRequest,
 ) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     await ensureUserManagementColumns()
 
     const rows = await db.$queryRaw<any[]>`
@@ -234,7 +240,6 @@ export async function GET(
       {
         success: false,
         error: 'Failed to fetch users',
-        details: String(error),
       },
       { status: 500 },
     )
@@ -245,6 +250,11 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    const auth = await requireRequestUser(request, {
+      allowedRoles: ['ADMIN'],
+    })
+    if ('error' in auth) return auth.error
+
     await ensureUserManagementColumns()
 
     const body = await request.json()
@@ -420,7 +430,6 @@ export async function POST(
       {
         success: false,
         error: 'Failed to create user',
-        details: String(error),
       },
       { status: 500 },
     )
