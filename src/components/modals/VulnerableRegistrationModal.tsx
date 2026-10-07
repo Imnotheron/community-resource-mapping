@@ -197,6 +197,21 @@ type RegistrationConfirmAction =
   | { kind: 'submit' }
   | null
 
+type DuplicateConflict = {
+  type: 'EMAIL' | 'IDENTITY' | 'PWD_ID'
+  field: 'emailAddress' | 'identity' | 'pwdIdNumber'
+  message: string
+  existingUserId?: string | null
+  existingProfileId?: string | null
+  existingRegistrationStatus?: string | null
+}
+
+type DuplicateCheckResponse = {
+  success: boolean
+  hasDuplicate: boolean
+  conflicts: DuplicateConflict[]
+}
+
 
 const STEPS: {
   key: StepKey
@@ -866,6 +881,9 @@ export default function VulnerableRegistrationModal({
   const [form, setForm] = useState<FormState>(getEmptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false)
+  const [duplicateNotice, setDuplicateNotice] =
+    useState<DuplicateCheckResponse | null>(null)
   const submitLockRef = useRef(false)
   const [drafts, setDrafts] = useState<SavedDraft[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
@@ -1109,6 +1127,8 @@ export default function VulnerableRegistrationModal({
     )
     submitLockRef.current = false
     setSubmitting(false)
+    setCheckingDuplicates(false)
+    setDuplicateNotice(null)
     setForm(getEmptyForm())
     setErrors({})
     setStep(0)
@@ -1268,8 +1288,12 @@ export default function VulnerableRegistrationModal({
     })
   }
 
-  function requestSubmit() {
-    if (submitting || submitLockRef.current) {
+  async function requestSubmit() {
+    if (
+      submitting ||
+      checkingDuplicates ||
+      submitLockRef.current
+    ) {
       return
     }
 
@@ -1277,7 +1301,84 @@ export default function VulnerableRegistrationModal({
       return
     }
 
-    setConfirmAction({ kind: 'submit' })
+    setCheckingDuplicates(true)
+    setDuplicateNotice(null)
+
+    try {
+      const duplicateResult =
+        await apiFetch<DuplicateCheckResponse>(
+          '/api/registration/duplicate-check',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              emailAddress: form.emailAddress,
+              firstName: form.firstName,
+              middleName: form.middleName,
+              lastName: form.lastName,
+              dateOfBirth: form.dateOfBirth,
+              mobileNumber: form.mobileNumber,
+              pwdIdNumber: form.pwdIdNumber,
+            }),
+          },
+        )
+
+      if (duplicateResult.hasDuplicate) {
+        const duplicateErrors: Record<string, string> = {}
+        let targetStep = 0
+
+        for (const conflict of duplicateResult.conflicts) {
+          if (conflict.field === 'emailAddress') {
+            duplicateErrors.emailAddress =
+              'This email is already registered.'
+            targetStep = 0
+          }
+
+          if (conflict.field === 'identity') {
+            duplicateErrors.firstName =
+              'A matching vulnerable profile already exists.'
+            duplicateErrors.lastName =
+              'A matching vulnerable profile already exists.'
+            duplicateErrors.dateOfBirth =
+              'A matching vulnerable profile already exists.'
+            targetStep = 0
+          }
+
+          if (conflict.field === 'pwdIdNumber') {
+            duplicateErrors.pwdIdNumber =
+              'This PWD / disability ID is already registered.'
+
+            if (
+              !duplicateErrors.emailAddress &&
+              !duplicateErrors.firstName
+            ) {
+              targetStep = 1
+            }
+          }
+        }
+
+        setErrors((previous) => ({
+          ...previous,
+          ...duplicateErrors,
+        }))
+        setStep(targetStep)
+        setConfirmAction(null)
+        setDuplicateNotice(duplicateResult)
+        return
+      }
+
+      setConfirmAction({ kind: 'submit' })
+    } catch (error: any) {
+      toast.error(
+        'Duplicate check could not be completed',
+        {
+          description:
+            error?.message ||
+            'Registration confirmation was blocked. Please try again.',
+        },
+      )
+    } finally {
+      setCheckingDuplicates(false)
+    }
   }
 
   function confirmActionCopy() {
@@ -2711,10 +2812,18 @@ export default function VulnerableRegistrationModal({
                         : 'bg-amber-500 text-white hover:bg-amber-600'
                     )}
                     onClick={canSubmit ? requestSubmit : goToFirstMissingRequiredField}
-                    disabled={submitting}
+                    disabled={submitting || checkingDuplicates}
                   >
-                    {submitting ? 'Submitting...' : canSubmit ? 'Confirm Registration' : 'Complete Required Fields'}
-                    {!submitting ? <CheckCircle2 className="ml-2 h-4 w-4" /> : null}
+                    {submitting
+                      ? 'Submitting...'
+                      : checkingDuplicates
+                        ? 'Checking duplicates...'
+                        : canSubmit
+                          ? 'Confirm Registration'
+                          : 'Complete Required Fields'}
+                    {!submitting && !checkingDuplicates ? (
+                      <CheckCircle2 className="ml-2 h-4 w-4" />
+                    ) : null}
                   </Button>
                 )}
               </div>
@@ -2733,6 +2842,24 @@ export default function VulnerableRegistrationModal({
       confirmLabel={confirmation.confirmLabel}
       cancelLabel={confirmation.cancelLabel}
       variant={confirmation.variant}
+      confirmDisabled={submitting || checkingDuplicates}
+    />
+
+    <ConfirmDialog
+      open={Boolean(duplicateNotice)}
+      onClose={() => setDuplicateNotice(null)}
+      onConfirm={() => setDuplicateNotice(null)}
+      title="Duplicate registration detected"
+      description={
+        duplicateNotice
+          ? `${duplicateNotice.conflicts
+              .map((conflict) => conflict.message)
+              .join(' ')} Registration confirmation has been blocked. Review the highlighted information or open the existing record instead.`
+          : 'A matching registration already exists.'
+      }
+      confirmLabel="Review registration"
+      variant="destructive"
+      showCancel={false}
     />
     </>
   )
