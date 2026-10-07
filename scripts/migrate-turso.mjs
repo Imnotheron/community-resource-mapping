@@ -114,6 +114,7 @@ const migrations = [
     "itemsProvided" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL,
     "notes" TEXT,
+    "supportingDocuments" TEXT NOT NULL DEFAULT '[]',
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "rejectionReason" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -269,6 +270,22 @@ async function migrate() {
     console.log('✅ Notification announcement recipient uniqueness');
   } catch (error) {
     console.error('❌ Failed: announcement notification idempotency', error.message);
+  }
+
+  try {
+    const reliefInfo = await client.execute('PRAGMA table_info("ReliefDistribution")');
+    const hasSupportingDocuments = reliefInfo.rows.some(
+      (row) => String(row.name || '') === 'supportingDocuments',
+    );
+
+    if (!hasSupportingDocuments) {
+      await client.execute(
+        'ALTER TABLE "ReliefDistribution" ADD COLUMN "supportingDocuments" TEXT NOT NULL DEFAULT \'[]\'',
+      );
+      console.log('✅ ReliefDistribution.supportingDocuments');
+    }
+  } catch (error) {
+    console.error('❌ Failed: relief supporting documents', error.message);
   }
 
   console.log('\n🎉 Migration complete!');
