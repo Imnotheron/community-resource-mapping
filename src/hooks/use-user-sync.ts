@@ -9,8 +9,8 @@ async function sendHeartbeat(userId: string, status: 'online' | 'offline' = 'onl
   if (!userId) return
 
   await apiFetch('/api/user/heartbeat', {
-    method: 'POST',
-    body: JSON.stringify({ userId, status }),
+    method: status === 'offline' ? 'DELETE' : 'POST',
+    body: JSON.stringify({ userId }),
   })
 }
 
