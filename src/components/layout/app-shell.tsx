@@ -175,43 +175,7 @@ export function AppShell({
     )
   }
 
-  if (
-    normalizedRole === 'admin' &&
-    isMobile
-  ) {
-    return (
-      <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-50 px-5 py-10 text-slate-950">
-        <div className="relative z-10 w-full max-w-sm rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-xl">
-          <div className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2 shadow-sm">
-            <img
-              src="/logos/crms-system-icon.png"
-              alt="Community Resource Mapping System"
-              className="h-full w-full object-contain"
-            />
-          </div>
 
-          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">
-            Desktop-only workspace
-          </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight">
-            Administrator access is not available on phones
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            Open the CRMS Administrator portal on a desktop or laptop for secure access to approvals, user management, reports, maps, and analytics.
-          </p>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-6 w-full rounded-2xl"
-            onClick={onLogout}
-          >
-            Sign out
-          </Button>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <>
