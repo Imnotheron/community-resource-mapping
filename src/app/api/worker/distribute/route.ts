@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import {
+  ensureReliefEvidenceColumn,
+  normalizeReliefEvidence,
+} from '@/lib/relief-evidence'
 import { requireRequestUser } from '@/lib/request-user-session'
 import { getVulnerableStatuses } from '@/lib/vulnerable-status'
 
@@ -55,6 +59,24 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
+
+    let supportingDocuments
+    try {
+      supportingDocuments = normalizeReliefEvidence(body.supportingDocuments)
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Valid supporting photo evidence is required',
+        },
+        { status: 400 },
+      )
+    }
+
+    await ensureReliefEvidenceColumn()
 
     const beneficiary = await db.vulnerableProfile.findUnique({
       where: { id: vulnerableProfileId },
@@ -109,6 +131,7 @@ export async function POST(request: NextRequest) {
         itemsProvided,
         quantity,
         notes,
+        supportingDocuments: JSON.stringify(supportingDocuments),
         status: 'PENDING',
       },
       select: {
@@ -134,8 +157,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: 'Distribution recorded and sent for Administrator approval',
-        distribution,
+        message:
+          'Distribution recorded with supporting evidence and sent for Administrator approval',
+        distribution: {
+          ...distribution,
+          supportingDocumentCount: supportingDocuments.length,
+        },
       },
       { status: 201 },
     )

@@ -90,6 +90,12 @@ import { AnnouncementsCarousel } from "@/components/dashboards/announcements-car
 import { apiFetch, AuthUser } from "@/lib/api-client";
 import { serializeRegistrationDocuments } from "@/lib/registration-documents-client";
 import {
+  RELIEF_GENERAL_LABELS,
+  VULNERABILITY_GENERAL_LABELS,
+  reliefGeneralCategory,
+  vulnerabilityGeneralGroups,
+} from "@/lib/relief-classification";
+import {
   formatDate,
   formatDateTime,
   timeAgo,
@@ -3076,91 +3082,6 @@ function CreateWorkerDialog({
 }
 
 // =================== DISTRIBUTIONS (Approval) ===================
-const RELIEF_GENERAL_LABELS: Record<string, string> = {
-  FOOD: "Food",
-  MEDICAL: "Medical / Health",
-  FINANCIAL: "Financial",
-  SHELTER: "Shelter",
-  WATER: "Water",
-  HYGIENE: "Hygiene / Sanitation",
-  CLOTHING: "Clothing / Bedding",
-  LIVELIHOOD: "Livelihood",
-  OTHER: "Other Relief",
-};
-
-const VULNERABILITY_GENERAL_LABELS: Record<string, string> = {
-  SENIOR_CITIZEN: "Senior Citizen",
-  PWD: "Person with Disability",
-  NEEDS_ASSISTANCE: "Needs Assistance",
-  GENERAL_WELFARE: "General Welfare / Low Income",
-  CIVIL_REGISTRY: "Civil Registry Concern",
-  OTHER: "Other Vulnerability",
-};
-
-function reliefGeneralCategory(distribution: any) {
-  const text = [
-    distribution?.distributionType,
-    distribution?.itemsProvided,
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  if (/food|rice|grocery|canned|meal|noodle/.test(text)) return "FOOD";
-  if (/medical|medicine|health|first aid|vitamin|drug/.test(text)) return "MEDICAL";
-  if (/cash|financial|money|allowance|peso/.test(text)) return "FINANCIAL";
-  if (/shelter|housing|roof|tent|tarpaulin|repair/.test(text)) return "SHELTER";
-  if (/water|drinking/.test(text)) return "WATER";
-  if (/hygiene|sanitary|soap|toiletr|cleaning/.test(text)) return "HYGIENE";
-  if (/clothing|clothes|blanket|bedding|garment/.test(text)) return "CLOTHING";
-  if (/livelihood|seed|farm|tool|business/.test(text)) return "LIVELIHOOD";
-
-  return "OTHER";
-}
-
-function vulnerabilityGeneralGroups(profile: any) {
-  if (!profile) return ["OTHER"];
-
-  const sectors = registrationSectorValues(profile);
-  const groups = new Set<string>();
-
-  for (const sector of sectors) {
-    const normalized = String(sector || "").toUpperCase();
-
-    if (normalized.includes("SENIOR")) {
-      groups.add("SENIOR_CITIZEN");
-    }
-
-    if (
-      normalized === "PWD" ||
-      normalized.includes("DISABILITY") ||
-      normalized.includes("DISABLED")
-    ) {
-      groups.add("PWD");
-    }
-
-    if (normalized.includes("NEEDS_ASSISTANCE")) {
-      groups.add("NEEDS_ASSISTANCE");
-    }
-
-    if (
-      normalized.includes("GENERAL_WELFARE") ||
-      normalized.includes("LOW_INCOME") ||
-      normalized.includes("INDIGENT") ||
-      normalized.includes("POVERTY")
-    ) {
-      groups.add("GENERAL_WELFARE");
-    }
-
-    if (normalized.includes("CIVIL_REGISTRY")) {
-      groups.add("CIVIL_REGISTRY");
-    }
-  }
-
-  if (groups.size === 0) groups.add("OTHER");
-
-  return Array.from(groups);
-}
-
 function distributionBeneficiaryName(distribution: any) {
   if (distribution?.vulnerableProfile) {
     return [
@@ -3210,6 +3131,9 @@ function DistributionsView() {
   } | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [actionSaving, setActionSaving] = useState(false);
+  const [viewTarget, setViewTarget] = useState<any | null>(null);
+  const [viewDetails, setViewDetails] = useState<any | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3657,8 +3581,38 @@ function DistributionsView() {
     });
   };
 
+  const openView = async (distribution: any) => {
+    setViewTarget(distribution);
+    setViewDetails(null);
+    setViewLoading(true);
+
+    try {
+      const data = await apiFetch(
+        `/api/admin/distributions/${distribution.id}`,
+      );
+      setViewDetails(data.distribution || distribution);
+    } catch (err: any) {
+      toast.error("Unable to load relief details", {
+        description: err.message,
+      });
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
   const runAction = async () => {
     if (!actionTarget || actionSaving) return;
+
+    if (
+      actionTarget.action === "REJECT" &&
+      !actionReason.trim()
+    ) {
+      toast.error("Rejection reason required", {
+        description:
+          "Enter a reason before rejecting relief records.",
+      });
+      return;
+    }
 
     setActionSaving(true);
 
@@ -3679,8 +3633,9 @@ function DistributionsView() {
       );
 
       const count =
-        Number(data?.updatedCount) ||
-        actionTarget.ids.length;
+        data?.updatedCount === undefined
+          ? actionTarget.ids.length
+          : Number(data.updatedCount);
 
       toast.success(
         `${count} relief distribution${count === 1 ? "" : "s"} ${
@@ -4183,6 +4138,12 @@ function DistributionsView() {
                           </span>
                           <span>
                             <b className="text-foreground">
+                              Evidence:
+                            </b>{" "}
+                            {Number(distribution.supportingDocumentCount || 0)} photo{Number(distribution.supportingDocumentCount || 0) === 1 ? "" : "s"}
+                          </span>
+                          <span>
+                            <b className="text-foreground">
                               Date:
                             </b>{" "}
                             {formatDate(
@@ -4208,39 +4169,51 @@ function DistributionsView() {
                       </div>
                     </div>
 
-                    {pending ? (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            openAction(
-                              [distribution.id],
-                              "APPROVE",
-                              `Approve relief for ${beneficiaryName}`,
-                            )
-                          }
-                          className="gap-1.5"
-                        >
-                          <Check className="h-4 w-4" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            openAction(
-                              [distribution.id],
-                              "REJECT",
-                              `Reject relief for ${beneficiaryName}`,
-                            )
-                          }
-                          className="gap-1.5"
-                        >
-                          <X className="h-4 w-4" />
-                          Reject
-                        </Button>
-                      </div>
-                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void openView(distribution)}
+                        className="gap-1.5"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View
+                      </Button>
+
+                      {pending ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              openAction(
+                                [distribution.id],
+                                "APPROVE",
+                                `Approve relief for ${beneficiaryName}`,
+                              )
+                            }
+                            className="gap-1.5"
+                          >
+                            <Check className="h-4 w-4" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() =>
+                              openAction(
+                                [distribution.id],
+                                "REJECT",
+                                `Reject relief for ${beneficiaryName}`,
+                              )
+                            }
+                            className="gap-1.5"
+                          >
+                            <X className="h-4 w-4" />
+                            Reject
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -4248,6 +4221,141 @@ function DistributionsView() {
           })}
         </div>
       )}
+
+
+      <Dialog
+        open={Boolean(viewTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewTarget(null);
+            setViewDetails(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Relief Distribution Details</DialogTitle>
+            <DialogDescription>
+              Review the essential distribution information and supporting photo evidence before making a decision.
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewLoading ? (
+            <WowLoader
+              compact
+              label="Loading relief record"
+              description="Fetching supporting evidence..."
+            />
+          ) : (
+            (() => {
+              const detail = viewDetails || viewTarget;
+              if (!detail) return null;
+
+              const evidence = Array.isArray(detail.supportingDocuments)
+                ? detail.supportingDocuments
+                : [];
+
+              return (
+                <div className="space-y-5">
+                  <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Beneficiary</p>
+                      <p className="mt-1 font-semibold">{distributionBeneficiaryName(detail)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Barangay</p>
+                      <p className="mt-1 font-medium">{distributionBarangay(detail) || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Relief type</p>
+                      <p className="mt-1 font-medium">{detail.distributionType || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quantity</p>
+                      <p className="mt-1 font-medium">{detail.quantity ?? "—"}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Goods / assistance distributed</p>
+                      <p className="mt-1 font-medium">{detail.itemsProvided || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Worker</p>
+                      <p className="mt-1 font-medium">{detail.worker?.name || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Distribution date</p>
+                      <p className="mt-1 font-medium">{formatDate(detail.distributionDate)}</p>
+                    </div>
+                    {detail.notes ? (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Important notes</p>
+                        <p className="mt-1 text-sm">{detail.notes}</p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="font-semibold">Supporting documents</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Photo evidence submitted by the field worker.
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {evidence.length} photo{evidence.length === 1 ? "" : "s"}
+                      </Badge>
+                    </div>
+
+                    {evidence.length === 0 ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        No supporting photo is attached to this legacy relief record.
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {evidence.map((document: any, index: number) => (
+                          <a
+                            key={`${document.fileName}-${index}`}
+                            href={document.dataUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="overflow-hidden rounded-xl border bg-background transition hover:border-emerald-300 hover:shadow-sm"
+                          >
+                            <img
+                              src={document.dataUrl}
+                              alt={`Supporting evidence ${index + 1}`}
+                              className="h-52 w-full object-cover"
+                            />
+                            <div className="p-3">
+                              <p className="truncate text-sm font-medium">{document.fileName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {Math.max(1, Math.round(Number(document.size || 0) / 1024))} KB · Click to open
+                              </p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setViewTarget(null);
+                setViewDetails(null);
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(actionTarget)}
@@ -4687,7 +4795,9 @@ function FeedbackView() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch("/api/admin/feedback?adminView=true");
+      const data = await apiFetch("/api/admin/feedback?adminView=true", {
+        attachUserId: false,
+      });
       setFeedback(data.feedback || []);
     } catch (err: any) {
       toast.error("Failed to load feedback", { description: err.message });

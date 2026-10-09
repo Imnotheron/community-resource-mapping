@@ -287,6 +287,8 @@ export function VulnerableMap({ points, height = 500, onViewProfile, interactive
     const map = mapRef.current;
     if (!map || resetVersion === 0) return;
 
+    // Reset selection when an explicit map reset is requested.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedPoint(null);
     map.fitBounds(SAN_POLICARPO_BOUNDS, {
       padding: [18, 18],

@@ -111,6 +111,8 @@ export function AppShell({
   ] = useState(false)
 
   useEffect(() => {
+    // Browser capability detection must run after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileViewportReady(true)
 
     const navigatorWithMemory = navigator as Navigator & {

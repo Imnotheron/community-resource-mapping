@@ -137,7 +137,6 @@ function SetBounds() {
     map.setMinZoom(SAN_POLICARPO_MIN_VIEW_ZOOM)
     map.setMaxZoom(18)
     map.setMaxBounds(SAN_POLICARPO_VIEW_BOUNDS)
-    map.options.maxBoundsViscosity = 1
   }, [map])
 
   return null

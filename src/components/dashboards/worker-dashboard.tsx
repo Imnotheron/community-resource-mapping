@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, Package, PackagePlus, UserPlus, NotebookPen, Megaphone,
-  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History, MapPinned,
+  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History, MapPinned, Camera, X,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { useDashboardSection } from '@/hooks/use-dashboard-section'
@@ -34,6 +34,7 @@ import { AnnouncementsCarousel } from '@/components/dashboards/announcements-car
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal'
 import { apiFetch, AuthUser, getStoredUser } from '@/lib/api-client'
 import { serializeRegistrationDocuments } from '@/lib/registration-documents-client'
+import { serializeReliefEvidence } from '@/lib/relief-evidence-client'
 import { formatDate, formatDateTime, timeAgo, StatusBadge, PriorityBadge, formatVulnerabilityTypes } from './shared'
 
 const NAV_ITEMS: NavItem[] = [
@@ -423,6 +424,7 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([])
   const [barangayFilter, setBarangayFilter] = useState('ALL')
   const [sectorFilter, setSectorFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('BARANGAY')
@@ -487,14 +489,25 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
       toast.error('Please fill all required fields')
       return
     }
+
+    if (evidenceFiles.length === 0) {
+      toast.error('Supporting photo required', {
+        description: 'Take or attach at least one photo showing the actual relief distribution.',
+      })
+      return
+    }
+
     setSubmitting(true)
     try {
+      const supportingDocuments = await serializeReliefEvidence(evidenceFiles)
+
       await apiFetch('/api/worker/distribute', {
         method: 'POST',
         body: JSON.stringify({
           ...form,
           workerId,
           quantity: parseInt(form.quantity, 10),
+          supportingDocuments,
         }),
       })
       toast.success('Distribution recorded', { description: 'Pending admin approval.' })
@@ -619,14 +632,17 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
           </p>
         </div>
 
-        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-muted">
+        <label
+          className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border bg-muted px-4 py-2 text-sm font-medium text-muted-foreground opacity-75"
+          title="Bulk Excel submission is disabled because every relief record now requires its own supporting photo."
+        >
           {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-          {importing ? 'Importing...' : 'Import Excel'}
+          Evidence required per record
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
             className="hidden"
-            disabled={importing || loading}
+            disabled
             onChange={handleExcelImport}
           />
         </label>
@@ -812,7 +828,71 @@ function NewDistributionView({ workerId, onDone }: { workerId: string; onDone: (
             />
           </div>
 
-          <Button onClick={submit} disabled={submitting || !form.vulnerableProfileId} className="w-full gap-2">
+
+          <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+            <div className="flex items-start gap-3">
+              <Camera className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+              <div>
+                <Label htmlFor="relief-supporting-photo">
+                  Supporting photo evidence <span className="text-destructive">*</span>
+                </Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Required for Administrator verification. Take or attach 1–3 clear photos showing the actual goods or assistance being distributed.
+                </p>
+              </div>
+            </div>
+
+            <input
+              id="relief-supporting-photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              multiple
+              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-emerald-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-800"
+              onChange={(event) => {
+                const files = Array.from(event.target.files || [])
+                if (files.length > 3) {
+                  toast.error('Maximum of 3 supporting photos')
+                }
+                setEvidenceFiles(files.slice(0, 3))
+              }}
+            />
+
+            {evidenceFiles.length > 0 ? (
+              <div className="space-y-2">
+                {evidenceFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2 text-sm"
+                  >
+                    <span className="min-w-0 truncate">
+                      {index + 1}. {file.name}
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() =>
+                        setEvidenceFiles((current) =>
+                          current.filter((_, fileIndex) => fileIndex !== index),
+                        )
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-medium text-amber-700">
+                No supporting photo selected. The distribution cannot be submitted yet.
+              </p>
+            )}
+          </div>
+
+          <Button onClick={submit} disabled={submitting || !form.vulnerableProfileId || evidenceFiles.length === 0} className="w-full gap-2">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Record Distribution
           </Button>

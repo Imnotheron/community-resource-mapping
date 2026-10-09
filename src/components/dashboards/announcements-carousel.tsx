@@ -102,11 +102,12 @@ export function AnnouncementsCarousel({
 
   useEffect(() => {
     if (providedAnnouncements !== undefined) {
-      setFetching(false)
       return
     }
 
     let active = true
+    // A role change starts a new client-side request cycle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetching(true)
 
     apiFetch<{

@@ -114,6 +114,7 @@ const migrations = [
     "itemsProvided" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL,
     "notes" TEXT,
+    "supportingDocuments" TEXT NOT NULL DEFAULT '[]',
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "rejectionReason" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -169,6 +170,7 @@ const migrations = [
   `CREATE TABLE IF NOT EXISTS "Notification" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
+    "announcementId" TEXT,
     "type" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "message" TEXT NOT NULL,
@@ -179,7 +181,8 @@ const migrations = [
     "smsSentAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Notification_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement" ("id") ON DELETE CASCADE ON UPDATE CASCADE
   )`,
 
   // AdminSignupRequest table
@@ -246,6 +249,43 @@ async function migrate() {
     } catch (error) {
       console.error(`❌ Failed: ${tableName}`, error.message);
     }
+  }
+
+  try {
+    const notificationInfo = await client.execute('PRAGMA table_info("Notification")');
+    const hasAnnouncementId = notificationInfo.rows.some(
+      (row) => String(row.name || '') === 'announcementId',
+    );
+
+    if (!hasAnnouncementId) {
+      await client.execute(
+        'ALTER TABLE "Notification" ADD COLUMN "announcementId" TEXT',
+      );
+      console.log('✅ Notification.announcementId');
+    }
+
+    await client.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "Notification_announcementId_userId_key" ON "Notification"("announcementId", "userId")',
+    );
+    console.log('✅ Notification announcement recipient uniqueness');
+  } catch (error) {
+    console.error('❌ Failed: announcement notification idempotency', error.message);
+  }
+
+  try {
+    const reliefInfo = await client.execute('PRAGMA table_info("ReliefDistribution")');
+    const hasSupportingDocuments = reliefInfo.rows.some(
+      (row) => String(row.name || '') === 'supportingDocuments',
+    );
+
+    if (!hasSupportingDocuments) {
+      await client.execute(
+        'ALTER TABLE "ReliefDistribution" ADD COLUMN "supportingDocuments" TEXT NOT NULL DEFAULT \'[]\'',
+      );
+      console.log('✅ ReliefDistribution.supportingDocuments');
+    }
+  } catch (error) {
+    console.error('❌ Failed: relief supporting documents', error.message);
   }
 
   console.log('\n🎉 Migration complete!');

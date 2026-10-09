@@ -598,8 +598,7 @@ export function AuthScreen({
               <div className="grid grid-cols-1 gap-3 sm:gap-5 md:grid-cols-3">
                 {(Object.keys(
                   ROLE_INFO,
-                ) as Role[])
-                  .map((nextRole) => {
+                ) as Role[]).map((nextRole) => {
                     const info =
                       ROLE_INFO[nextRole]
                     const Icon = info.icon

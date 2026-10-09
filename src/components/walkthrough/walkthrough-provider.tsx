@@ -401,7 +401,8 @@ function TourOverlay({
         onSkip()
       } else if (event.key === 'ArrowRight') {
         event.preventDefault()
-        isLast ? onFinish() : onNext()
+        if (isLast) onFinish()
+        else onNext()
       } else if (event.key === 'ArrowLeft' && stepIndex > 0) {
         event.preventDefault()
         onBack()
@@ -555,6 +556,8 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
   const [stepIndex, setStepIndex] = useState(0)
 
   useEffect(() => {
+    // Progress is stored in browser localStorage and can only be hydrated after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProgress(readProgress())
     setHydrated(true)
   }, [])

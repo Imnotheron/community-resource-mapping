@@ -598,32 +598,7 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
   }, [load])
 
 
-  const registrationBarangays = useMemo(
-    () => unique(registrations.map((record) => record.barangay)),
-    [registrations],
-  )
-
-  const registrationCategories = useMemo(
-    () => unique(registrations.flatMap((record) => vulnerabilityTypes(record.vulnerabilityTypes))),
-    [registrations],
-  )
-
-  const distributionBarangays = useMemo(
-    () => unique(distributions.map(barangayOfDistribution)),
-    [distributions],
-  )
-
-  const distributionCategories = useMemo(
-    () => unique(distributions.map((record) => record.distributionType)),
-    [distributions],
-  )
-
-  const workers = useMemo(
-    () => unique(distributions.map((record) => record.worker?.name)),
-    [distributions],
-  )
-
-  const filteredRegistrations = useMemo(() => {
+  const registrationContext = useMemo(() => {
     const search = query.trim().toLowerCase()
 
     return registrations.filter((record) => {
@@ -642,31 +617,41 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
 
       return (
         (!search || searchable.includes(search)) &&
-        (statusFilter === ALL || status(record.registrationStatus) === statusFilter) &&
-        (barangayFilter === ALL || record.barangay === barangayFilter) &&
-        (categoryFilter === ALL || categories.includes(categoryFilter))
+        (statusFilter === ALL ||
+          status(record.registrationStatus) === statusFilter)
       )
-    }).sort((a, b) => {
-      if (sortBy === 'BARANGAY') {
-        const compared = String(a.barangay || '').localeCompare(String(b.barangay || ''))
-        if (compared !== 0) return compared
-      }
-
-      if (sortBy === 'DATE_DESC') {
-        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      }
-
-      if (sortBy === 'STATUS') {
-        return status(a.registrationStatus).localeCompare(status(b.registrationStatus))
-      }
-
-      const lastNameCompare = String(a.lastName || '').localeCompare(String(b.lastName || ''))
-      if (lastNameCompare !== 0) return lastNameCompare
-      return String(a.firstName || '').localeCompare(String(b.firstName || ''))
     })
-  }, [barangayFilter, categoryFilter, query, registrations, sortBy, statusFilter])
+  }, [query, registrations, statusFilter])
 
-  const filteredDistributions = useMemo(() => {
+  const registrationBarangays = useMemo(
+    () =>
+      unique(
+        registrationContext
+          .filter((record) => {
+            const categories = vulnerabilityTypes(record.vulnerabilityTypes)
+            return categoryFilter === ALL || categories.includes(categoryFilter)
+          })
+          .map((record) => record.barangay),
+      ),
+    [categoryFilter, registrationContext],
+  )
+
+  const registrationCategories = useMemo(
+    () =>
+      unique(
+        registrationContext
+          .filter(
+            (record) =>
+              barangayFilter === ALL || record.barangay === barangayFilter,
+          )
+          .flatMap((record) =>
+            vulnerabilityTypes(record.vulnerabilityTypes),
+          ),
+      ),
+    [barangayFilter, registrationContext],
+  )
+
+  const distributionContext = useMemo(() => {
     const search = query.trim().toLowerCase()
 
     return distributions.filter((record) => {
@@ -683,40 +668,149 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
 
       return (
         (!search || searchable.includes(search)) &&
-        (statusFilter === ALL || status(record.status) === statusFilter) &&
-        (barangayFilter === ALL || barangayOfDistribution(record) === barangayFilter) &&
-        (categoryFilter === ALL || record.distributionType === categoryFilter) &&
-        (workerFilter === ALL || record.worker?.name === workerFilter)
+        (statusFilter === ALL || status(record.status) === statusFilter)
       )
-    }).sort((a, b) => {
-      if (sortBy === 'BARANGAY') {
-        const compared = barangayOfDistribution(a).localeCompare(barangayOfDistribution(b))
-        if (compared !== 0) return compared
-      }
-
-      if (sortBy === 'DATE_DESC') {
-        return new Date(b.distributionDate || b.createdAt || 0).getTime() -
-          new Date(a.distributionDate || a.createdAt || 0).getTime()
-      }
-
-      if (sortBy === 'STATUS') {
-        return status(a.status).localeCompare(status(b.status))
-      }
-
-      const aLast = String(a.vulnerableProfile?.lastName || a.household?.headOfHousehold || '')
-      const bLast = String(b.vulnerableProfile?.lastName || b.household?.headOfHousehold || '')
-      const compared = aLast.localeCompare(bLast)
-      if (compared !== 0) return compared
-
-      return beneficiary(a).localeCompare(beneficiary(b))
     })
+  }, [distributions, query, statusFilter])
+
+  const distributionBarangays = useMemo(
+    () =>
+      unique(
+        distributionContext
+          .filter(
+            (record) =>
+              (categoryFilter === ALL ||
+                record.distributionType === categoryFilter) &&
+              (workerFilter === ALL ||
+                record.worker?.name === workerFilter),
+          )
+          .map(barangayOfDistribution),
+      ),
+    [categoryFilter, distributionContext, workerFilter],
+  )
+
+  const distributionCategories = useMemo(
+    () =>
+      unique(
+        distributionContext
+          .filter(
+            (record) =>
+              (barangayFilter === ALL ||
+                barangayOfDistribution(record) === barangayFilter) &&
+              (workerFilter === ALL ||
+                record.worker?.name === workerFilter),
+          )
+          .map((record) => record.distributionType),
+      ),
+    [barangayFilter, distributionContext, workerFilter],
+  )
+
+  const workers = useMemo(
+    () =>
+      unique(
+        distributionContext
+          .filter(
+            (record) =>
+              (barangayFilter === ALL ||
+                barangayOfDistribution(record) === barangayFilter) &&
+              (categoryFilter === ALL ||
+                record.distributionType === categoryFilter),
+          )
+          .map((record) => record.worker?.name),
+      ),
+    [barangayFilter, categoryFilter, distributionContext],
+  )
+
+  const filteredRegistrations = useMemo(() => {
+    return registrationContext
+      .filter((record) => {
+        const categories = vulnerabilityTypes(record.vulnerabilityTypes)
+
+        return (
+          (barangayFilter === ALL || record.barangay === barangayFilter) &&
+          (categoryFilter === ALL || categories.includes(categoryFilter))
+        )
+      })
+      .sort((a, b) => {
+        if (sortBy === 'BARANGAY') {
+          const compared = String(a.barangay || '').localeCompare(
+            String(b.barangay || ''),
+          )
+          if (compared !== 0) return compared
+        }
+
+        if (sortBy === 'DATE_DESC') {
+          return (
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+          )
+        }
+
+        if (sortBy === 'STATUS') {
+          return status(a.registrationStatus).localeCompare(
+            status(b.registrationStatus),
+          )
+        }
+
+        const lastNameCompare = String(a.lastName || '').localeCompare(
+          String(b.lastName || ''),
+        )
+        if (lastNameCompare !== 0) return lastNameCompare
+        return String(a.firstName || '').localeCompare(
+          String(b.firstName || ''),
+        )
+      })
+  }, [barangayFilter, categoryFilter, registrationContext, sortBy])
+
+  const filteredDistributions = useMemo(() => {
+    return distributionContext
+      .filter(
+        (record) =>
+          (barangayFilter === ALL ||
+            barangayOfDistribution(record) === barangayFilter) &&
+          (categoryFilter === ALL ||
+            record.distributionType === categoryFilter) &&
+          (workerFilter === ALL || record.worker?.name === workerFilter),
+      )
+      .sort((a, b) => {
+        if (sortBy === 'BARANGAY') {
+          const compared = barangayOfDistribution(a).localeCompare(
+            barangayOfDistribution(b),
+          )
+          if (compared !== 0) return compared
+        }
+
+        if (sortBy === 'DATE_DESC') {
+          return (
+            new Date(b.distributionDate || b.createdAt || 0).getTime() -
+            new Date(a.distributionDate || a.createdAt || 0).getTime()
+          )
+        }
+
+        if (sortBy === 'STATUS') {
+          return status(a.status).localeCompare(status(b.status))
+        }
+
+        const aLast = String(
+          a.vulnerableProfile?.lastName ||
+            a.household?.headOfHousehold ||
+            '',
+        )
+        const bLast = String(
+          b.vulnerableProfile?.lastName ||
+            b.household?.headOfHousehold ||
+            '',
+        )
+        const compared = aLast.localeCompare(bLast)
+        if (compared !== 0) return compared
+
+        return beneficiary(a).localeCompare(beneficiary(b))
+      })
   }, [
     barangayFilter,
     categoryFilter,
-    distributions,
-    query,
+    distributionContext,
     sortBy,
-    statusFilter,
     workerFilter,
   ])
 
@@ -729,6 +823,14 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
   const partlySelected = visibleIds.some((id) => selected.has(id)) && !allVisibleSelected
+  const visiblePendingIds =
+    tab === 'registrations'
+      ? filteredRegistrations
+          .filter((record) => status(record.registrationStatus) === 'PENDING')
+          .map((record) => record.id)
+      : filteredDistributions
+          .filter((record) => status(record.status) === 'PENDING')
+          .map((record) => record.id)
 
   const actionableIds = useMemo(() => {
     if (tab === 'registrations') {
@@ -784,7 +886,8 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
 
     setter((current) => {
       const next = new Set(current)
-      checked ? next.add(id) : next.delete(id)
+      if (checked) next.add(id)
+      else next.delete(id)
       return next
     })
   }
@@ -797,7 +900,8 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
       const next = new Set(current)
 
       visibleIds.forEach((id) => {
-        checked ? next.add(id) : next.delete(id)
+        if (checked) next.add(id)
+        else next.delete(id)
       })
 
       return next
@@ -1140,7 +1244,25 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
             <p className="text-sm">
               <b>{selected.size}</b> selected • <b>{actionableIds.length}</b> pending
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => ask('APPROVE', visiblePendingIds)}
+                disabled={!visiblePendingIds.length || processing}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Approve All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => ask('REJECT', visiblePendingIds)}
+                disabled={!visiblePendingIds.length || processing}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Reject All
+              </Button>
               <Button
                 size="sm"
                 onClick={() => ask('APPROVE')}
@@ -1335,8 +1457,8 @@ export function ApprovalCenter({ admin }: { admin: AuthUser }) {
           <DialogHeader>
             <DialogTitle>
               {pendingAction?.action === 'APPROVE'
-                ? 'Approve selected records?'
-                : 'Reject selected records?'}
+                ? 'Approve records?'
+                : 'Reject records?'}
             </DialogTitle>
             <DialogDescription>
               This will update {pendingAction?.ids.length || 0} record(s) and notify

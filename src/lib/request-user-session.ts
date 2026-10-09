@@ -35,9 +35,7 @@ export async function requireMatchingRequestUser(request: NextRequest) {
   }
 
   const requestedUserId = String(
-    request.headers.get('x-user-id') ||
-      request.nextUrl.searchParams.get('userId') ||
-      '',
+    request.headers.get('x-user-id') || '',
   ).trim()
 
   if (requestedUserId && requestedUserId !== sessionUserId) {

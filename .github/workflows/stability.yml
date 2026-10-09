@@ -1,0 +1,127 @@
+name: Stability Gate
+
+on:
+  push:
+    branches:
+      - stability-hard-debug-2026-10-07
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stability-contracts:
+    name: Stability contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run stability contracts
+        run: node scripts/check-stability-contracts.mjs
+
+  quality:
+    name: Lint and build
+    runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      DATABASE_URL: file:./prisma/dev.db
+      AUTH_SECRET: ci-only-auth-secret-that-is-at-least-32-characters-long
+      NEXTAUTH_SECRET: ci-only-nextauth-secret-that-is-at-least-32-characters-long
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+
+  assistant-contracts:
+    name: Assistant and voice contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Check assistant behavior
+        run: bun run scripts/check-assistant-behavior.ts
+
+      - name: Check voice configuration
+        run: bun run scripts/check-live-config.ts
+
+  smoke:
+    name: CRMS smoke tests
+    needs:
+      - stability-contracts
+      - quality
+      - assistant-contracts
+    runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      DATABASE_URL: file:./smoke.db
+      AUTH_SECRET: smoke-test-auth-secret-that-is-at-least-32-characters
+      NEXTAUTH_SECRET: smoke-test-nextauth-secret-that-is-at-least-32-characters
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build smoke server
+        run: npm run build
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Reset smoke database
+        run: npx prisma db push --force-reset
+
+      - name: Seed smoke database
+        run: node scripts/seed-smoke.mjs
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run CRMS smoke matrix
+        run: npm run test:smoke
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-report
+          path: playwright-report
+          if-no-files-found: ignore

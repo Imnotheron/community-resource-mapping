@@ -174,16 +174,31 @@ async function createNotificationsForTarget(announcement: {
 
     if (users.length === 0) return
 
-    await db.notification.createMany({
-      data: users.map((user) => ({
-        userId: user.id,
-        type: 'ANNOUNCEMENT',
-        title: announcement.title,
-        message: announcement.content,
-        status: 'PENDING',
-      })),
-      skipDuplicates: true,
-    })
+    await db.$transaction(
+      users.map((user) =>
+        db.notification.upsert({
+          where: {
+            announcementId_userId: {
+              announcementId: announcement.id,
+              userId: user.id,
+            },
+          },
+          update: {
+            type: 'ANNOUNCEMENT',
+            title: announcement.title,
+            message: announcement.content,
+          },
+          create: {
+            userId: user.id,
+            announcementId: announcement.id,
+            type: 'ANNOUNCEMENT',
+            title: announcement.title,
+            message: announcement.content,
+            status: 'PENDING',
+          },
+        }),
+      ),
+    )
   } catch (error) {
     console.warn('Announcement created, but notification fan-out was skipped:', error)
   }

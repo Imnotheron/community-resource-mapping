@@ -150,6 +150,7 @@ model ReliefDistribution {
   itemsProvided       String
   quantity            Int
   notes               String?
+  supportingDocuments String             @default("[]")
   status              String             @default("PENDING")
   rejectionReason     String?
   createdAt           DateTime           @default(now())
@@ -200,19 +201,23 @@ model FieldNote {
 }
 
 model Notification {
-  id           String    @id @default(cuid())
-  userId       String
-  type         String
-  title        String
-  message      String
-  status       String    @default("PENDING")
-  sentViaEmail Boolean   @default(false)
-  sentViaSms   Boolean   @default(false)
-  emailSentAt  DateTime?
-  smsSentAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String        @id @default(cuid())
+  userId         String
+  announcementId String?
+  type           String
+  title          String
+  message        String
+  status         String        @default("PENDING")
+  sentViaEmail   Boolean       @default(false)
+  sentViaSms     Boolean       @default(false)
+  emailSentAt    DateTime?
+  smsSentAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement   Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
 }
 
 model AdminSignupRequest {
@@ -243,8 +248,9 @@ model Announcement {
   isActive   Boolean   @default(true)
   priority   String    @default("NORMAL")
   createdBy  String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  notifications Notification[]
 }
 
 model Feedback {
