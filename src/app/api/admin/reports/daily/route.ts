@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
         where: {
           role: 'WORKER',
           OR: [
-            { isOnline: true },
+            ...(date === todayInManila() ? [{ isOnline: true }] : []),
             { lastSeenAt: { gte: start, lt: end } },
           ],
         },
