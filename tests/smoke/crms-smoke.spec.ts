@@ -742,6 +742,52 @@ test('Daily Reports can generate a separate relief report with accurate filtered
   ).toBeVisible()
 })
 
+test('Relief printing switches between LGU, DSWD-style and accomplishment templates', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+  await page.goto('/admin/dashboard#reports')
+  await dismissWelcomeGuide(page)
+
+  await expect(
+    page.getByRole('tab', { name: 'Daily Operations Report' }),
+  ).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Relief Reports' }).click()
+
+  await expect(
+    page.getByRole('heading', { name: 'Relief Distribution Reports' }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('Request a Relief Report', { exact: true }),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: 'Generate Relief Report' }).click()
+
+  const preview = page.getByTestId('relief-report-preview')
+  await expect(preview).toHaveAttribute('data-template', 'LGU')
+  await expect(preview.getByText('Relief Summary', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'DSWD-style Relief Distribution Sheet' }).click()
+  await expect(preview).toHaveAttribute('data-template', 'DSWD_RDS')
+  await expect(preview.getByText('Relief Distribution Sheet (RDS-style)')).toBeVisible()
+  await expect(page.getByText(/Only records marked DISTRIBUTED are included/)).toBeVisible()
+  await page.getByLabel('Type of Disaster').fill('Typhoon')
+  await page.getByLabel('Date of Occurrence').fill('2026-10-01')
+  await expect(page.getByLabel('Type of Disaster')).toHaveValue('Typhoon')
+
+  await page.getByRole('button', { name: 'Relief Accomplishment Report' }).click()
+  await expect(preview).toHaveAttribute('data-template', 'ACCOMPLISHMENT')
+  await expect(preview.getByText('Relief Distribution Accomplishment Report')).toBeVisible()
+  await expect(preview.getByText('Completed Assistance by Barangay')).toBeVisible()
+  await expect(preview.getByText('Assistance Provided (Separated by Type and Unit)')).toBeVisible()
+
+  await page.getByRole('button', { name: 'LGU Relief Summary Report' }).click()
+  await expect(preview).toHaveAttribute('data-template', 'LGU')
+  await expect(preview.getByText('Relief Summary', { exact: true })).toBeVisible()
+})
+
 test('Relief Approval exposes View and Daily Reports mirrors relief sorting controls', async ({ page }) => {
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',
