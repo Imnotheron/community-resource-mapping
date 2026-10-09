@@ -2,7 +2,6 @@
 
 import VulnerableRegistrationModal from '@/components/modals/VulnerableRegistrationModal';
 import { CreateStaffAccountDialog } from "@/components/admin/create-staff-account-dialog";
-import { ApprovalCenter } from "@/components/admin/approval-center";
 import { OperationsHistory } from "@/components/admin/operations-history";
 import { useEffect, useState, useCallback, useMemo, type ComponentType } from "react";
 import { RoleManual } from "@/components/help/RoleManual";
@@ -137,7 +136,6 @@ const VulnerableMap = dynamic(
 
 const NAV_ITEMS: NavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "approval-center", label: "Approval Center", icon: ShieldCheck },
   { id: "registrations", label: "Registrations", icon: UserCheck },
   { id: "users", label: "Users", icon: Users },
   { id: "distributions", label: "Relief Approval", icon: Package },
@@ -192,6 +190,18 @@ export function AdminDashboard({
     "overview",
   );
 
+  // Old bookmarks must lead to the remaining authoritative approval screen.
+  useEffect(() => {
+    if (window.location.hash === "#approval-center") {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}#registrations`,
+      );
+      setView("registrations");
+    }
+  }, [setView]);
+
   return (
     <AppShell
       items={NAV_ITEMS}
@@ -205,7 +215,6 @@ export function AdminDashboard({
       userPhoto={getUserPhoto(user)}
     >
       {view === "overview" && <OverviewView />}
-      {view === "approval-center" && <ApprovalCenter admin={user} />}
       {view === "registrations" && <RegistrationsView />}
       {view === "users" && <UsersView />}
       {view === "distributions" && <DistributionsView />}
@@ -4265,6 +4274,30 @@ function DistributionsView() {
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Barangay</p>
                       <p className="mt-1 font-medium">{distributionBarangay(detail) || "—"}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Specific vulnerability
+                      </p>
+                      <p className="mt-1 font-medium">
+                        {detail.vulnerableProfile
+                          ? registrationSectorValues(detail.vulnerableProfile)
+                              .map(registrationSectorLabel)
+                              .join(", ")
+                          : "Not recorded"}
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        General vulnerability
+                      </p>
+                      <p className="mt-1 font-medium">
+                        {detail.vulnerableProfile
+                          ? vulnerabilityGeneralGroups(detail.vulnerableProfile)
+                              .map((group) => VULNERABILITY_GENERAL_LABELS[group] || group)
+                              .join(", ")
+                          : "Not recorded"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Relief type</p>
