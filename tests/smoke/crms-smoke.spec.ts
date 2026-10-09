@@ -104,7 +104,7 @@ test('protected record routes reject spoofed or missing sessions', async ({ requ
   const approvalSpoof = await request.get('/api/admin/approval-center', {
     headers: { 'x-user-id': 'admin-smoke' },
   })
-  expect(approvalSpoof.status()).toBe(404)
+  expect(approvalSpoof.status()).toBe(401)
 
   const signupRequests = await request.get('/api/admin/signup-requests')
   expect(signupRequests.status()).toBe(401)
@@ -407,19 +407,11 @@ test('Admin has no duplicate approval workflow and legacy bookmarks resolve to R
 })
 
 test('Legacy approval API is retired and only signed Admin users access canonical approval records', async ({ request }) => {
-  const legacyGet = await request.get('/api/admin/approval-center', {
+  // The authentication proxy correctly blocks unauthorized requests first.
+  const legacyWithoutAuth = await request.get('/api/admin/approval-center', {
     headers: { 'x-user-id': 'admin-smoke' },
   })
-  expect(legacyGet.status()).toBe(404)
-
-  const legacyPost = await request.post('/api/admin/approval-center', {
-    data: {
-      type: 'REGISTRATION',
-      action: 'APPROVE',
-      ids: ['profile-pending-one'],
-    },
-  })
-  expect(legacyPost.status()).toBe(404)
+  expect(legacyWithoutAuth.status()).toBe(401)
 
   const registrationsWithoutAuth = await request.get('/api/admin/profiles')
   expect(registrationsWithoutAuth.status()).toBe(401)
@@ -428,13 +420,31 @@ test('Legacy approval API is retired and only signed Admin users access canonica
   expect(reliefWithoutAuth.status()).toBe(401)
 
   const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const headers = bearer(admin.token)
+
+  // Authenticated requests reach the retired endpoint, which no longer exists.
+  const legacyGet = await request.get('/api/admin/approval-center', {
+    headers,
+  })
+  expect(legacyGet.status()).toBe(404)
+
+  const legacyPost = await request.post('/api/admin/approval-center', {
+    headers,
+    data: {
+      type: 'REGISTRATION',
+      action: 'APPROVE',
+      ids: ['profile-pending-one'],
+    },
+  })
+  expect(legacyPost.status()).toBe(404)
+
   const registrations = await request.get('/api/admin/profiles', {
-    headers: bearer(admin.token),
+    headers,
   })
   expect(registrations.status(), await registrations.text()).toBe(200)
 
   const relief = await request.get('/api/admin/distributions', {
-    headers: bearer(admin.token),
+    headers,
   })
   expect(relief.status(), await relief.text()).toBe(200)
 })
@@ -623,8 +633,8 @@ test('Relief Approval exposes View and Daily Reports mirrors relief sorting cont
   await expect(
     page.getByRole('heading', { name: 'Relief Distribution Approval' }),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'View' }).first().click()
+  await expect(page.getByRole('button', { name: 'View', exact: true }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'View', exact: true }).first().click()
   const reliefDetails = page.getByRole('dialog', {
     name: 'Relief Distribution Details',
   })
