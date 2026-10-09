@@ -1391,10 +1391,10 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
                   }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                   <SelectItem value="FORMAL">
                     Formal — full detail
                   </SelectItem>
@@ -1505,14 +1505,20 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
         </CardContent>
       </Card>
 
-      <Card className="no-print border-slate-200">
+      <Card className="no-print min-w-0 border-slate-200">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarDays className="h-4 w-4 text-emerald-600" />
             Report Filters
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Relief filters show only categories present in this day&apos;s matching distribution records.
+          </p>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <CardContent
+          data-testid="daily-report-filters"
+          className="grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3 [&>div]:min-w-0"
+        >
           <div className="space-y-2">
             <Label htmlFor="report-date">Report date</Label>
             <Input
@@ -1527,6 +1533,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             <div className="space-y-2">
               <Label>Barangay</Label>
               <SearchableSelect
+                className="min-w-0"
+                contentClassName="max-w-[calc(100vw-2rem)]"
                 value={barangay}
                 onValueChange={setBarangay}
                 placeholder="All barangays"
@@ -1549,6 +1557,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             <div className="space-y-2">
               <Label>Last name</Label>
               <SearchableSelect
+                className="min-w-0"
+                contentClassName="max-w-[calc(100vw-2rem)]"
                 value={lastName}
                 onValueChange={setLastName}
                 placeholder="All last names"
@@ -1571,6 +1581,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             <div className="space-y-2">
               <Label>Person</Label>
               <SearchableSelect
+                className="min-w-0"
+                contentClassName="max-w-[calc(100vw-2rem)]"
                 value={personId}
                 onValueChange={setPersonId}
                 placeholder="All people"
@@ -1603,6 +1615,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
               <div className="space-y-2">
                 <Label>Worker</Label>
                 <SearchableSelect
+                className="min-w-0"
+                contentClassName="max-w-[calc(100vw-2rem)]"
                   value={workerId}
                   onValueChange={setWorkerId}
                   placeholder="All workers"
@@ -1631,10 +1645,10 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
                 value={reliefStatusFilter}
                 onValueChange={setReliefStatusFilter}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                   <SelectItem value="ALL">All statuses</SelectItem>
                   {['PENDING', 'APPROVED', 'REJECTED']
                     .filter((status) => reliefStatusOptions.includes(status))
@@ -1653,10 +1667,10 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
                 value={reliefCategoryFilter}
                 onValueChange={setReliefCategoryFilter}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue placeholder="All general relief" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                   <SelectItem value="ALL">All general relief</SelectItem>
                   {reliefCategories.map((category) => (
                     <SelectItem key={category} value={category}>
@@ -1670,6 +1684,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             <div className="space-y-2">
               <Label>Specific relief type</Label>
               <SearchableSelect
+                className="min-w-0"
+                contentClassName="max-w-[calc(100vw-2rem)]"
                 value={reliefTypeFilter}
                 onValueChange={setReliefTypeFilter}
                 placeholder="All specific relief types"
@@ -1691,10 +1707,10 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
                 value={vulnerabilityGroupFilter}
                 onValueChange={setVulnerabilityGroupFilter}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue placeholder="All general vulnerabilities" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                   <SelectItem value="ALL">All general vulnerabilities</SelectItem>
                   {vulnerabilityGroups.map((group) => (
                     <SelectItem key={group} value={group}>
@@ -1708,6 +1724,8 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             <div className="space-y-2">
               <Label>Specific vulnerability</Label>
               <SearchableSelect
+                className="min-w-0"
+                contentClassName="max-w-[calc(100vw-2rem)]"
                 value={sectorFilter}
                 onValueChange={setSectorFilter}
                 placeholder="All specific vulnerabilities"
@@ -1724,12 +1742,12 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
             </div>
 
           <div className="space-y-2">
-            <Label>Sort printed lists by</Label>
+            <Label>Sort relief distributions by</Label>
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                 <SelectItem value="DATE_DESC">Newest first</SelectItem>
                 <SelectItem value="DATE_ASC">Oldest first</SelectItem>
                 <SelectItem value="RELIEF_GENERAL">General relief type</SelectItem>
