@@ -126,14 +126,9 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
           'Overview summarizes important counts, recent activity, alerts, and the community map so you can see what needs attention first.',
         ),
         navStep(
-          'approval-center',
-          'Review applications in Approval Center',
-          'Approval Center is the main queue for checking vulnerable-citizen applications before approval, correction, verification, or rejection.',
-        ),
-        navStep(
           'registrations',
           'Open Vulnerable Registrations',
-          'Registrations lets you review submitted citizen records and register a vulnerable person when an authorized Administrator needs to encode the record directly.',
+          'Registrations is the only registration-approval queue. Review pending citizen records, approve or reject them, and register a vulnerable person when an authorized Administrator needs to encode a record directly.',
         ),
         navStep(
           'users',
@@ -143,7 +138,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
         navStep(
           'distributions',
           'Review Relief Approval',
-          'Relief Approval contains distribution records submitted by field workers. Review the beneficiary, items, quantity, date, and notes before approving or rejecting a record.',
+          'Relief Approval is the only relief-distribution approval queue. Open View to confirm the beneficiary vulnerability, distributed items, quantity, and supporting photos before approving or rejecting.',
         ),
         navStep(
           'history',

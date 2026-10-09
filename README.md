@@ -93,8 +93,8 @@ The system combines role-based workflows with interactive maps, reporting tools,
 | Module | What it does |
 |---|---|
 | **Overview Dashboard** | Shows operational counts, alerts, recent registrations, map activity, and quick status information. |
-| **Approval Center** | Central review area for vulnerable citizen applications and validation workflows. |
-| **Registrations** | Manages vulnerable citizen profiles, supporting information, map location, and registration status. |
+
+| **Registrations** | The sole registration approval workflow; manages vulnerable citizen profiles, supporting information, map location, and registration status. |
 | **Relief Approval** | Reviews field-submitted relief distribution records before approval or rejection. |
 | **Operations History** | Combines relief history and municipal events with search, type, status, barangay, audience, and date filters. |
 | **Announcements** | Publishes official notices with priority, target audience, event details, reusable presets, and frequent-message suggestions. |

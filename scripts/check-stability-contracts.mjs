@@ -266,6 +266,40 @@ contains(
   'src/components/reports/daily-reports-view.tsx: Daily Reports must expose Relief Approval vulnerability filtering',
 )
 
+check(
+  !fs.existsSync('src/app/api/admin/approval-center/route.ts'),
+  'The redundant Approval Center API must stay retired to prevent a parallel approval path',
+)
+
+check(
+  !fs.existsSync('src/components/admin/approval-center.tsx'),
+  'The duplicate Approval Center UI must stay removed',
+)
+
+excludes(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'id: "approval-center"',
+  'Admin sidebar must provide only Registrations and Relief Approval as approval workflows',
+)
+
+contains(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'Specific vulnerability',
+  'Relief View must identify the beneficiary vulnerability',
+)
+
+contains(
+  'src/components/reports/daily-reports-view.tsx',
+  'data-testid="daily-report-filters"',
+  'Daily Reports filters must preserve a testable responsive layout',
+)
+
+contains(
+  'src/components/reports/daily-reports-view.tsx',
+  'SelectTrigger className="w-full min-w-0"',
+  'Daily Reports select triggers must occupy their full responsive column',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {

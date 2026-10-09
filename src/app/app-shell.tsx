@@ -7,7 +7,6 @@ import { LoginWelcome } from '@/components/onboarding/login-welcome'
 import { CrmsLoadingScreen } from '@/components/loading/crms-loading-screen'
 import { AdminWalkthrough } from '@/components/walkthrough/tours/admin-tour'
 import { AnalyticsWalkthrough } from '@/components/walkthrough/tours/analytics-tour'
-import { ApprovalCenterWalkthrough } from '@/components/walkthrough/tours/approval-center-tour'
 import { RegistrationWalkthrough } from '@/components/walkthrough/tours/registration-tour'
 import { RegistrationFormWalkthrough } from '@/components/walkthrough/tours/registration-form-tour'
 import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief-approval-tour'
@@ -274,7 +273,6 @@ function AppShellContent() {
 
         <AdminWalkthrough user={user} />
         <AnalyticsWalkthrough user={user} />
-        <ApprovalCenterWalkthrough user={user} />
         <RegistrationWalkthrough user={user} />
         <RegistrationFormWalkthrough user={user} />
         <ReliefApprovalWalkthrough user={user} />

@@ -351,7 +351,8 @@ test('Admin, Worker, and Vulnerable dashboards render without browser exceptions
       role: 'admin',
     })
     await page.goto('/admin/dashboard')
-    await expect(page.getByText('Approval Center', { exact: true }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Registrations', exact: true }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Relief Approval', exact: true }).first()).toBeVisible()
   })
 
   const workerPage = await page.context().newPage()
@@ -379,7 +380,7 @@ test('Admin, Worker, and Vulnerable dashboards render without browser exceptions
   await vulnerablePage.close()
 })
 
-test('Approval Center filter options reflect the records in the active Pending status', async ({ page }) => {
+test('Admin has no duplicate approval workflow and legacy bookmarks resolve to Registrations', async ({ page }) => {
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',
     password: 'admin123',
@@ -388,54 +389,46 @@ test('Approval Center filter options reflect the records in the active Pending s
 
   await page.goto('/admin/dashboard#approval-center')
   await dismissWelcomeGuide(page)
-  await expect(page.getByText('Approval Center', { exact: true }).first()).toBeVisible()
 
-  const barangaySelect = page.getByRole('combobox').filter({ hasText: 'All barangays' }).first()
-  await barangaySelect.click()
-
+  await expect(page).toHaveURL(/#registrations$/)
   await expect(
-    page.getByText('Barangay No. 1 (Poblacion)', { exact: true }).last(),
+    page.getByRole('heading', { name: 'Vulnerable Registrations' }),
   ).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Approval Center', exact: true }),
+  ).toHaveCount(0)
 
   await expect(
-    page.getByText('Barangay No. 3 (Poblacion)', { exact: true }),
-  ).toHaveCount(0)
-  await page.keyboard.press('Escape')
-
-  const vulnerabilitySelect = page
-    .getByRole('combobox')
-    .filter({ hasText: 'All vulnerabilities' })
-    .first()
-  await vulnerabilitySelect.click()
-  await expect(page.getByText('PWD', { exact: true }).last()).toBeVisible()
-  await expect(page.getByText('SENIOR_CITIZEN', { exact: true })).toHaveCount(0)
-  await page.keyboard.press('Escape')
-
-  await page.getByRole('tab', { name: /Relief Distributions/i }).click()
-  const distributionTypeSelect = page
-    .getByRole('combobox')
-    .filter({ hasText: 'All distribution types' })
-    .first()
-  await distributionTypeSelect.click()
-  await expect(page.getByText('Food Pack', { exact: true }).last()).toBeVisible()
-  await expect(page.getByText('Medicine', { exact: true })).toHaveCount(0)
+    page.getByRole('button', { name: 'Registrations', exact: true }).first(),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Relief Approval', exact: true }).first(),
+  ).toBeVisible()
 })
 
-test('Approval Center supports selected approval and rejection with signed Admin session', async ({ request }) => {
+test('Legacy approval API is retired and only signed Admin users access canonical approval records', async ({ request }) => {
+  // The authentication proxy correctly blocks unauthorized requests first.
+  const legacyWithoutAuth = await request.get('/api/admin/approval-center', {
+    headers: { 'x-user-id': 'admin-smoke' },
+  })
+  expect(legacyWithoutAuth.status()).toBe(401)
+
+  const registrationsWithoutAuth = await request.get('/api/admin/profiles')
+  expect(registrationsWithoutAuth.status()).toBe(401)
+
+  const reliefWithoutAuth = await request.get('/api/admin/distributions')
+  expect(reliefWithoutAuth.status()).toBe(401)
+
   const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
-  const headers = {
-    ...bearer(admin.token),
-    'x-user-id': admin.user.id,
-  }
+  const headers = bearer(admin.token)
 
-  const before = await request.get('/api/admin/approval-center', { headers })
-  expect(before.status(), await before.text()).toBe(200)
-  const beforeData = await before.json()
-  expect(
-    beforeData.registrations.filter((item: any) => item.registrationStatus === 'PENDING'),
-  ).toHaveLength(5)
+  // Authenticated requests reach the retired endpoint, which no longer exists.
+  const legacyGet = await request.get('/api/admin/approval-center', {
+    headers,
+  })
+  expect(legacyGet.status()).toBe(404)
 
-  const approve = await request.post('/api/admin/approval-center', {
+  const legacyPost = await request.post('/api/admin/approval-center', {
     headers,
     data: {
       type: 'REGISTRATION',
@@ -443,84 +436,84 @@ test('Approval Center supports selected approval and rejection with signed Admin
       ids: ['profile-pending-one'],
     },
   })
-  expect(approve.status(), await approve.text()).toBe(200)
-  expect((await approve.json()).processed).toBe(1)
+  expect(legacyPost.status()).toBe(404)
 
-  const reject = await request.post('/api/admin/approval-center', {
+  const registrations = await request.get('/api/admin/profiles', {
     headers,
-    data: {
-      type: 'REGISTRATION',
-      action: 'REJECT',
-      ids: ['profile-pending-two'],
-      reason: 'Smoke rejection reason',
-    },
   })
-  expect(reject.status(), await reject.text()).toBe(200)
-  expect((await reject.json()).processed).toBe(1)
+  expect(registrations.status(), await registrations.text()).toBe(200)
 
-  const after = await request.get('/api/admin/approval-center', { headers })
-  const afterData = await after.json()
-  expect(
-    afterData.registrations.find((item: any) => item.id === 'profile-pending-one')
-      .registrationStatus,
-  ).toBe('APPROVED')
-  expect(
-    afterData.registrations.find((item: any) => item.id === 'profile-pending-two')
-      .registrationStatus,
-  ).toBe('REJECTED')
+  const relief = await request.get('/api/admin/distributions', {
+    headers,
+  })
+  expect(relief.status(), await relief.text()).toBe(200)
 })
 
-test('Approval Center Approve All and Reject All act only on the filtered pending view', async ({ page }) => {
+test('Daily Reports filter controls fill their responsive columns and open within viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 860 })
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',
     password: 'admin123',
     role: 'admin',
   })
-
-  await page.goto('/admin/dashboard#approval-center')
+  await page.goto('/admin/dashboard#reports')
   await dismissWelcomeGuide(page)
 
-  const search = page.getByPlaceholder('Search...').first()
-  await search.fill('Pending Three')
+  await expect(page.getByText('Report Filters', { exact: true })).toBeVisible()
+  const filters = page.getByTestId('daily-report-filters')
 
-  await expect(page.getByRole('button', { name: 'Approve All' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Reject All' })).toBeVisible()
+  for (const name of [
+    'Relief status',
+    'General relief type',
+    'General vulnerability',
+    'Sort relief distributions by',
+  ]) {
+    const container = filters.getByText(name, { exact: true }).locator('..')
+    const trigger = container.getByRole('combobox')
+    const containerWidth = await container.evaluate((element) =>
+      element.getBoundingClientRect().width,
+    )
+    const triggerWidth = await trigger.evaluate((element) =>
+      element.getBoundingClientRect().width,
+    )
+    expect(triggerWidth, `${name} should fill its filter cell`).toBeGreaterThan(
+      containerWidth * 0.85,
+    )
+  }
 
-  await page.getByRole('button', { name: 'Reject All' }).click()
-  await expect(page.getByRole('heading', { name: 'Reject records?' })).toBeVisible()
-  await page.getByLabel('Rejection reason').fill('Filtered reject-all smoke test')
-  await page.getByRole('button', { name: 'Confirm Rejection' }).click()
-  await expect(page.getByRole('heading', { name: 'Reject records?' })).not.toBeVisible()
+  const reliefStatus = filters.getByText('Relief status', { exact: true })
+    .locator('..')
+    .getByRole('combobox')
+  await reliefStatus.click()
 
-  await search.clear()
-  await page.getByRole('button', { name: 'Approve All' }).click()
-  await expect(page.getByRole('heading', { name: 'Approve records?' })).toBeVisible()
-  await expect(page.getByText(/update 2 record\(s\)/i)).toBeVisible()
-  await page.getByRole('button', { name: 'Confirm Approval' }).click()
-  await expect(page.getByRole('heading', { name: 'Approve records?' })).not.toBeVisible()
-
-  const admin = await login(page.request, 'admin@crms.gov.ph', 'admin123', 'admin')
-  const response = await page.request.get('/api/admin/approval-center', {
-    headers: {
-      ...bearer(admin.token),
-      'x-user-id': admin.user.id,
-    },
+  const dropdown = page.locator('[data-slot="select-content"][data-state="open"]')
+  await expect(dropdown).toBeVisible()
+  const dropdownBounds = await dropdown.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return { left: rect.left, right: rect.right, viewport: window.innerWidth }
   })
-  expect(response.status(), await response.text()).toBe(200)
-  const data = await response.json()
+  expect(dropdownBounds.left).toBeGreaterThanOrEqual(-1)
+  expect(dropdownBounds.right).toBeLessThanOrEqual(dropdownBounds.viewport + 1)
 
-  expect(
-    data.registrations.find((item: any) => item.id === 'profile-pending-three')
-      .registrationStatus,
-  ).toBe('REJECTED')
-  expect(
-    data.registrations.find((item: any) => item.id === 'profile-pending-four')
-      .registrationStatus,
-  ).toBe('APPROVED')
-  expect(
-    data.registrations.find((item: any) => item.id === 'profile-pending-five')
-      .registrationStatus,
-  ).toBe('APPROVED')
+  await page.keyboard.press('Escape')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  const reportFiltersSize = await filters.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return { width: rect.width, viewport: window.innerWidth }
+  })
+  expect(reportFiltersSize.width).toBeLessThanOrEqual(reportFiltersSize.viewport + 1)
+
+  const mobileReliefStatus = filters.getByText('Relief status', { exact: true })
+    .locator('..')
+    .getByRole('combobox')
+  const mobileParentWidth = await mobileReliefStatus.locator('..').evaluate(
+    (element) => element.getBoundingClientRect().width,
+  )
+  const mobileTriggerWidth = await mobileReliefStatus.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  )
+  expect(mobileTriggerWidth).toBeGreaterThan(mobileParentWidth * 0.85)
 })
 
 test('Worker relief recording requires supporting photo evidence and flows to Admin review', async ({ request }) => {
@@ -640,7 +633,19 @@ test('Relief Approval exposes View and Daily Reports mirrors relief sorting cont
   await expect(
     page.getByRole('heading', { name: 'Relief Distribution Approval' }),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'View', exact: true }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'View', exact: true }).first().click()
+  const reliefDetails = page.getByRole('dialog', {
+    name: 'Relief Distribution Details',
+  })
+  await expect(reliefDetails).toBeVisible()
+  await expect(
+    reliefDetails.getByText('Specific vulnerability', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    reliefDetails.getByText('General vulnerability', { exact: true }),
+  ).toBeVisible()
+  await reliefDetails.getByRole('button', { name: 'Close' }).last().click()
 
   await page.goto('/admin/dashboard#reports')
   await expect(page.getByRole('heading', { name: 'Daily Reports' })).toBeVisible()
@@ -956,7 +961,7 @@ test('Admin dashboard remains within the mobile viewport', async ({ page }) => {
     const mobileNav = page.getByRole('navigation', { name: 'Mobile navigation' })
     await expect(mobileNav).toBeVisible()
     await expect(
-      mobileNav.getByRole('button', { name: 'Approval Center' }),
+      mobileNav.getByRole('button', { name: 'Registrations' }),
     ).toBeVisible()
   })
 
