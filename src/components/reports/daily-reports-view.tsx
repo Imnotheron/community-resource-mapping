@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select'
 import { WowLoader } from '@/components/ui/wow-loader'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { ReliefReportsView } from '@/components/reports/relief-reports-view'
 
 function todayInputValue() {
   const now = new Date()
@@ -635,7 +636,7 @@ function matchesReliefFilters(
   return true
 }
 
-export function DailyReportsView({ user }: { user: AuthUser }) {
+function DailyOperationsReportsView({ user }: { user: AuthUser }) {
   const isAdmin = String(user.role).toUpperCase() === 'ADMIN'
   const [date, setDate] = useState(todayInputValue())
   const [barangay, setBarangay] = useState('ALL')
@@ -1800,5 +1801,46 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
         </div>
       )}
     </div>
+  )
+}
+
+export function DailyReportsView({ user }: { user: AuthUser }) {
+  const [section, setSection] = useState<'OPERATIONS' | 'RELIEF'>('OPERATIONS')
+
+  return (
+    <section className="space-y-5" data-testid="daily-report-workspace">
+      <div
+        className="no-print flex w-full max-w-lg gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5"
+        role="tablist"
+        aria-label="Report sections"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'OPERATIONS'}
+          onClick={() => setSection('OPERATIONS')}
+          className={`min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${section === 'OPERATIONS'
+            ? 'bg-white text-emerald-800 shadow-sm'
+            : 'text-slate-600 hover:bg-white/70'}`}
+        >
+          Daily Operations Report
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'RELIEF'}
+          onClick={() => setSection('RELIEF')}
+          className={`min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${section === 'RELIEF'
+            ? 'bg-white text-emerald-800 shadow-sm'
+            : 'text-slate-600 hover:bg-white/70'}`}
+        >
+          Relief Reports
+        </button>
+      </div>
+
+      {section === 'OPERATIONS'
+        ? <DailyOperationsReportsView user={user} />
+        : <ReliefReportsView user={user} />}
+    </section>
   )
 }
