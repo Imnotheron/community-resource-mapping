@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -37,9 +38,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ReliefReportsView } from '@/components/reports/relief-reports-view'
 
 function todayInputValue() {
-  const now = new Date()
-  const offset = now.getTimezoneOffset()
-  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10)
+  return new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10)
 }
 
 function formatDate(value: string) {
@@ -52,11 +51,13 @@ function formatDate(value: string) {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZoneName: 'short',
   }).format(new Date(value))
 }
 
@@ -194,12 +195,91 @@ function ReportTable({ children }: { children: ReactNode }) {
   )
 }
 
+
+type ReportNarrative = {
+  accomplishments: string
+  challenges: string
+  nextActions: string
+}
+
+function OperationsNarrative({ narrative }: { narrative: ReportNarrative }) {
+  const entries = [
+    ['Activities / Accomplishments', narrative.accomplishments],
+    ['Issues and Challenges', narrative.challenges],
+    ['Next Steps / Pending Follow-ups', narrative.nextActions],
+  ] as const
+
+  return (
+    <section className="report-section" data-testid="daily-report-narrative">
+      <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
+        Operations Narrative
+      </h2>
+      <p className="mb-2 text-xs text-slate-500">
+        Officer-entered narrative for this printout; not automatically verified against CRMS records.
+      </p>
+      <div className="space-y-3">
+        {entries.map(([title, content]) => (
+          <div key={title} className="report-field-note rounded-xl border border-slate-200 p-3">
+            <p className="text-xs font-semibold">{title}</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+              {content.trim() || 'No entry supplied.'}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function VerifiedAssistanceSection({ distributions }: { distributions: any[] }) {
+  const grouped = new Map<string, { records: number; beneficiaries: Set<string> }>()
+  for (const item of distributions) {
+    if (item.status !== 'APPROVED' && item.status !== 'DISTRIBUTED') continue
+    const type = String(item.distributionType || 'Unspecified')
+    const group = grouped.get(type) || { records: 0, beneficiaries: new Set<string>() }
+    group.records += 1
+    group.beneficiaries.add(
+      String(item.vulnerableProfile?.id || item.household?.id || item.id),
+    )
+    grouped.set(type, group)
+  }
+  return (
+    <section className="report-section" data-testid="daily-report-verified-breakdown">
+      <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
+        Verified Relief Activity by Type
+      </h2>
+      <p className="mb-2 text-xs text-slate-500">
+        Approved and distributed field records only. Quantity totals are omitted because
+        the recorded goods may use different units; see Relief Reports for detailed quantities.
+      </p>
+      <ReportTable>
+        <table className="report-table w-full text-left text-xs">
+          <thead><tr><th>Relief type</th><th>Verified records</th><th>Unique beneficiaries / households</th></tr></thead>
+          <tbody>
+            {grouped.size ? Array.from(grouped.entries())
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([type, value]) => (
+                <tr key={type}>
+                  <td>{type}</td>
+                  <td>{value.records}</td>
+                  <td>{value.beneficiaries.size}</td>
+                </tr>
+              )) : <tr><td colSpan={3}>No approved or distributed relief records match the filters.</td></tr>}
+          </tbody>
+        </table>
+      </ReportTable>
+    </section>
+  )
+}
+
 function AdminReport({
   report,
   settings,
+  narrative,
 }: {
   report: any
   settings: ReportSettings
+  narrative: ReportNarrative
 }) {
   return (
     <div
@@ -216,88 +296,49 @@ function AdminReport({
           Executive Summary
         </h2>
         <div className="report-summary-grid grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Metric label="Registered Citizens" value={report.summary.totalVulnerableCitizens} />
-          <Metric label="New Registrations" value={report.summary.newRegistrations} />
-          <Metric label="Active Workers" value={report.summary.activeWorkers} />
-          <Metric label="Workers Online Today" value={report.summary.workersOnlineToday} />
-          <Metric label="Distributions Recorded" value={report.summary.distributionsRecorded} />
+          <Metric label="Citizen Profiles (current)" value={report.summary.totalVulnerableCitizens} />
+          <Metric label="New Registrations (daily)" value={report.summary.newRegistrations} />
+          <Metric label="Worker Accounts (current)" value={report.summary.activeWorkers} />
+          <Metric label="Online / Seen Today" value={report.summary.workersOnlineToday} />
+          <Metric label="Relief Records (daily)" value={report.summary.distributionsRecorded} />
+          <Metric label="Verified Relief Records" value={report.summary.verifiedDistributions} />
           <Metric label="Approved" value={report.summary.approvedDistributions} />
+          <Metric label="Distributed" value={report.summary.distributedDistributions} />
           <Metric label="Pending" value={report.summary.pendingDistributions} />
-          <Metric label="Field Notes" value={report.summary.fieldNotesCreated} />
+          <Metric label="Rejected" value={report.summary.rejectedDistributions} />
+          <Metric label="Field Notes (daily)" value={report.summary.fieldNotesCreated} />
         </div>
       </section>
 
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Detailed Vulnerable Citizen Records
+          Citizen Register (Limited Information)
         </h2>
+        <p className="mb-2 text-xs text-slate-500">
+          Current profile snapshot matching citizen filters, not just registrations created today.
+          Contact details and full residential addresses are intentionally excluded from printouts.
+        </p>
         <ReportTable>
-          <table className="report-table w-full text-left text-[0.6875rem]">
+          <table className="report-table w-full text-left text-xs">
             <thead className="bg-slate-100">
               <tr>
-                <th className="px-2 py-2">Citizen</th>
-                <th className="px-2 py-2">Barangay / Address</th>
-                <th className="px-2 py-2">Contact</th>
-                <th className="px-2 py-2">Vulnerability</th>
-                <th className="px-2 py-2">Assistance</th>
-                <th className="px-2 py-2">Status</th>
+                <th>Citizen</th><th>Barangay</th><th>Vulnerability</th>
+                <th>Assistance need</th><th>Registration status</th>
               </tr>
             </thead>
             <tbody>
               {(report.citizenRecords || []).length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
-                    No vulnerable citizen records match the selected filters.
-                  </td>
+                <tr><td colSpan={5}>No citizen profiles match the selected filters.</td></tr>
+              ) : (report.citizenRecords || []).map((item: any) => (
+                <tr key={item.id}>
+                  <td>{[item.firstName, item.middleName, item.lastName, item.suffix].filter(Boolean).join(' ')}</td>
+                  <td>{item.barangay || '—'}</td>
+                  <td>{formatVulnerabilityTypes(item.vulnerabilityTypes).map(vulnerabilityLabel).join(', ') || '—'}</td>
+                  <td>{item.needsAssistance ? item.assistanceType || 'Needs assistance' : 'Not indicated'}</td>
+                  <td>{item.registrationStatus}</td>
                 </tr>
-              ) : (
-                report.citizenRecords.map((item: any) => {
-                  let vulnerabilities: string[] = []
-                  try {
-                    const parsed = JSON.parse(item.vulnerabilityTypes || '[]')
-                    vulnerabilities = Array.isArray(parsed) ? parsed : []
-                  } catch {
-                    vulnerabilities = String(item.vulnerabilityTypes || '')
-                      .split(/[,;|]/)
-                      .map((value) => value.trim())
-                      .filter(Boolean)
-                  }
-
-                  return (
-                    <tr key={item.id} className="border-t border-slate-200 align-top">
-                      <td className="px-2 py-2 font-medium">
-                        {[item.firstName, item.middleName, item.lastName, item.suffix]
-                          .filter(Boolean)
-                          .join(' ')}
-                      </td>
-                      <td className="px-2 py-2">
-                        <div>{item.barangay || '—'}</div>
-                        <div className="text-slate-500">
-                          {[item.houseNumber, item.street, item.municipality, item.province]
-                            .filter(Boolean)
-                            .join(', ') || '—'}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div>{item.mobileNumber || '—'}</div>
-                        <div className="text-slate-500">{item.emailAddress || '—'}</div>
-                      </td>
-                      <td className="px-2 py-2">
-                        {vulnerabilities.length
-                          ? vulnerabilities.map((value) => String(value).replace(/_/g, ' ')).join(', ')
-                          : '—'}
-                      </td>
-                      <td className="px-2 py-2">
-                        {item.needsAssistance
-                          ? item.assistanceType || 'Needs assistance'
-                          : 'No active assistance flag'}
-                      </td>
-                      <td className="px-2 py-2">{item.registrationStatus}</td>
-                    </tr>
-                  )
-                })
-              )}
+              ))}
             </tbody>
           </table>
         </ReportTable>
@@ -307,7 +348,7 @@ function AdminReport({
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Daily Relief Distributions
+          Relief Records Entered for the Day
         </h2>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
@@ -334,10 +375,10 @@ function AdminReport({
                     <td className="px-3 py-2">
                       {item.vulnerableProfile
                         ? `${item.vulnerableProfile.firstName} ${item.vulnerableProfile.lastName}`
-                        : 'Household'}
+                        : item.household?.headOfHousehold || 'Unspecified household'}
                     </td>
                     <td className="px-3 py-2">
-                      {item.vulnerableProfile?.barangay || '—'}
+                      {item.vulnerableProfile?.barangay || item.household?.barangay || '—'}
                     </td>
                     <td className="px-3 py-2">
                       {item.distributionType} — {item.itemsProvided}
@@ -352,6 +393,10 @@ function AdminReport({
           </table>
         </ReportTable>
       </section>
+      )}
+
+      {settings.template !== 'SUMMARY' && (
+        <VerifiedAssistanceSection distributions={report.distributions || []} />
       )}
 
       {settings.template !== 'SUMMARY' && (
@@ -394,15 +439,15 @@ function AdminReport({
 
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Barangay Summary (Counts)
+          Barangay Coverage (Current Profiles / Daily Records)
         </h2>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
             <thead className="bg-slate-100">
               <tr>
                 <th className="px-3 py-2">Barangay</th>
-                <th className="px-3 py-2">Registered Citizens</th>
-                <th className="px-3 py-2">Daily Distributions</th>
+                <th className="px-3 py-2">Current profile records</th>
+                <th className="px-3 py-2">Daily relief records (all statuses)</th>
               </tr>
             </thead>
             <tbody>
@@ -418,6 +463,26 @@ function AdminReport({
         </ReportTable>
       </section>
 
+      {settings.template !== 'SUMMARY' && (
+        <section className="report-section">
+          <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
+            Field Updates / Notes (Report Date)
+          </h2>
+          <p className="mb-2 text-xs text-slate-500">
+            Notes are scoped by date and selected worker, if any; beneficiary and
+            barangay filters do not apply to unstructured note text.
+          </p>
+          <div className="space-y-2">
+            {(report.fieldNotes || []).length ? report.fieldNotes.map((item: any) => (
+              <div className="report-field-note border border-slate-200 p-3" key={item.id}>
+                <p className="whitespace-pre-wrap break-words text-sm">{item.note}</p>
+                <p className="text-xs text-slate-500">{item.user?.name || 'Worker'} · {formatDateTime(item.createdAt)}</p>
+              </div>
+            )) : <p className="text-sm text-slate-500">No field notes entered for this date.</p>}
+          </div>
+        </section>
+      )}
+      <OperationsNarrative narrative={narrative} />
       <SignatureBlock settings={settings} />
     </div>
   )
@@ -426,9 +491,11 @@ function AdminReport({
 function WorkerReport({
   report,
   settings,
+  narrative,
 }: {
   report: any
   settings: ReportSettings
+  narrative: ReportNarrative
 }) {
   return (
     <div
@@ -454,20 +521,21 @@ function WorkerReport({
           Daily Summary
         </h2>
         <div className="report-summary-grid grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Metric label="Distributions" value={report.summary.distributionsRecorded} />
+          <Metric label="Relief Records (daily)" value={report.summary.distributionsRecorded} />
+          <Metric label="Verified Relief Records" value={report.summary.verifiedDistributions} />
           <Metric label="Approved" value={report.summary.approvedDistributions} />
+          <Metric label="Distributed" value={report.summary.distributedDistributions} />
           <Metric label="Pending" value={report.summary.pendingDistributions} />
           <Metric label="Rejected" value={report.summary.rejectedDistributions} />
-          <Metric label="Total Quantity" value={report.summary.totalQuantity} />
-          <Metric label="Field Notes" value={report.summary.fieldNotesCreated} />
-          <Metric label="Assigned Households" value={report.summary.assignedHouseholds} />
+          <Metric label="Field Notes (daily)" value={report.summary.fieldNotesCreated} />
+          <Metric label="Assigned Households (current)" value={report.summary.assignedHouseholds} />
         </div>
       </section>
 
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Relief Distributions
+          Relief Records Entered for the Day
         </h2>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
@@ -513,6 +581,10 @@ function WorkerReport({
       )}
 
       {settings.template !== 'SUMMARY' && (
+        <VerifiedAssistanceSection distributions={report.distributions || []} />
+      )}
+
+      {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Field Notes
@@ -539,6 +611,7 @@ function WorkerReport({
       </section>
       )}
 
+      <OperationsNarrative narrative={narrative} />
       <SignatureBlock settings={settings} />
     </div>
   )
