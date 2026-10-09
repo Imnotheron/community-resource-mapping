@@ -138,7 +138,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
         navStep(
           'distributions',
           'Review Relief Approval',
-          'Relief Approval is the only relief-distribution approval queue. Open View to confirm the beneficiary's vulnerability, distributed items, quantity, and supporting photos before approving or rejecting.',
+          'Relief Approval is the only relief-distribution approval queue. Open View to confirm the beneficiary vulnerability, distributed items, quantity, and supporting photos before approving or rejecting.',
         ),
         navStep(
           'history',
