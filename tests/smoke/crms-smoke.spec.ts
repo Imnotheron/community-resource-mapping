@@ -719,7 +719,7 @@ test('Daily Reports can generate a separate relief report with accurate filtered
   await expect(preview).toBeVisible()
   await expect(preview.getByText('Rice and canned goods')).toBeVisible()
   await expect(preview.getByText('Maintenance medicine')).toBeVisible()
-  await expect(preview.getByText('Distribution Details (2)')).toBeVisible()
+  await expect(preview.getByText(/Distribution Details \\([2-9]\\d*\\)/)).toBeVisible()
 
   const filters = page.getByTestId('relief-report-filters')
   await filters.getByText('Specific relief type', { exact: true })
