@@ -252,10 +252,10 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
 
   const allRows = useMemo(() => {
     const records = isCurrent ? report?.distributions || [] : []
-    // Approved relief is not proof of physical delivery.
+    // CRMS Admin approval confirms workers' already recorded distributions.
     return reportTemplate === 'LGU'
       ? records
-      : records.filter((row) => row.status === 'DISTRIBUTED')
+      : records.filter((row) => row.status === 'APPROVED' || row.status === 'DISTRIBUTED')
   }, [isCurrent, report, reportTemplate])
   const facets = (field: keyof Filters) =>
     allRows.filter((row) => matches(row, filters, field))
@@ -538,9 +538,10 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
               </div>
               {reportTemplate !== 'LGU' ? (
                 <p className="text-sm text-amber-800" role="status">
-                  Only records marked DISTRIBUTED are included. APPROVED is not proof of delivery;
-                  pending and rejected requests will never be printed on this template.
-                  {rows.length === 0 ? ' No completed records match the current period or filters.' : ''}
+                  Only accepted field-distribution records (APPROVED or DISTRIBUTED) are included.
+                  Pending and rejected entries are excluded. Signed beneficiary acknowledgment
+                  must still be collected for a DSWD-style RDS.
+                  {rows.length === 0 ? ' No verified records match the current period or filters.' : ''}
                 </p>
               ) : (
                 <p className="text-sm text-slate-600">
@@ -718,7 +719,7 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
                         </div>
                       </div>
                     ))}
-                    {rows.length === 0 && <p className="text-sm">No completed relief distributions in the current filters.</p>}
+                    {rows.length === 0 && <p className="text-sm">No verified relief distributions in the current filters.</p>}
                   </div>
                 </details>
               </CardContent>
