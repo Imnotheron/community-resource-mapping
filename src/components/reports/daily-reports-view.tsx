@@ -299,7 +299,7 @@ function AdminReport({
           <Metric label="Citizen Profiles (current)" value={report.summary.totalVulnerableCitizens} />
           <Metric label="New Registrations (daily)" value={report.summary.newRegistrations} />
           <Metric label="Worker Accounts (current)" value={report.summary.activeWorkers} />
-          <Metric label="Online / Seen Today" value={report.summary.workersOnlineToday} />
+          <Metric label="Workers Online / Seen (date)" value={report.summary.workersOnlineToday} />
           <Metric label="Relief Records (daily)" value={report.summary.distributionsRecorded} />
           <Metric label="Verified Relief Records" value={report.summary.verifiedDistributions} />
           <Metric label="Approved" value={report.summary.approvedDistributions} />
@@ -356,6 +356,9 @@ function AdminReport({
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Relief Records Entered for the Day
         </h2>
+        <p className="mb-2 text-xs text-slate-500">
+          Individual quantities are as entered; do not total unlike units.
+        </p>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
             <thead className="bg-slate-100">
@@ -547,6 +550,9 @@ function WorkerReport({
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
           Relief Records Entered for the Day
         </h2>
+        <p className="mb-2 text-xs text-slate-500">
+          Individual quantities are as entered; do not total unlike units.
+        </p>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
             <thead className="bg-slate-100">
@@ -738,6 +744,10 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
     challenges: '',
     nextActions: '',
   })
+  useEffect(() => {
+    // Never reuse officer-entered statements for a different reporting date.
+    setNarrative({ accomplishments: '', challenges: '', nextActions: '' })
+  }, [date])
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [savingReportSettings, setSavingReportSettings] =
