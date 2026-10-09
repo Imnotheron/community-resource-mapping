@@ -711,7 +711,7 @@ test('Daily Reports can generate a separate relief report with accurate filtered
     page.getByRole('heading', { name: 'Relief Distribution Reports' }),
   ).toBeVisible()
   await expect(
-    page.getByRole('heading', { name: 'Request a Relief Report' }),
+    page.getByText('Request a Relief Report', { exact: true }),
   ).toBeVisible()
 
   await page.getByRole('button', { name: 'Generate Relief Report' }).click()
