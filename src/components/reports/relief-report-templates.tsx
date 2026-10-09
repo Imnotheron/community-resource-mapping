@@ -60,12 +60,14 @@ function formatDay(value: string): string {
 }
 
 function calendarDay(value: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Manila',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date(value))
+  }).formatToParts(new Date(value))
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || ''
+  return [get('year'), get('month'), get('day')].join('-')
 }
 
 function beneficiaryName(row: PrintableReliefDistribution): string {
@@ -278,7 +280,7 @@ export function AdditionalReliefPrintTemplate({
         <tbody>
           {Array.from(assistance.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([key, data]) => {
             const [type, unit] = JSON.parse(key) as [string, string]
-            return <tr key={key}><td>{type}</td><td>{unit}</td><td>{data.count}</td><td>{data.beneficiaries.size}</td><td>{data.quantity}</td></tr>
+            return <tr key={key}><td>{type}</td><td>{unit}</td><td>{data.count}</td><td>{data.beneficiaries.size}</td><td>{unit === 'Unit not supplied' ? '— (unit missing)' : data.quantity}</td></tr>
           })}
           {!delivered.length && <tr><td colSpan={5}>No completed distributions.</td></tr>}
         </tbody>
