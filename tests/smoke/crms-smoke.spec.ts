@@ -621,6 +621,127 @@ test('Worker relief recording requires supporting photo evidence and flows to Ad
 })
 
 
+test('Relief Report API validates date range, role, and record scope', async ({ request }) => {
+  const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const fromDate = new Date(`${today}T00:00:00.000Z`)
+  fromDate.setUTCDate(fromDate.getUTCDate() - 6)
+  const from = fromDate.toISOString().slice(0, 10)
+  const params = new URLSearchParams({ from, to: today })
+
+  const anonymous = await request.get(`/api/admin/reports/relief?${params}`)
+  expect(anonymous.status()).toBe(401)
+
+  const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const worker = await login(
+    request, 'worker@sampolicarpo.gov', 'worker123', 'worker',
+  )
+  const vulnerable = await login(
+    request, 'maria.garcia@email.com', 'vulnerable123', 'vulnerable',
+  )
+
+  const adminResponse = await request.get(`/api/admin/reports/relief?${params}`, {
+    headers: bearer(admin.token),
+  })
+  expect(adminResponse.status(), await adminResponse.text()).toBe(200)
+  const adminReport = (await adminResponse.json()).report
+  expect(adminReport.from).toBe(from)
+  expect(adminReport.to).toBe(today)
+  expect(adminReport.scope).toBe('ADMIN')
+  expect(adminReport.distributions.map((row: any) => row.id)).toEqual(
+    expect.arrayContaining(['distribution-pending-one', 'distribution-approved-one']),
+  )
+  expect(
+    adminReport.distributions.some((row: any) => 'supportingDocuments' in row),
+  ).toBe(false)
+
+  const workerResponse = await request.get(`/api/worker/reports/relief?${params}`, {
+    headers: bearer(worker.token),
+  })
+  expect(workerResponse.status(), await workerResponse.text()).toBe(200)
+  const workerReport = (await workerResponse.json()).report
+  expect(workerReport.scope).toBe('WORKER')
+  expect(workerReport.distributions.length).toBeGreaterThan(0)
+  expect(
+    workerReport.distributions.every(
+      (row: any) => row.worker?.id === worker.user.id,
+    ),
+  ).toBe(true)
+
+  const forbiddenWorker = await request.get(`/api/admin/reports/relief?${params}`, {
+    headers: bearer(worker.token),
+  })
+  expect(forbiddenWorker.status()).toBe(403)
+
+  const forbiddenVulnerable = await request.get(`/api/worker/reports/relief?${params}`, {
+    headers: bearer(vulnerable.token),
+  })
+  expect(forbiddenVulnerable.status()).toBe(403)
+
+  const invalidDate = await request.get('/api/admin/reports/relief?from=2026-02-30&to=2026-03-01', {
+    headers: bearer(admin.token),
+  })
+  expect(invalidDate.status()).toBe(400)
+
+  const reverseRange = await request.get('/api/admin/reports/relief?from=2026-10-09&to=2026-10-01', {
+    headers: bearer(admin.token),
+  })
+  expect(reverseRange.status()).toBe(400)
+
+  const overYear = await request.get('/api/admin/reports/relief?from=2024-01-01&to=2026-10-09', {
+    headers: bearer(admin.token),
+  })
+  expect(overYear.status()).toBe(400)
+})
+
+test('Daily Reports can generate a separate relief report with accurate filtered totals', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+  await page.goto('/admin/dashboard#reports')
+  await dismissWelcomeGuide(page)
+
+  await expect(
+    page.getByRole('tab', { name: 'Daily Operations Report' }),
+  ).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Relief Reports' }).click()
+
+  await expect(
+    page.getByRole('heading', { name: 'Relief Distribution Reports' }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('Request a Relief Report', { exact: true }),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: 'Generate Relief Report' }).click()
+  const preview = page.getByTestId('relief-report-preview')
+  await expect(preview).toBeVisible()
+  await expect(preview.getByText('Rice and canned goods')).toBeVisible()
+  await expect(preview.getByText('Maintenance medicine')).toBeVisible()
+  await expect(preview.getByText(/Distribution Details \([2-9]\d*\)/)).toBeVisible()
+
+  const filters = page.getByTestId('relief-report-filters')
+  await filters.getByText('Specific relief type', { exact: true })
+    .locator('..').getByRole('combobox').click()
+  await page.getByRole('option', { name: 'Medicine' }).click()
+  await expect(preview.getByText('Distribution Details (1)')).toBeVisible()
+  await expect(preview.getByText('Maintenance medicine')).toBeVisible()
+  await expect(preview.getByText('Rice and canned goods')).toHaveCount(0)
+
+  await expect(page.getByRole('button', { name: 'Export CSV' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Print Relief Report' })).toBeEnabled()
+
+  await page.getByLabel('To', { exact: true }).fill('2025-01-01')
+  await expect(page.getByText(/From must not be after To/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Print Relief Report' })).toBeDisabled()
+
+  await page.getByRole('tab', { name: 'Daily Operations Report' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Daily Reports' }),
+  ).toBeVisible()
+})
+
 test('Relief Approval exposes View and Daily Reports mirrors relief sorting controls', async ({ page }) => {
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',

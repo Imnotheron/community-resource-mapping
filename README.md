@@ -101,7 +101,7 @@ The system combines role-based workflows with interactive maps, reporting tools,
 | **Feedback** | Receives and manages citizen or worker feedback and administrator responses. |
 | **Analytics** | Visualizes registrations, assistance activity, vulnerability patterns, and other operational data. |
 | **Vulnerable Map** | Displays approved vulnerable citizen locations for authorized planning and coordination. |
-| **Daily Reports** | Generates date-based operational reports for review and printing. |
+| **Daily Reports** | Includes Daily Operations Reports and a separate Relief Reports section with date-range requests, relief/vulnerability filters, accurate totals, A4 print preview, and CSV export. |
 | **Guided Walkthroughs** | Contextual guides explain major sections and newly added controls directly inside the system. |
 
 ---

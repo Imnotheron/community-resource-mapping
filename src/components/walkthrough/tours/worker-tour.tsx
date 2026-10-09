@@ -159,7 +159,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
       desktopNavStep(
         'reports',
         'Review your Daily Report',
-        'Daily Reports summarizes your recorded distributions, statuses, quantities, field notes, and assigned activity for a selected date. Verify the source records before printing or signing it.',
+        'Daily Reports offers Daily Operations Reports and separate Relief Reports. Use Relief Reports to request a period-based summary of your own distributions, then filter, print, or export it.',
       ),
       desktopNavStep(
         'guide',
