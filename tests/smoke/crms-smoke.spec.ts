@@ -671,7 +671,7 @@ test('Daily Operations validates calendar dates and preserves worker-only report
   expect(visibleBeneficiaries.size).toBeGreaterThanOrEqual(0)
 })
 
-test('Daily Operations displays household relief, verified counts and printable officer narrative', async ({ page }) => {
+test('Daily Operations preserves household relief and verified totals without unnecessary narrative inputs', async ({ page }) => {
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',
     password: 'admin123',
@@ -743,11 +743,10 @@ test('Daily Operations displays household relief, verified counts and printable 
   await expect(preview.getByText('Verified Relief Activity by Type')).toBeVisible()
   await expect(preview.getByText('Completed on-site outreach')).toBeVisible()
   await expect(preview.getByText('Citizen Register (Limited Information)')).toBeVisible()
-  await page.getByLabel('Activities / Accomplishments').fill('Confirmed barangay coordination')
-  await page.getByLabel('Issues and Challenges').fill('Road access limited')
-  await page.getByLabel('Next Steps / Pending Follow-ups').fill('Schedule follow-up visit')
-  await expect(preview.getByText('Confirmed barangay coordination')).toBeVisible()
-  await expect(preview.getByText('Schedule follow-up visit')).toBeVisible()
+  await expect(page.getByTestId('daily-report-operations-notes')).toHaveCount(0)
+  await expect(preview.getByTestId('daily-report-narrative')).toHaveCount(0)
+  await expect(preview.getByText('Operations Narrative')).toHaveCount(0)
+  await expect(preview.getByText('Field Updates / Notes (Report Date)')).toBeVisible()
   const filters = page.getByTestId('daily-report-filters')
   await filters.getByText('Relief status', { exact: true }).locator('..').getByRole('combobox').click()
   await page.getByRole('option', { name: 'Distributed' }).click()
