@@ -635,7 +635,7 @@ test('Relief Approval exposes View and Daily Reports mirrors relief sorting cont
   await expect(
     reliefDetails.getByText('General vulnerability', { exact: true }),
   ).toBeVisible()
-  await reliefDetails.getByRole('button', { name: 'Close' }).click()
+  await reliefDetails.getByRole('button', { name: 'Close' }).last().click()
 
   await page.goto('/admin/dashboard#reports')
   await expect(page.getByRole('heading', { name: 'Daily Reports' })).toBeVisible()
