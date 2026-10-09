@@ -300,6 +300,42 @@ contains(
   'Daily Reports select triggers must occupy their full responsive column',
 )
 
+contains(
+  'src/app/api/admin/reports/relief/route.ts',
+  "getReliefReport(request, 'ADMIN')",
+  'Municipal relief reports must be Admin-only',
+)
+
+contains(
+  'src/app/api/worker/reports/relief/route.ts',
+  "getReliefReport(request, 'WORKER')",
+  'Worker relief reports must be Worker-only',
+)
+
+contains(
+  'src/lib/relief-report-server.ts',
+  "workerId: auth.userId",
+  'Worker relief report records must be filtered to the signed-in worker',
+)
+
+contains(
+  'src/lib/relief-report-server.ts',
+  'take: MAX_RECORDS + 1',
+  'Relief reports must prevent silently truncated exports',
+)
+
+contains(
+  'src/components/reports/daily-reports-view.tsx',
+  '<ReliefReportsView user={user} />',
+  'Daily Reports must expose a dedicated Relief Reports section',
+)
+
+contains(
+  'src/components/reports/relief-reports-view.tsx',
+  'approvedQuantity',
+  'Relief report summaries must distinguish approved quantities',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
