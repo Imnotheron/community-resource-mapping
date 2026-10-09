@@ -6,23 +6,22 @@ import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
 
 function todayInManila() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
+  return new Date(Date.now() + 8 * 60 * 60 * 1_000).toISOString().slice(0, 10)
 }
 
 function getDayRange(value: string | null) {
-  const date = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? value
-    : todayInManila()
+  const date = value ?? todayInManila()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  const [year, month, day] = date.split('-').map(Number)
+  const calendarDay = new Date(Date.UTC(year, month - 1, day))
+  if (
+    calendarDay.getUTCFullYear() !== year ||
+    calendarDay.getUTCMonth() !== month - 1 ||
+    calendarDay.getUTCDate() !== day
+  ) return null
 
   const start = new Date(`${date}T00:00:00.000+08:00`)
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1_000)
-
-  return { date, start, end }
+  return { date, start, end: new Date(start.getTime() + 24 * 60 * 60 * 1_000) }
 }
 
 export async function GET(request: NextRequest) {
@@ -32,9 +31,14 @@ export async function GET(request: NextRequest) {
     })
     if ('error' in auth) return auth.error
 
-    const { date, start, end } = getDayRange(
-      request.nextUrl.searchParams.get('date'),
-    )
+    const range = getDayRange(request.nextUrl.searchParams.get('date'))
+    if (!range) {
+      return NextResponse.json(
+        { success: false, error: 'Choose a valid calendar date (YYYY-MM-DD).' },
+        { status: 400 },
+      )
+    }
+    const { date, start, end } = range
     const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
     const workerId = request.nextUrl.searchParams.get('workerId')?.trim() || null
     const personId = request.nextUrl.searchParams.get('personId')?.trim() || null
@@ -71,13 +75,16 @@ export async function GET(request: NextRequest) {
     const distributionWhere: any = {
       distributionDate: { gte: start, lt: end },
       ...(workerId ? { workerId } : {}),
-      ...((barangay || personId || lastName)
-        ? {
-            vulnerableProfile: {
-              is: beneficiaryWhere,
-            },
-          }
-        : {}),
+      ...(personId || lastName
+        ? { vulnerableProfile: { is: beneficiaryWhere } }
+        : barangay
+          ? {
+              OR: [
+                { vulnerableProfile: { is: { barangay } } },
+                { household: { is: { barangay } } },
+              ],
+            }
+          : {}),
     }
 
     const [
@@ -102,7 +109,7 @@ export async function GET(request: NextRequest) {
         where: {
           role: 'WORKER',
           OR: [
-            { isOnline: true },
+            ...(date === todayInManila() ? [{ isOnline: true }] : []),
             { lastSeenAt: { gte: start, lt: end } },
           ],
         },
@@ -132,6 +139,13 @@ export async function GET(request: NextRequest) {
               vulnerabilityTypes: true,
             },
           },
+          household: {
+            select: {
+              id: true,
+              headOfHousehold: true,
+              barangay: true,
+            },
+          },
         },
         orderBy: { distributionDate: 'desc' },
       }),
@@ -143,13 +157,7 @@ export async function GET(request: NextRequest) {
           middleName: true,
           lastName: true,
           suffix: true,
-          emailAddress: true,
-          mobileNumber: true,
-          houseNumber: true,
-          street: true,
           barangay: true,
-          municipality: true,
-          province: true,
           vulnerabilityTypes: true,
           needsAssistance: true,
           assistanceType: true,
@@ -230,7 +238,8 @@ export async function GET(request: NextRequest) {
 
     const distributionCounts = new Map<string, number>()
     for (const distribution of distributions) {
-      const key = distribution.vulnerableProfile?.barangay || 'Unspecified'
+      const key = distribution.vulnerableProfile?.barangay ||
+        distribution.household?.barangay || 'Unspecified'
       distributionCounts.set(key, (distributionCounts.get(key) || 0) + 1)
     }
 
@@ -247,6 +256,10 @@ export async function GET(request: NextRequest) {
     const approvedDistributions = distributions.filter(
       (item) => item.status === 'APPROVED',
     ).length
+    const distributedDistributions = distributions.filter(
+      (item) => item.status === 'DISTRIBUTED',
+    ).length
+    const verifiedDistributions = approvedDistributions + distributedDistributions
     const pendingDistributions = distributions.filter(
       (item) => item.status === 'PENDING',
     ).length
@@ -276,6 +289,8 @@ export async function GET(request: NextRequest) {
           announcementsCreated,
           distributionsRecorded: distributions.length,
           approvedDistributions,
+          distributedDistributions,
+          verifiedDistributions,
           pendingDistributions,
           rejectedDistributions,
           fieldNotesCreated: fieldNotes.length,
