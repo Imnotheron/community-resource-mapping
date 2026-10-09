@@ -12,14 +12,18 @@ function currentManilaDate() {
 }
 
 function getDayRange(value: string | null) {
-  const date = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? value
-    : currentManilaDate()
+  const date = value ?? currentManilaDate()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  const [year, month, day] = date.split('-').map(Number)
+  const calendarDay = new Date(Date.UTC(year, month - 1, day))
+  if (
+    calendarDay.getUTCFullYear() !== year ||
+    calendarDay.getUTCMonth() !== month - 1 ||
+    calendarDay.getUTCDate() !== day
+  ) return null
 
   const start = new Date(`${date}T00:00:00.000+08:00`)
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1_000)
-
-  return { date, start, end }
+  return { date, start, end: new Date(start.getTime() + 24 * 60 * 60 * 1_000) }
 }
 
 export async function GET(request: NextRequest) {
@@ -31,9 +35,14 @@ export async function GET(request: NextRequest) {
     })
     if ('error' in auth) return auth.error
 
-    const { date, start, end } = getDayRange(
-      request.nextUrl.searchParams.get('date'),
-    )
+    const range = getDayRange(request.nextUrl.searchParams.get('date'))
+    if (!range) {
+      return NextResponse.json(
+        { success: false, error: 'Choose a valid calendar date (YYYY-MM-DD).' },
+        { status: 400 },
+      )
+    }
+    const { date, start, end } = range
     const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
     const personId = request.nextUrl.searchParams.get('personId')?.trim() || null
     const lastName = request.nextUrl.searchParams.get('lastName')?.trim() || null
@@ -59,13 +68,16 @@ export async function GET(request: NextRequest) {
     const distributionWhere: any = {
       workerId: auth.userId,
       distributionDate: { gte: start, lt: end },
-      ...((barangay || personId || lastName)
-        ? {
-            vulnerableProfile: {
-              is: beneficiaryWhere,
-            },
-          }
-        : {}),
+      ...(personId || lastName
+        ? { vulnerableProfile: { is: beneficiaryWhere } }
+        : barangay
+          ? {
+              OR: [
+                { vulnerableProfile: { is: { barangay } } },
+                { household: { is: { barangay } } },
+              ],
+            }
+          : {}),
     }
 
     const [distributions, fieldNoteRows, assignedHouseholds, allBarangayRows, allPeopleRows] = await Promise.all([
@@ -122,6 +134,13 @@ export async function GET(request: NextRequest) {
         orderBy: { barangay: 'asc' },
       }),
       db.vulnerableProfile.findMany({
+        // The Worker selector must not disclose every citizen in the municipality.
+        where: {
+          OR: [
+            { reliefDistributions: { some: { workerId: auth.userId } } },
+            { household: { is: { assignedWorkerId: auth.userId } } },
+          ],
+        },
         select: {
           id: true,
           firstName: true,
@@ -138,12 +157,10 @@ export async function GET(request: NextRequest) {
     ])
 
     const approved = distributions.filter((item) => item.status === 'APPROVED').length
+    const distributed = distributions.filter((item) => item.status === 'DISTRIBUTED').length
     const pending = distributions.filter((item) => item.status === 'PENDING').length
     const rejected = distributions.filter((item) => item.status === 'REJECTED').length
-    const totalQuantity = distributions.reduce(
-      (sum, item) => sum + item.quantity,
-      0,
-    )
+    const verified = approved + distributed
     const fieldNotes = fieldNoteRows.map((item) => ({
       id: item.id,
       note: item.message,
@@ -165,9 +182,10 @@ export async function GET(request: NextRequest) {
         summary: {
           distributionsRecorded: distributions.length,
           approvedDistributions: approved,
+          distributedDistributions: distributed,
+          verifiedDistributions: verified,
           pendingDistributions: pending,
           rejectedDistributions: rejected,
-          totalQuantity,
           fieldNotesCreated: fieldNotes.length,
           assignedHouseholds,
         },
