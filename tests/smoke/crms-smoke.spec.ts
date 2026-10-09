@@ -763,8 +763,8 @@ test('Relief printing switches between LGU, DSWD-style and accomplishment templa
     page.getByText('Request a Relief Report', { exact: true }),
   ).toBeVisible()
 
-  // Mock two records: an actual delivery and an approved-but-not-delivered request.
-  // This exercises the populated RDS and guards against treating approval as receipt.
+  // Mock two records: two verified deliveries and one pending record.
+  // This exercises the populated RDS and checks accepted relief separately from pending requests.
   await page.route('**/api/admin/reports/relief?**', async (route) => {
     const url = new URL(route.request().url())
     const sample = {
@@ -793,7 +793,8 @@ test('Relief printing switches between LGU, DSWD-style and accomplishment templa
           scope: 'ADMIN',
           distributions: [
             { ...sample, id: 'completed-test', itemsProvided: 'Test rice pack', status: 'DISTRIBUTED' },
-            { ...sample, id: 'approved-test', itemsProvided: 'Not yet delivered', status: 'APPROVED' },
+            { ...sample, id: 'approved-test', itemsProvided: 'Verified item', status: 'APPROVED' },
+            { ...sample, id: 'pending-test', itemsProvided: 'Unverified item', status: 'PENDING' },
           ],
         },
       }),
@@ -809,8 +810,9 @@ test('Relief printing switches between LGU, DSWD-style and accomplishment templa
   await expect(preview).toHaveAttribute('data-template', 'DSWD_RDS')
   await expect(preview.getByText('Relief Distribution Sheet (RDS-style)')).toBeVisible()
   await expect(preview.getByText('Test rice pack')).toBeVisible()
-  await expect(preview.getByText('Not yet delivered')).toHaveCount(0)
-  await expect(preview.locator('tbody tr')).toHaveCount(1)
+  await expect(preview.getByText('Verified item')).toBeVisible()
+  await expect(preview.getByText('Unverified item')).toHaveCount(0)
+  await expect(preview.locator('tbody tr')).toHaveCount(2)
   await expect(page.getByRole('button', { name: 'Print Relief Report' })).toBeEnabled()
   await page.locator('details summary').filter({ hasText: 'Verify quantities/units' }).click()
   await page.getByLabel('No. of dependents for Test Beneficiary').fill('3')
@@ -818,7 +820,7 @@ test('Relief printing switches between LGU, DSWD-style and accomplishment templa
   await expect(preview.locator('tbody tr td').nth(2)).toHaveText('3')
   await expect(preview.getByText('2 / packs')).toBeVisible()
 
-  await expect(page.getByText(/Only records marked DISTRIBUTED are included/)).toBeVisible()
+  await expect(page.getByText(/Only accepted field-distribution records/)).toBeVisible()
   await page.getByLabel('Type of Disaster').fill('Typhoon')
   await page.getByLabel('Date of Occurrence').fill('2026-10-01')
   await expect(page.getByLabel('Type of Disaster')).toHaveValue('Typhoon')
@@ -829,13 +831,14 @@ test('Relief printing switches between LGU, DSWD-style and accomplishment templa
   await expect(preview.getByText('Completed Assistance by Barangay')).toBeVisible()
   await expect(preview.getByText('Assistance Provided (Separated by Type and Unit)')).toBeVisible()
   await expect(preview.getByText('Test rice pack')).toBeVisible()
-  await expect(preview.getByText('Not yet delivered')).toHaveCount(0)
+  await expect(preview.getByText('Verified item')).toBeVisible()
+  await expect(preview.getByText('Unverified item')).toHaveCount(0)
 
 
   await page.getByRole('button', { name: 'LGU Relief Summary Report' }).click()
   await expect(preview).toHaveAttribute('data-template', 'LGU')
   await expect(preview.getByText('Relief Summary', { exact: true })).toBeVisible()
-  await expect(preview.getByText('Not yet delivered')).toBeVisible()
+  await expect(preview.getByText('Unverified item')).toBeVisible()
 })
 
 test('Relief Approval exposes View and Daily Reports mirrors relief sorting controls', async ({ page }) => {
