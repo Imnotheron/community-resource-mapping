@@ -308,6 +308,12 @@ function AdminReport({
           <Metric label="Rejected" value={report.summary.rejectedDistributions} />
           <Metric label="Field Notes (daily)" value={report.summary.fieldNotesCreated} />
         </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Profile and worker totals are current snapshots, not daily increases.
+          Relief and registration figures reflect the selected report date.
+          Worker filtering limits relief activity and field notes, not the municipality-wide
+          worker or profile snapshots.
+        </p>
       </section>
 
       {settings.template !== 'SUMMARY' && (
@@ -530,6 +536,10 @@ function WorkerReport({
           <Metric label="Field Notes (daily)" value={report.summary.fieldNotesCreated} />
           <Metric label="Assigned Households (current)" value={report.summary.assignedHouseholds} />
         </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Relief and field note counts are for the report date and signed-in worker.
+          Assigned households are a current snapshot, not today's household visits.
+        </p>
       </section>
 
       {settings.template !== 'SUMMARY' && (
@@ -723,6 +733,11 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
     useState('ALL')
   const [sectorFilter, setSectorFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('DATE_DESC')
+  const [narrative, setNarrative] = useState<ReportNarrative>({
+    accomplishments: '',
+    challenges: '',
+    nextActions: '',
+  })
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [savingReportSettings, setSavingReportSettings] =
@@ -752,6 +767,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
       const data = await apiFetch(endpoint)
       setReport(data.report)
     } catch (error: any) {
+      setReport(null)
       toast.error('Failed to load report', { description: error.message })
     } finally {
       setLoading(false)
@@ -1062,16 +1078,16 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
     const approvedDistributions = filteredDistributions.filter(
       (item: any) => item.status === 'APPROVED',
     ).length
+    const distributedDistributions = filteredDistributions.filter(
+      (item: any) => item.status === 'DISTRIBUTED',
+    ).length
+    const verifiedDistributions = approvedDistributions + distributedDistributions
     const pendingDistributions = filteredDistributions.filter(
       (item: any) => item.status === 'PENDING',
     ).length
     const rejectedDistributions = filteredDistributions.filter(
       (item: any) => item.status === 'REJECTED',
     ).length
-    const totalQuantity = filteredDistributions.reduce(
-      (sum: number, item: any) => sum + Number(item.quantity || 0),
-      0,
-    )
 
     const filteredBarangayCounts = new Map<string, number>()
     for (const item of filteredDistributions) {
@@ -1088,9 +1104,10 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         ...report.summary,
         distributionsRecorded: filteredDistributions.length,
         approvedDistributions,
+        distributedDistributions,
+        verifiedDistributions,
         pendingDistributions,
         rejectedDistributions,
-        totalQuantity,
       },
       citizenRecords: sortOtherRecords(report.citizenRecords || []),
       registrations: sortOtherRecords(report.registrations || []),
@@ -1724,7 +1741,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
                 </SelectTrigger>
                 <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                   <SelectItem value="ALL">All statuses</SelectItem>
-                  {['PENDING', 'APPROVED', 'REJECTED']
+                  {['PENDING', 'APPROVED', 'DISTRIBUTED', 'REJECTED']
                     .filter((status) => reliefStatusOptions.includes(status))
                     .map((status) => (
                       <SelectItem key={status} value={status}>
@@ -1838,6 +1855,39 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         </CardContent>
       </Card>
 
+      <Card className="no-print border-slate-200" data-testid="daily-report-operations-notes">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Daily Operations Narrative</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Optional officer-entered statements printed in Formal, Compact and Summary reports.
+            These are local to this screen; they are not saved to the CRMS database.
+            Do not include unnecessary personal or confidential information.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          {([
+            ['accomplishments', 'Activities / Accomplishments'],
+            ['challenges', 'Issues and Challenges'],
+            ['nextActions', 'Next Steps / Pending Follow-ups'],
+          ] as const).map(([field, title]) => (
+            <div className="space-y-2" key={field}>
+              <Label htmlFor={'daily-narrative-' + field}>{title}</Label>
+              <Textarea
+                id={'daily-narrative-' + field}
+                rows={4}
+                maxLength={3000}
+                value={narrative[field]}
+                onChange={(event) => setNarrative((previous) => ({
+                  ...previous,
+                  [field]: event.target.value,
+                }))}
+                placeholder="Enter verified operational notes..."
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       {loading ? (
         <WowLoader
           label="Generating daily report"
@@ -1864,11 +1914,13 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
             <AdminReport
               report={displayReport}
               settings={reportSettings}
+              narrative={narrative}
             />
           ) : (
             <WorkerReport
               report={displayReport}
               settings={reportSettings}
+              narrative={narrative}
             />
           )}
         </div>
