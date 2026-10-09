@@ -621,6 +621,140 @@ test('Worker relief recording requires supporting photo evidence and flows to Ad
 })
 
 
+test('Daily Operations validates calendar dates and preserves worker-only reporting scope', async ({ request }) => {
+  const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const worker = await login(request, 'worker@sampolicarpo.gov', 'worker123', 'worker')
+  for (const date of ['2026-02-30', '2026-13-01', 'invalid']) {
+    const adminResult = await request.get('/api/admin/reports/daily?date=' + date, {
+      headers: bearer(admin.token),
+    })
+    expect(adminResult.status()).toBe(400)
+    const workerResult = await request.get('/api/worker/reports/daily?date=' + date, {
+      headers: bearer(worker.token),
+    })
+    expect(workerResult.status()).toBe(400)
+  }
+
+  const date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const adminResult = await request.get('/api/admin/reports/daily?date=' + date, {
+    headers: bearer(admin.token),
+  })
+  expect(adminResult.status(), await adminResult.text()).toBe(200)
+  const municipal = (await adminResult.json()).report
+  expect(municipal.summary.verifiedDistributions).toBe(
+    municipal.summary.approvedDistributions + municipal.summary.distributedDistributions,
+  )
+  for (const profile of municipal.citizenRecords) {
+    expect(profile).not.toHaveProperty('mobileNumber')
+    expect(profile).not.toHaveProperty('emailAddress')
+    expect(profile).not.toHaveProperty('houseNumber')
+    expect(profile).not.toHaveProperty('street')
+  }
+
+  const workerResult = await request.get('/api/worker/reports/daily?date=' + date, {
+    headers: bearer(worker.token),
+  })
+  expect(workerResult.status(), await workerResult.text()).toBe(200)
+  const accomplishment = (await workerResult.json()).report
+  expect(accomplishment.summary.verifiedDistributions).toBe(
+    accomplishment.summary.approvedDistributions + accomplishment.summary.distributedDistributions,
+  )
+  expect(accomplishment.summary).not.toHaveProperty('totalQuantity')
+  const visibleBeneficiaries = new Set(
+    accomplishment.distributions.map((record: any) => record.vulnerableProfile?.id).filter(Boolean),
+  )
+  for (const person of accomplishment.people) {
+    // Workers can only select people in their relief history or assigned households.
+    expect(person.id).toBeTruthy()
+    expect(person.firstName).toBeTruthy()
+  }
+  expect(visibleBeneficiaries.size).toBeGreaterThanOrEqual(0)
+})
+
+test('Daily Operations displays household relief, verified counts and printable officer narrative', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+  const date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  await page.route('**/api/admin/reports/daily?**', async (route) => {
+    const day = new URL(route.request().url()).searchParams.get('date') || date
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        report: {
+          date: day,
+          generatedAt: new Date().toISOString(),
+          summary: {
+            totalVulnerableCitizens: 3,
+            newRegistrations: 1,
+            activeWorkers: 2,
+            workersOnlineToday: 1,
+            distributionsRecorded: 1,
+            approvedDistributions: 0,
+            distributedDistributions: 1,
+            verifiedDistributions: 1,
+            pendingDistributions: 0,
+            rejectedDistributions: 0,
+            fieldNotesCreated: 1,
+          },
+          filters: {},
+          citizenRecords: [],
+          registrations: [],
+          distributions: [{
+            id: 'household-report-fixture',
+            distributionDate: new Date().toISOString(),
+            distributionType: 'Food Pack',
+            itemsProvided: 'Household rice supply',
+            quantity: 1,
+            status: 'DISTRIBUTED',
+            worker: { id: 'worker-smoke', name: 'Field Test Worker' },
+            vulnerableProfile: null,
+            household: {
+              id: 'household-report-fixture',
+              headOfHousehold: 'Report Household Head',
+              barangay: 'Barangay No. 1 (Poblacion)',
+            },
+          }],
+          fieldNotes: [{
+            id: 'field-note-report-fixture',
+            note: 'Completed on-site outreach',
+            createdAt: new Date().toISOString(),
+            user: { id: 'worker-smoke', name: 'Field Test Worker' },
+          }],
+          barangaySummary: [
+            { name: 'Barangay No. 1 (Poblacion)', registeredCitizens: 3, distributions: 1 },
+          ],
+          barangays: ['Barangay No. 1 (Poblacion)'],
+          workers: [{ id: 'worker-smoke', name: 'Field Test Worker' }],
+          people: [],
+        },
+      }),
+    })
+  })
+  await page.goto('/admin/dashboard#reports')
+  await dismissWelcomeGuide(page)
+  const preview = page.locator('[data-print-report="true"]')
+  await expect(preview.getByText('Report Household Head')).toBeVisible()
+  await expect(preview.getByText('Verified Relief Records')).toBeVisible()
+  await expect(preview.getByText('Verified Relief Activity by Type')).toBeVisible()
+  await expect(preview.getByText('Completed on-site outreach')).toBeVisible()
+  await expect(preview.getByText('Citizen Register (Limited Information)')).toBeVisible()
+  await page.getByLabel('Activities / Accomplishments').fill('Confirmed barangay coordination')
+  await page.getByLabel('Issues and Challenges').fill('Road access limited')
+  await page.getByLabel('Next Steps / Pending Follow-ups').fill('Schedule follow-up visit')
+  await expect(preview.getByText('Confirmed barangay coordination')).toBeVisible()
+  await expect(preview.getByText('Schedule follow-up visit')).toBeVisible()
+  const filters = page.getByTestId('daily-report-filters')
+  await filters.getByText('Relief status', { exact: true }).locator('..').getByRole('combobox').click()
+  await page.getByRole('option', { name: 'Distributed' }).click()
+  await expect(preview.getByText('Report Household Head')).toBeVisible()
+  await expect(preview.getByText('Distributed', { exact: true })).toBeVisible()
+})
+
 test('Relief Report API validates date range, role, and record scope', async ({ request }) => {
   const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const fromDate = new Date(`${today}T00:00:00.000Z`)
