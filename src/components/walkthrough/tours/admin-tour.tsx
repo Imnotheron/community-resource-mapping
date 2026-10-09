@@ -168,7 +168,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
         navStep(
           'reports',
           'Open Daily Reports and printable records',
-          'Daily Reports brings together information intended for review, printing, and operational follow-up. This step now targets the Daily Reports item itself, not the map item above it.',
+          'Daily Reports has two sections: Daily Operations Reports for general activity, and Relief Reports for requesting date-range relief summaries, filtering beneficiaries and goods, printing, or exporting CSV.',
         ),
         navStep(
           'guide',
