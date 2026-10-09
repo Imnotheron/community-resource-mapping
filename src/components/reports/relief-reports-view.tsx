@@ -691,14 +691,16 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
                     Signature/thumbmark is intentionally blank for actual acknowledgment on paper.
                   </p>
                   <div className="max-h-96 space-y-3 overflow-y-auto">
-                    {rows.map((row) => (
+                    {rows.map((row, rowIndex) => (
                       <div key={row.id} className="grid gap-2 border-b pb-3 sm:grid-cols-3">
                         <p className="text-sm font-medium">
                           {fullName(row)} · {barangayOf(row)} · {row.distributionType}
                         </p>
                         {reportTemplate === 'DSWD_RDS' && (
                           <div className="space-y-1">
-                            <Label htmlFor={'rds-dependents-' + row.id}>No. of dependents for {fullName(row)}</Label>
+                            <Label htmlFor={'rds-dependents-' + row.id}>
+                              {rowIndex === 0 ? 'No. of dependents for ' : 'Dependents for relief entry ' + (rowIndex + 1) + ': '}{fullName(row)}
+                            </Label>
                             <Input
                               id={'rds-dependents-' + row.id} inputMode="numeric" type="number" min={0} step={1}
                               value={dependentCounts[row.id] ?? ''}
@@ -710,7 +712,9 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
                           </div>
                         )}
                         <div className="space-y-1">
-                          <Label htmlFor={'rds-unit-' + row.id}>Quantity unit for {fullName(row)} ({row.quantity})</Label>
+                          <Label htmlFor={'rds-unit-' + row.id}>
+                            {rowIndex === 0 ? 'Quantity unit for ' : 'Unit for relief entry ' + (rowIndex + 1) + ': '}{fullName(row)} ({row.quantity})
+                          </Label>
                           <Input id={'rds-unit-' + row.id} value={quantityUnits[row.id] ?? ''}
                             maxLength={60} placeholder="e.g. packs, kg, kits"
                             onChange={(e) => setQuantityUnits((prev) => ({
