@@ -143,8 +143,10 @@ function PrintHeading({
 export function AdditionalReliefPrintTemplate({
   template, rows, from, to, generatedAt, context, dependentCounts, quantityUnits,
 }: Props) {
-  // Approval is not delivery. These templates document only completed distributions.
-  const delivered = rows.filter((row) => row.status === 'DISTRIBUTED')
+  // CRMS workers record completed distributions before Admin approval.
+  // APPROVED is an accepted field-distribution record; DISTRIBUTED is also completed.
+  // Neither replaces a beneficiary-signed acknowledgment on the RDS.
+  const delivered = rows.filter((row) => row.status === 'APPROVED' || row.status === 'DISTRIBUTED')
   const distinctBeneficiaries = new Set(delivered.map(beneficiaryKey)).size
 
   const barangays = new Map<string, {
@@ -206,7 +208,7 @@ export function AdditionalReliefPrintTemplate({
           Not an issued or certified DSWD form. Have the MSWDO verify before official submission.
         </p>
         {!delivered.length ? (
-          <p className="border p-4 text-sm">No completed (DISTRIBUTED) relief records match these filters. Approved, pending, and rejected requests are excluded.</p>
+          <p className="border p-4 text-sm">No verified relief distribution records match these filters. Pending and rejected records are excluded.</p>
         ) : Array.from(rdsGroups.entries()).map(([key, group]) => (
           <section className="rds-sheet mb-8" key={key}>
             <div className="mb-3 grid grid-cols-2 gap-x-8 gap-y-1 text-xs">
@@ -259,9 +261,9 @@ export function AdditionalReliefPrintTemplate({
       className="relief-report-print report-print-root rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm sm:p-9"
     >
       <PrintHeading title="Relief Distribution Accomplishment Report" context={context} from={from} to={to} generatedAt={generatedAt} />
-      <p className="mb-3 text-xs">Based on completed distributions only (status: DISTRIBUTED). Approval alone is not counted as delivered assistance.</p>
+      <p className="mb-3 text-xs">Based on accepted field-distribution records (APPROVED or DISTRIBUTED). Pending and rejected records are excluded. A signed receipt is still required for beneficiary acknowledgment.</p>
       <div className="relief-keep-together mb-6 grid grid-cols-2 gap-3">
-        <div className="rounded border p-3"><p className="text-xs">Completed distributions</p><p className="text-2xl font-bold">{delivered.length}</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Verified distribution records</p><p className="text-2xl font-bold">{delivered.length}</p></div>
         <div className="rounded border p-3"><p className="text-xs">Unique beneficiaries / households</p><p className="text-2xl font-bold">{distinctBeneficiaries}</p></div>
       </div>
       <h3 className="mb-2 text-sm font-bold">Completed Assistance by Barangay</h3>
@@ -271,7 +273,7 @@ export function AdditionalReliefPrintTemplate({
           {Array.from(barangays.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([name, data]) => (
             <tr key={name}><td>{name}</td><td>{data.count}</td><td>{data.beneficiaries.size}</td><td>{Array.from(data.assistance).join(', ')}</td></tr>
           ))}
-          {!delivered.length && <tr><td colSpan={4}>No completed distributions match the selected period and filters.</td></tr>}
+          {!delivered.length && <tr><td colSpan={4}>No verified distribution records match the selected period and filters.</td></tr>}
         </tbody>
       </table>
       <h3 className="mb-2 text-sm font-bold">Assistance Provided (Separated by Type and Unit)</h3>
@@ -282,7 +284,7 @@ export function AdditionalReliefPrintTemplate({
             const [type, unit] = JSON.parse(key) as [string, string]
             return <tr key={key}><td>{type}</td><td>{unit}</td><td>{data.count}</td><td>{data.beneficiaries.size}</td><td>{unit === 'Unit not supplied' ? '— (unit missing)' : data.quantity}</td></tr>
           })}
-          {!delivered.length && <tr><td colSpan={5}>No completed distributions.</td></tr>}
+          {!delivered.length && <tr><td colSpan={5}>No verified distribution records.</td></tr>}
         </tbody>
       </table>
       <h3 className="mb-2 text-sm font-bold">Completed Distribution Register</h3>
@@ -300,7 +302,7 @@ export function AdditionalReliefPrintTemplate({
               <td>{row.worker?.name || '—'}</td>
             </tr>
           ))}
-          {!delivered.length && <tr><td colSpan={7}>No completed distributions.</td></tr>}
+          {!delivered.length && <tr><td colSpan={7}>No verified distribution records.</td></tr>}
         </tbody>
       </table>
       <p className="mt-3 text-xs">Quantities are grouped by type and unit; missing units are not assumed. Data is subject to verification against signed distribution sheets and source records.</p>
