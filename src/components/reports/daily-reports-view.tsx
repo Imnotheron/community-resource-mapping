@@ -24,7 +24,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -196,41 +195,6 @@ function ReportTable({ children }: { children: ReactNode }) {
 }
 
 
-type ReportNarrative = {
-  accomplishments: string
-  challenges: string
-  nextActions: string
-}
-
-function OperationsNarrative({ narrative }: { narrative: ReportNarrative }) {
-  const entries = [
-    ['Activities / Accomplishments', narrative.accomplishments],
-    ['Issues and Challenges', narrative.challenges],
-    ['Next Steps / Pending Follow-ups', narrative.nextActions],
-  ] as const
-
-  return (
-    <section className="report-section" data-testid="daily-report-narrative">
-      <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-        Operations Narrative
-      </h2>
-      <p className="mb-2 text-xs text-slate-500">
-        Officer-entered narrative for this printout; not automatically verified against CRMS records.
-      </p>
-      <div className="space-y-3">
-        {entries.map(([title, content]) => (
-          <div key={title} className="report-field-note rounded-xl border border-slate-200 p-3">
-            <p className="text-xs font-semibold">{title}</p>
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-              {content.trim() || 'No entry supplied.'}
-            </p>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function VerifiedAssistanceSection({ distributions }: { distributions: any[] }) {
   const grouped = new Map<string, { records: number; beneficiaries: Set<string> }>()
   for (const item of distributions) {
@@ -275,11 +239,9 @@ function VerifiedAssistanceSection({ distributions }: { distributions: any[] }) 
 function AdminReport({
   report,
   settings,
-  narrative,
 }: {
   report: any
   settings: ReportSettings
-  narrative: ReportNarrative
 }) {
   return (
     <div
@@ -491,7 +453,6 @@ function AdminReport({
           </div>
         </section>
       )}
-      <OperationsNarrative narrative={narrative} />
       <SignatureBlock settings={settings} />
     </div>
   )
@@ -500,11 +461,9 @@ function AdminReport({
 function WorkerReport({
   report,
   settings,
-  narrative,
 }: {
   report: any
   settings: ReportSettings
-  narrative: ReportNarrative
 }) {
   return (
     <div
@@ -627,7 +586,6 @@ function WorkerReport({
       </section>
       )}
 
-      <OperationsNarrative narrative={narrative} />
       <SignatureBlock settings={settings} />
     </div>
   )
@@ -739,15 +697,6 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
     useState('ALL')
   const [sectorFilter, setSectorFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('DATE_DESC')
-  const [narrative, setNarrative] = useState<ReportNarrative>({
-    accomplishments: '',
-    challenges: '',
-    nextActions: '',
-  })
-  useEffect(() => {
-    // Never reuse officer-entered statements for a different reporting date.
-    setNarrative({ accomplishments: '', challenges: '', nextActions: '' })
-  }, [date])
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [savingReportSettings, setSavingReportSettings] =
@@ -1865,39 +1814,6 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         </CardContent>
       </Card>
 
-      <Card className="no-print border-slate-200" data-testid="daily-report-operations-notes">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Daily Operations Narrative</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Optional officer-entered statements printed in Formal, Compact and Summary reports.
-            These are local to this screen; they are not saved to the CRMS database.
-            Do not include unnecessary personal or confidential information.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          {([
-            ['accomplishments', 'Activities / Accomplishments'],
-            ['challenges', 'Issues and Challenges'],
-            ['nextActions', 'Next Steps / Pending Follow-ups'],
-          ] as const).map(([field, title]) => (
-            <div className="space-y-2" key={field}>
-              <Label htmlFor={'daily-narrative-' + field}>{title}</Label>
-              <Textarea
-                id={'daily-narrative-' + field}
-                rows={4}
-                maxLength={3000}
-                value={narrative[field]}
-                onChange={(event) => setNarrative((previous) => ({
-                  ...previous,
-                  [field]: event.target.value,
-                }))}
-                placeholder="Enter verified operational notes..."
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
       {loading ? (
         <WowLoader
           label="Generating daily report"
@@ -1924,13 +1840,11 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
             <AdminReport
               report={displayReport}
               settings={reportSettings}
-              narrative={narrative}
             />
           ) : (
             <WorkerReport
               report={displayReport}
               settings={reportSettings}
-              narrative={narrative}
             />
           )}
         </div>
