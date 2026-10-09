@@ -34,6 +34,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { WowLoader } from '@/components/ui/wow-loader'
+import {
+  AdditionalReliefPrintTemplate,
+  type ReportTemplate,
+} from '@/components/reports/relief-report-templates'
 
 type Distribution = {
   id: string
@@ -197,6 +201,9 @@ const PRINT_CSS = `
       overflow-wrap: anywhere;
     }
     .relief-report-print thead { display: table-header-group; }
+    .relief-report-print .rds-sheet { break-inside: auto !important; }
+    .relief-report-print .rds-sheet:not(:last-child) { break-after: page; page-break-after: always; }
+    .relief-report-print .rds-signature-cell { min-width: 105px; height: 35px; }
     .relief-report-print tr, .relief-report-print .relief-keep-together {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
@@ -213,6 +220,22 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
   const [loading, setLoading] = useState(false)
   const [preparedName, setPreparedName] = useState(user.name || '')
   const [approvedName, setApprovedName] = useState('')
+  const [reportTemplate, setReportTemplate] = useState<ReportTemplate>('LGU')
+  const [rdsInfo, setRdsInfo] = useState({
+    region: 'Region VIII (Eastern Visayas)',
+    province: 'Eastern Samar',
+    municipality: 'Municipality of San Policarpo',
+    disasterType: '',
+    occurrenceDate: '',
+    evacuationCenter: '',
+  })
+  const [dependentCounts, setDependentCounts] = useState<Record<string, string>>({})
+  const [quantityUnits, setQuantityUnits] = useState<Record<string, string>>({})
+
+  const switchTemplate = (value: ReportTemplate) => {
+    setReportTemplate(value)
+    setFilters(INITIAL_FILTERS)
+  }
 
   const isCurrent = Boolean(
     report && report.from === period.from && report.to === period.to,
@@ -227,10 +250,13 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
     }))
   }
 
-  const allRows = useMemo(
-    () => (isCurrent ? report?.distributions || [] : []),
-    [isCurrent, report],
-  )
+  const allRows = useMemo(() => {
+    const records = isCurrent ? report?.distributions || [] : []
+    // CRMS Admin approval confirms workers' already recorded distributions.
+    return reportTemplate === 'LGU'
+      ? records
+      : records.filter((row) => row.status === 'APPROVED' || row.status === 'DISTRIBUTED')
+  }, [isCurrent, report, reportTemplate])
   const facets = (field: keyof Filters) =>
     allRows.filter((row) => matches(row, filters, field))
 
@@ -365,7 +391,7 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `CRMS-relief-report-${report.from}-to-${report.to}.csv`
+    anchor.download = `CRMS-${reportTemplate.toLowerCase()}-relief-report-${report.from}-to-${report.to}.csv`
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
@@ -413,7 +439,7 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
           </Button>
           <Button
             onClick={() => window.print()}
-            disabled={!isCurrent || loading}
+            disabled={!isCurrent || loading || (reportTemplate !== 'LGU' && rows.length === 0)}
           >
             <Printer className="mr-2 h-4 w-4" /> Print Relief Report
           </Button>
@@ -487,6 +513,43 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
         </Card>
       ) : (
         <>
+          <Card className="no-print min-w-0" data-testid="relief-report-template-picker">
+            <CardHeader>
+              <CardTitle className="text-base">Choose print template</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label="Report template">
+                {([
+                  ['LGU', 'LGU Relief Summary Report'],
+                  ['DSWD_RDS', 'DSWD-style Relief Distribution Sheet'],
+                  ['ACCOMPLISHMENT', 'Relief Accomplishment Report'],
+                ] as const).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={reportTemplate === value ? 'default' : 'outline'}
+                    aria-pressed={reportTemplate === value}
+                    onClick={() => switchTemplate(value)}
+                    className="h-auto min-h-12 whitespace-normal text-left"
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {reportTemplate !== 'LGU' ? (
+                <p className="text-sm text-amber-800" role="status">
+                  Only accepted field-distribution records (APPROVED or DISTRIBUTED) are included.
+                  Pending and rejected entries are excluded. Signed beneficiary acknowledgment
+                  must still be collected for a DSWD-style RDS.
+                  {rows.length === 0 ? ' No verified records match the current period or filters.' : ''}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  Existing LGU operational summary is preserved, including all relief statuses.
+                </p>
+              )}
+            </CardContent>
+          </Card>
           <Card className="no-print min-w-0">
             <CardHeader>
               <CardTitle className="text-base">Filter this relief report</CardTitle>
@@ -580,7 +643,96 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
             </CardContent>
           </Card>
 
+          {reportTemplate !== 'LGU' && (
+            <Card className="no-print">
+              <CardHeader>
+                <CardTitle className="text-base">Print details and verification</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  These details are for this print preview only and do not modify the source
+                  distribution records. Verify missing information before signing or submitting.
+                </p>
+                {reportTemplate === 'DSWD_RDS' && (
+                  <>
+                    <p className="text-sm font-medium">
+                      DSWD Annex H-inspired format for LGU preparation — not an official DSWD-issued document.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {([
+                        ['region', 'Region'],
+                        ['province', 'Province'],
+                        ['municipality', 'Municipality'],
+                        ['disasterType', 'Type of Disaster'],
+                        ['evacuationCenter', 'Name of Evacuation Center'],
+                      ] as const).map(([field, label]) => (
+                        <div className="space-y-1" key={field}>
+                          <Label htmlFor={'rds-' + field}>{label}</Label>
+                          <Input id={'rds-' + field} value={rdsInfo[field]}
+                            onChange={(e) => setRdsInfo((prev) => ({ ...prev, [field]: e.target.value }))}
+                            maxLength={150} />
+                        </div>
+                      ))}
+                      <div className="space-y-1">
+                        <Label htmlFor="rds-occurrenceDate">Date of Occurrence</Label>
+                        <Input id="rds-occurrenceDate" type="date" value={rdsInfo.occurrenceDate}
+                          onChange={(e) => setRdsInfo((prev) => ({ ...prev, occurrenceDate: e.target.value }))} />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <details className="rounded-lg border border-slate-200 p-3">
+                  <summary className="cursor-pointer font-medium">
+                    Verify quantities/units{reportTemplate === 'DSWD_RDS' ? ' and number of dependents' : ''} per beneficiary
+                  </summary>
+                  <p className="my-3 text-xs text-slate-600">
+                    The current database does not record these values separately. Leave unknown
+                    values blank; no number of dependents or unit will be invented.
+                    Signature/thumbmark is intentionally blank for actual acknowledgment on paper.
+                  </p>
+                  <div className="max-h-96 space-y-3 overflow-y-auto">
+                    {rows.map((row, rowIndex) => (
+                      <div key={row.id} className="grid gap-2 border-b pb-3 sm:grid-cols-3">
+                        <p className="text-sm font-medium">
+                          {fullName(row)} · {barangayOf(row)} · {row.distributionType}
+                        </p>
+                        {reportTemplate === 'DSWD_RDS' && (
+                          <div className="space-y-1">
+                            <Label htmlFor={'rds-dependents-' + row.id}>
+                              {rowIndex === 0 ? 'No. of dependents for ' : 'Dependents for relief entry ' + (rowIndex + 1) + ': '}{fullName(row)}
+                            </Label>
+                            <Input
+                              id={'rds-dependents-' + row.id} inputMode="numeric" type="number" min={0} step={1}
+                              value={dependentCounts[row.id] ?? ''}
+                              onChange={(e) => setDependentCounts((prev) => ({
+                                ...prev, [row.id]: e.target.value,
+                              }))}
+                              placeholder="Unknown — leave blank"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          <Label htmlFor={'rds-unit-' + row.id}>
+                            {rowIndex === 0 ? 'Quantity unit for ' : 'Unit for relief entry ' + (rowIndex + 1) + ': '}{fullName(row)} ({row.quantity})
+                          </Label>
+                          <Input id={'rds-unit-' + row.id} value={quantityUnits[row.id] ?? ''}
+                            maxLength={60} placeholder="e.g. packs, kg, kits"
+                            onChange={(e) => setQuantityUnits((prev) => ({
+                              ...prev, [row.id]: e.target.value,
+                            }))} />
+                        </div>
+                      </div>
+                    ))}
+                    {rows.length === 0 && <p className="text-sm">No verified relief distributions in the current filters.</p>}
+                  </div>
+                </details>
+              </CardContent>
+            </Card>
+          )}
+
+          {reportTemplate === 'LGU' ? (
           <article
+            data-template="LGU"
             data-print-report="true"
             data-testid="relief-report-preview"
             aria-label="Relief Distribution Report"
@@ -707,6 +859,23 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
               </div>
             </section>
           </article>
+          ) : (
+            <AdditionalReliefPrintTemplate
+              template={reportTemplate}
+              rows={rows}
+              from={report.from}
+              to={report.to}
+              generatedAt={report.generatedAt}
+              context={{
+                ...rdsInfo,
+                preparedBy: preparedName,
+                reviewedBy: approvedName,
+                preparedTitle: isAdmin ? 'CRMS Administrator' : 'Field Worker',
+              }}
+              dependentCounts={dependentCounts}
+              quantityUnits={quantityUnits}
+            />
+          )}
         </>
       )}
     </div>

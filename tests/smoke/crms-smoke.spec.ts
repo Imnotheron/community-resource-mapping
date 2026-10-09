@@ -742,6 +742,105 @@ test('Daily Reports can generate a separate relief report with accurate filtered
   ).toBeVisible()
 })
 
+test('Relief printing switches between LGU, DSWD-style and accomplishment templates', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+  await page.goto('/admin/dashboard#reports')
+  await dismissWelcomeGuide(page)
+
+  await expect(
+    page.getByRole('tab', { name: 'Daily Operations Report' }),
+  ).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Relief Reports' }).click()
+
+  await expect(
+    page.getByRole('heading', { name: 'Relief Distribution Reports' }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('Request a Relief Report', { exact: true }),
+  ).toBeVisible()
+
+  // Mock two records: two verified deliveries and one pending record.
+  // This exercises the populated RDS and checks accepted relief separately from pending requests.
+  await page.route('**/api/admin/reports/relief?**', async (route) => {
+    const url = new URL(route.request().url())
+    const sample = {
+      distributionDate: new Date().toISOString(),
+      distributionType: 'Food Pack',
+      quantity: 2,
+      worker: { id: 'worker-report-test', name: 'Test Worker' },
+      vulnerableProfile: {
+        id: 'beneficiary-report-test',
+        firstName: 'Test',
+        lastName: 'Beneficiary',
+        barangay: 'Barangay No. 1 (Poblacion)',
+        vulnerabilityTypes: '["PWD"]',
+      },
+      household: null,
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        report: {
+          from: url.searchParams.get('from'),
+          to: url.searchParams.get('to'),
+          generatedAt: new Date().toISOString(),
+          scope: 'ADMIN',
+          distributions: [
+            { ...sample, id: 'completed-test', itemsProvided: 'Test rice pack', status: 'DISTRIBUTED' },
+            { ...sample, id: 'approved-test', itemsProvided: 'Verified item', status: 'APPROVED' },
+            { ...sample, id: 'pending-test', itemsProvided: 'Unverified item', status: 'PENDING' },
+          ],
+        },
+      }),
+    })
+  })
+  await page.getByRole('button', { name: 'Generate Relief Report' }).click()
+
+  const preview = page.getByTestId('relief-report-preview')
+  await expect(preview).toHaveAttribute('data-template', 'LGU')
+  await expect(preview.getByText('Relief Summary', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'DSWD-style Relief Distribution Sheet' }).click()
+  await expect(preview).toHaveAttribute('data-template', 'DSWD_RDS')
+  await expect(preview.getByText('Relief Distribution Sheet (RDS-style)')).toBeVisible()
+  await expect(preview.getByText('Test rice pack')).toBeVisible()
+  await expect(preview.getByText('Verified item')).toBeVisible()
+  await expect(preview.getByText('Unverified item')).toHaveCount(0)
+  await expect(preview.locator('tbody tr')).toHaveCount(2)
+  await expect(page.getByRole('button', { name: 'Print Relief Report' })).toBeEnabled()
+  await page.locator('details summary').filter({ hasText: 'Verify quantities/units' }).click()
+  await page.getByLabel('No. of dependents for Test Beneficiary').fill('3')
+  await page.getByLabel('Quantity unit for Test Beneficiary (2)').fill('packs')
+  await expect(preview.locator('tbody tr td').nth(2)).toHaveText('3')
+  await expect(preview.getByText('2 / packs')).toBeVisible()
+
+  await expect(page.getByText(/Only accepted field-distribution records/)).toBeVisible()
+  await page.getByLabel('Type of Disaster').fill('Typhoon')
+  await page.getByLabel('Date of Occurrence').fill('2026-10-01')
+  await expect(page.getByLabel('Type of Disaster')).toHaveValue('Typhoon')
+
+  await page.getByRole('button', { name: 'Relief Accomplishment Report' }).click()
+  await expect(preview).toHaveAttribute('data-template', 'ACCOMPLISHMENT')
+  await expect(preview.getByText('Relief Distribution Accomplishment Report')).toBeVisible()
+  await expect(preview.getByText('Completed Assistance by Barangay')).toBeVisible()
+  await expect(preview.getByText('Assistance Provided (Separated by Type and Unit)')).toBeVisible()
+  await expect(preview.getByText('Test rice pack')).toBeVisible()
+  await expect(preview.getByText('Verified item')).toBeVisible()
+  await expect(preview.getByText('Unverified item')).toHaveCount(0)
+
+
+  await page.getByRole('button', { name: 'LGU Relief Summary Report' }).click()
+  await expect(preview).toHaveAttribute('data-template', 'LGU')
+  await expect(preview.getByText('Relief Summary', { exact: true })).toBeVisible()
+  await expect(preview.getByText('Unverified item')).toBeVisible()
+})
+
 test('Relief Approval exposes View and Daily Reports mirrors relief sorting controls', async ({ page }) => {
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',
