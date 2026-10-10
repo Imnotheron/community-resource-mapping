@@ -74,11 +74,15 @@ function navStep(
 
 export function AdminWalkthrough({ user }: { user: AuthUser }) {
   const [isDesktop, setIsDesktop] = useState(false)
+  const [layoutReady, setLayoutReady] = useState(false)
   const { activeTourId } = useWalkthrough()
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1280px)')
-    const update = () => setIsDesktop(media.matches)
+    const update = () => {
+      setIsDesktop(media.matches)
+      setLayoutReady(true)
+    }
 
     update()
     media.addEventListener('change', update)
@@ -88,7 +92,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-first-login', user.id),
-      version: 3,
+      version: 4,
       title: 'Administrator guide',
       role: 'ADMIN',
       steps: [
@@ -105,11 +109,11 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
           title: 'Know where you are',
           description:
             'The workspace header names the section currently open and confirms which Administrator account is signed in.',
-          target: '.crms-dashboard-theme header',
+          target: (isDesktop ? '[data-tour="workspace-desktop-header"]' : '[data-tour="workspace-mobile-header"]'),
           placement: 'bottom',
-          beforeEnter: () => prepareTarget('.crms-dashboard-theme header'),
+          beforeEnter: () => prepareTarget((isDesktop ? '[data-tour="workspace-desktop-header"]' : '[data-tour="workspace-mobile-header"]')),
         },
-        {
+        ...(isDesktop ? [{
           id: 'navigation',
           title: 'Use the Administrator navigation',
           description:
@@ -185,24 +189,57 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
           beforeEnter: () =>
             prepareTarget('[data-tour="app-sidebar"] [data-tour="profile-menu"]'),
         },
+        ] : [
+          {
+            id: 'mobile-navigation',
+            title: 'Use the four main Administrator shortcuts',
+            description:
+              'The bottom bar shows Overview, Vulnerable Registrations, Users, and Relief Approval. All remaining tools are in More.',
+            target: '[data-tour="mobile-navigation"]',
+            placement: 'top',
+            beforeEnter: () => prepareTarget('[data-tour="mobile-navigation"]'),
+          },
+          ...[
+            ['overview', 'Overview', 'Review the municipal dashboard and alerts.'],
+            ['registrations', 'Vulnerable Registrations', 'Review registration approvals and register verified citizens.'],
+            ['users', 'Users', 'Manage Administrator, Worker, and Vulnerable accounts.'],
+            ['distributions', 'Relief Approval', 'Review beneficiaries, types, vulnerabilities, supporting photos and pending approvals.'],
+          ].map(([id, title, description]) => ({
+            id: `mobile-${id}`,
+            title,
+            description,
+            target: `[data-tour="mobile-nav-${id}"]`,
+            placement: 'top' as const,
+            beforeEnter: () => prepareTarget(`[data-tour="mobile-nav-${id}"]`),
+          })),
+          {
+            id: 'mobile-more',
+            title: 'Find the other Administrator tools in More',
+            description:
+              'More includes Operations History, Announcements, Feedback, Analytics, Vulnerable Map, Daily Reports, User Guide, your profile, and Sign out. Open the sheet yourself when you are ready; this tour does not click for you.',
+            target: '[data-tour="mobile-nav-more"]',
+            placement: 'top',
+            beforeEnter: () => prepareTarget('[data-tour="mobile-nav-more"]'),
+          },
+        ]),
         {
           id: 'restart',
           title: 'Return to the guide whenever you need it',
           description:
-            'The automatic welcome guide is for new accounts only. Existing users are not interrupted, but anyone can use this Guide button to start the Administrator walkthrough manually.',
+            'The welcome tour is automatic only for newly created accounts. You can replay it with this Guide button on mobile or desktop.',
           target: '[data-tour="restart-admin-tour"]',
           placement: 'left',
           beforeEnter: () => prepareTarget('[data-tour="restart-admin-tour"]'),
         },
       ],
     }),
-    [user.id, user.name],
+    [isDesktop, user.id, user.name],
   )
 
-  const autoStart = isDesktop && isNewWalkthroughAccount(user.createdAt)
+  const autoStart = layoutReady && isNewWalkthroughAccount(user.createdAt)
   const { start } = useWalkthroughTour(tour, { autoStart })
 
-  if (!isDesktop) return null
+  if (!layoutReady) return null
 
   return (
     <Button
@@ -212,7 +249,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
       onClick={start}
       disabled={Boolean(activeTourId)}
       aria-label="Open Administrator guide"
-      className="fixed bottom-10 right-6 z-40 hidden rounded-full bg-white/95 shadow-lg backdrop-blur-xl xl:inline-flex"
+      className="fixed bottom-24 right-4 z-40 inline-flex rounded-full bg-white/95 shadow-lg backdrop-blur-xl xl:bottom-10 xl:right-6"
     >
       <CircleHelp className="h-4 w-4" />
       Guide
