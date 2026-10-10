@@ -397,10 +397,10 @@ export function RegistrationWalkthrough({ user }: { user: AuthUser }) {
       const origin = event.target
       if (!(origin instanceof Element)) return
 
-      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"]')
+      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"], [data-tour^="mobile-nav-"]')
       if (!navItem) return
 
-      if (navItem.dataset.tour === 'nav-registrations') {
+      if ((navItem.dataset.tour === 'nav-registrations' || navItem.dataset.tour === 'mobile-nav-registrations')) {
         window.setTimeout(beginDiscovery, 0)
       } else {
         leaveRegistrations()
