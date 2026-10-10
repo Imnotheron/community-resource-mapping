@@ -144,7 +144,7 @@ function markDistributionsAnchors() {
 function WorkerDistributionsGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-my-distributions-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'My Distributions guide',
     role: 'WORKER',
     steps: [
@@ -169,7 +169,7 @@ function WorkerDistributionsGuide({ user }: { user: AuthUser }) {
         id: 'filter',
         title: 'Filter without changing the records',
         description:
-          'All shows every distribution under your account. Pending, Approved, and Rejected narrow the visible list. Changing this filter does not submit, approve, or delete anything.',
+          'Use search, status, barangay, and sort controls to narrow your records. Pending, Approved, and Rejected are record statuses; changing the filters does not submit, approve, or delete anything.',
         target: DISTRIBUTIONS_TARGETS.filter,
         placement: 'bottom',
         padding: 3,
@@ -281,7 +281,7 @@ function markRecordAnchors() {
 
   const header = ancestorContaining(heading, [
     'Record Relief Distribution',
-    'Log a new relief distribution for an approved citizen.',
+    'Log a distribution manually or import multiple distribution records from Excel.',
   ], 3)
   const submit = findButton(root, 'Record Distribution')
   const form = submit?.closest<HTMLElement>('[data-slot="card"]') ?? null
@@ -345,7 +345,7 @@ function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
         id: 'type',
         title: 'Choose the category that best describes the assistance',
         description:
-          'Distribution Type provides the broad category such as Food Pack, Hygiene Kit, Cash Assistance, Medical Supplies, Shelter Materials, or Other. The item details still need to explain what was actually provided.',
+          'Distribution Type allows choosing or entering a relief type, such as Food Pack, Hygiene Kit, Cash Assistance, Medical Supplies, or Shelter Materials. Describe the exact goods or services in Items Provided.',
         target: RECORD_TARGETS.type,
         placement: 'bottom',
         padding: 3,
