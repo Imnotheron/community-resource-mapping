@@ -198,7 +198,7 @@ export function AppShell({
           <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
             {!lightweightMotion ? <DashboardAmbient /> : null}
 
-            <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-border bg-background px-3 py-2.5 shadow-sm md:hidden">
+            <div data-tour="workspace-mobile-header" className="relative z-20 flex shrink-0 items-center justify-between border-b border-border bg-background px-3 py-2.5 shadow-sm xl:hidden">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-200 bg-white p-1 shadow-sm">
                   <img
@@ -245,7 +245,7 @@ export function AppShell({
               </div>
             </div>
 
-            <header className="relative z-10 hidden shrink-0 px-6 pt-4 md:block">
+            <header data-tour="workspace-desktop-header" className="relative z-10 hidden shrink-0 px-6 pt-4 xl:block">
               <div className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl border border-white/70 bg-white/70 px-5 shadow-[0_14px_45px_rgba(15,23,42,0.07)] backdrop-blur-xl">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-200 bg-white p-1 shadow-sm">
@@ -279,7 +279,7 @@ export function AppShell({
               </div>
             </header>
 
-            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4 md:px-6 md:py-5">
+            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pt-4 md:px-6 xl:py-5">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeView}
@@ -333,7 +333,7 @@ export function AppShell({
               />
             ) : null}
 
-            <footer className="relative z-10 hidden h-7 shrink-0 overflow-hidden border-t border-slate-200/80 bg-white/70 px-6 text-[0.6875rem] font-medium leading-none text-slate-500 backdrop-blur-xl md:block">
+            <footer className="relative z-10 hidden h-7 shrink-0 overflow-hidden border-t border-slate-200/80 bg-white/70 px-6 text-[0.6875rem] font-medium leading-none text-slate-500 backdrop-blur-xl xl:block">
               <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">

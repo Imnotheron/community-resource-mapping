@@ -547,10 +547,10 @@ export function AnnouncementsWalkthrough({ user }: { user: AuthUser }) {
       const origin = event.target
       if (!(origin instanceof Element)) return
 
-      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"]')
+      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"], [data-tour^="mobile-nav-"]')
       if (!navItem) return
 
-      if (navItem.dataset.tour === 'nav-announcements') {
+      if ((navItem.dataset.tour === 'nav-announcements' || navItem.dataset.tour === 'mobile-nav-announcements')) {
         window.setTimeout(beginDiscovery, 0)
       } else {
         leaveFeature()

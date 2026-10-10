@@ -509,10 +509,10 @@ export function FeedbackWalkthrough({ user }: { user: AuthUser }) {
       const origin = event.target
       if (!(origin instanceof Element)) return
 
-      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"]')
+      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"], [data-tour^="mobile-nav-"]')
       if (!navItem) return
 
-      if (navItem.dataset.tour === 'nav-feedback') {
+      if ((navItem.dataset.tour === 'nav-feedback' || navItem.dataset.tour === 'mobile-nav-feedback')) {
         window.setTimeout(beginDiscovery, 0)
       } else {
         leaveFeature()

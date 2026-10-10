@@ -561,10 +561,10 @@ export function VulnerableMapWalkthrough({ user }: { user: AuthUser }) {
       const origin = event.target
       if (!(origin instanceof Element)) return
 
-      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"]')
+      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"], [data-tour^="mobile-nav-"]')
       if (!navItem) return
 
-      if (navItem.dataset.tour === 'nav-map') {
+      if ((navItem.dataset.tour === 'nav-map' || navItem.dataset.tour === 'mobile-nav-map')) {
         window.setTimeout(beginDiscovery, 0)
       } else {
         leaveFeature()

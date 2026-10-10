@@ -284,10 +284,10 @@ export function AnalyticsWalkthrough({ user }: { user: AuthUser }) {
       const origin = event.target
       if (!(origin instanceof Element)) return
 
-      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"]')
+      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"], [data-tour^="mobile-nav-"]')
       if (!navItem) return
 
-      if (navItem.dataset.tour === 'nav-analytics') {
+      if ((navItem.dataset.tour === 'nav-analytics' || navItem.dataset.tour === 'mobile-nav-analytics')) {
         window.setTimeout(beginDiscovery, 0)
       } else {
         leaveAnalytics()

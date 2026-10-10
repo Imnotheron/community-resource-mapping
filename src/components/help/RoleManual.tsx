@@ -62,7 +62,7 @@ const roleCopy: Record<ManualRole, { eyebrow: string; title: string; description
     eyebrow: 'Field Worker User Guide',
     title: 'Capture accurate field records and keep assistance moving.',
     description:
-      'A practical guide for registering vulnerable citizens, updating household locations, submitting relief records, and syncing work back to the municipal dashboard.',
+      'A practical guide for registering citizens, recording relief with photo evidence, reviewing Activity History and the map, and preparing Daily Operations and Relief Reports.',
   },
   VULNERABLE: {
     eyebrow: 'Citizen User Guide',
@@ -108,7 +108,7 @@ const quickCards: Record<ManualRole, QuickCard[]> = {
     },
     {
       title: 'Sync field updates',
-      text: 'Submit relief records and confirm updates are synchronized before ending work.',
+      text: 'Record relief with supporting photos, then confirm your entry appears in My Relief Records as Pending before ending work.',
       icon: RefreshCcw,
       tone: 'bg-amber-50 text-amber-700 ring-amber-200',
     },
@@ -156,7 +156,7 @@ const adminGuide: GuideBlock[] = [
     steps: [
       'Go to Registrations and select Register Vulnerable Person.',
       'Enter personal information first: name, birth date, gender, contact number, and barangay.',
-      'Use the map picker to select the household location instead of guessing coordinates.',
+      'Use the map picker to select the household location instead of guessing coordinates, and verify the barangay and profile against existing records to prevent duplicates.',
       'Complete medical, vulnerability, guardian, and assistance details.',
       'Upload or mark required supporting documents when available.',
       'Review the summary, correct missing details, then submit or save as draft.',
@@ -178,10 +178,23 @@ const adminGuide: GuideBlock[] = [
     description: 'Use this before a distribution becomes an official municipal record.',
     icon: ClipboardCheck,
     steps: [
-      'Open Relief Approval and keep the filter on Pending.',
-      'Check beneficiary name, worker name, assistance type, quantity, date, and remarks.',
-      'Approve valid records only after confirming the beneficiary and distribution details.',
-      'Reject records with missing or suspicious data, then ask the worker to resubmit correctly.',
+      'Open Relief Approval, select Pending, and narrow the list by beneficiary, relief category, barangay, vulnerability, or worker if necessary.',
+      'Read the beneficiary name, vulnerability categories, worker, relief type, goods, quantity, and date. Use View to inspect the submitted supporting photos and detailed record.',
+      'Approve individually only after verification, or select specific pending records for a carefully reviewed bulk decision. Approve All and Reject All apply to the current filtered pending results.',
+      'Reject unverifiable records with a factual reason and arrange correction through the authorized process. Do not treat Pending or Rejected entries as accepted relief.',
+    ],
+  },
+  {
+    title: 'Prepare Daily Operations and Relief Reports',
+    description: 'Use accurate filters and verified quantities when preparing printouts.',
+    icon: BarChart3,
+    steps: [
+      'Open Daily Reports and choose Daily Operations Report for a selected Philippine calendar date. Filter by barangay, person, worker, relief status and type, or vulnerability as appropriate.',
+      'Review report totals and the source-record statuses before saving signatories or printing. Pending and Rejected are not verified completed distributions.',
+      'Switch to Relief Reports, select From/To dates, and click Generate Relief Report. Regenerate when the requested period changes.',
+      'Choose the LGU Relief Summary Report for operational status coverage, or the DSWD-style Relief Distribution Sheet or Relief Accomplishment Report for accepted records only.',
+      'For the DSWD-inspired sheet, enter only verified disaster details, units, and dependent counts. Collect real signatures or thumbmarks on paper; the preview is not an official DSWD-issued document.',
+      'Apply the report filters, verify Prepared by / Reviewed by details, and Print or Export CSV only for an authorized audience.',
     ],
   },
   {
@@ -192,7 +205,7 @@ const adminGuide: GuideBlock[] = [
       'Open Vulnerable Map to view household locations and assistance status by marker color.',
       'Open Analytics to review registration, distribution, and vulnerability trends.',
       'Use barangay-level patterns to identify underserved areas or records needing follow-up.',
-      'Export reports when preparing audits, meetings, or relief planning summaries.',
+      'Use Daily Reports for the current day or a chosen date, and switch to Relief Reports for a specific reporting period and authorized print format.',
     ],
   },
 ]
@@ -206,9 +219,9 @@ const workerGuide: GuideBlock[] = [
       'Read announcements and check any assigned field work.',
       'Open registration tools for citizens who need assisted encoding.',
       'Use the map picker to capture accurate household locations.',
-      'Submit relief records only after confirming beneficiary and quantity details.',
+      'Submit relief records only after confirming an approved beneficiary, item details, quantity, and 1–3 genuine supporting photos.',
       'Use Activity History to review your recorded relief work and worker-visible municipal events.',
-      'Check that your records are synced before ending your work session.',
+      'Confirm My Relief Records shows your submission as Pending for Administrator review, and consult Daily Reports when preparing verified summaries.',
     ],
   },
   {
@@ -219,7 +232,7 @@ const workerGuide: GuideBlock[] = [
       'Collect personal, contact, barangay, and vulnerability information.',
       'Select the exact household point on the map picker.',
       'Add guardian, medical, and assistance details when applicable.',
-      'Save as draft when documents or details are incomplete.',
+      'Save as draft when documents or details are incomplete; file attachments must be reselected when resuming.',
       'Submit only after reviewing the information with the citizen or guardian.',
     ],
   },
@@ -229,9 +242,19 @@ const workerGuide: GuideBlock[] = [
     icon: ClipboardCheck,
     steps: [
       'Select the correct beneficiary record.',
-      'Enter assistance type, quantity, date, and remarks.',
-      'Review all details before submission because admin approval depends on accuracy.',
-      'Wait for admin review if the record remains pending.',
+      'Enter the correct assistance type, items, quantity, and notes; select 1–3 clear supporting photos of the actual distribution.',
+      'Review all details and attached photo evidence before submission; the button stays disabled until a beneficiary and at least one photo are selected.',
+      'Review the Pending status in My Relief Records and read the Administrator rejection reason if the record is declined. Bulk Excel distribution import is currently disabled.',
+    ],
+  },
+  {
+    title: 'Prepare Worker Daily and Relief Reports',
+    description: 'Generate reports from your authorized distribution records.',
+    icon: BarChart3,
+    steps: [
+      'Open Daily Reports and use Daily Operations Report for a selected day. Filter by barangay, person, status, relief type, and vulnerability as needed.',
+      'Switch to Relief Reports, choose Today or a From/To date range, and generate the report.',
+      'Choose LGU Summary for all statuses, or DSWD-style RDS / Accomplishment for accepted records. Check quantities, supporting details, and signatories before printing or exporting CSV.',
     ],
   },
 ]
@@ -245,7 +268,8 @@ const vulnerableGuide: GuideBlock[] = [
       'Sign in using the account credentials provided by the municipality.',
       'Review your profile information and check if your contact details are correct.',
       'Read official announcements for schedules, notices, and assistance updates. Use type and date filters, Specific date, and newest/oldest sorting when you need to find a notice.',
-      'Contact support if your profile, barangay, or assistance details need correction.',
+      'Review your relief history and its Pending, Approved, or Rejected status. Use Feedback for service questions or concerns, not emergencies.',
+      'Contact authorized staff if your profile, barangay, household location, or assistance details need correction.',
     ],
   },
   {

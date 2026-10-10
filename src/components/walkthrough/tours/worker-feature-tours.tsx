@@ -6,7 +6,6 @@ import {
   NotebookPen,
   Package,
   PackagePlus,
-  Printer,
   UserPlus,
 } from 'lucide-react'
 
@@ -144,7 +143,7 @@ function markDistributionsAnchors() {
 function WorkerDistributionsGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-my-distributions-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'My Distributions guide',
     role: 'WORKER',
     steps: [
@@ -169,7 +168,7 @@ function WorkerDistributionsGuide({ user }: { user: AuthUser }) {
         id: 'filter',
         title: 'Filter without changing the records',
         description:
-          'All shows every distribution under your account. Pending, Approved, and Rejected narrow the visible list. Changing this filter does not submit, approve, or delete anything.',
+          'Use search, status, barangay, and sort controls to narrow your records. Pending, Approved, and Rejected are record statuses; changing the filters does not submit, approve, or delete anything.',
         target: DISTRIBUTIONS_TARGETS.filter,
         placement: 'bottom',
         padding: 3,
@@ -257,6 +256,7 @@ const RECORD_TARGETS = {
   items: '[data-tour="worker-record-items"]',
   quantity: '[data-tour="worker-record-quantity"]',
   notes: '[data-tour="worker-record-notes"]',
+  evidence: '[data-tour="worker-record-evidence"]',
   submit: '[data-tour="worker-record-submit"]',
 } as const
 
@@ -280,7 +280,7 @@ function markRecordAnchors() {
 
   const header = ancestorContaining(heading, [
     'Record Relief Distribution',
-    'Log a new relief distribution for an approved citizen.',
+    'Log a distribution manually or import multiple distribution records from Excel.',
   ], 3)
   const submit = findButton(root, 'Record Distribution')
   const form = submit?.closest<HTMLElement>('[data-slot="card"]') ?? null
@@ -289,8 +289,9 @@ function markRecordAnchors() {
   const items = fieldGroup(root, 'Items Provided')
   const quantity = fieldGroup(root, 'Quantity')
   const notes = fieldGroup(root, 'Notes (optional)')
+  const evidence = root.querySelector<HTMLElement>('#relief-supporting-photo')?.closest<HTMLElement>('.rounded-xl') ?? null
 
-  if (!header || !form || !beneficiary || !type || !items || !quantity || !notes || !submit) {
+  if (!header || !form || !beneficiary || !type || !items || !quantity || !notes || !evidence || !submit) {
     return false
   }
 
@@ -301,6 +302,7 @@ function markRecordAnchors() {
   setTourAnchor(items, 'worker-record-items', RECORD_ANCHOR)
   setTourAnchor(quantity, 'worker-record-quantity', RECORD_ANCHOR)
   setTourAnchor(notes, 'worker-record-notes', RECORD_ANCHOR)
+  setTourAnchor(evidence, 'worker-record-evidence', RECORD_ANCHOR)
   setTourAnchor(submit, 'worker-record-submit', RECORD_ANCHOR)
   return true
 }
@@ -308,7 +310,7 @@ function markRecordAnchors() {
 function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-record-distribution-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'Record Distribution guide',
     role: 'WORKER',
     steps: [
@@ -342,7 +344,7 @@ function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
         id: 'type',
         title: 'Choose the category that best describes the assistance',
         description:
-          'Distribution Type provides the broad category such as Food Pack, Hygiene Kit, Cash Assistance, Medical Supplies, Shelter Materials, or Other. The item details still need to explain what was actually provided.',
+          'Distribution Type allows choosing or entering a relief type, such as Food Pack, Hygiene Kit, Cash Assistance, Medical Supplies, or Shelter Materials. Describe the exact goods or services in Items Provided.',
         target: RECORD_TARGETS.type,
         placement: 'bottom',
         padding: 3,
@@ -375,10 +377,19 @@ function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
         padding: 3,
       },
       {
+        id: 'evidence',
+        title: 'Attach the required distribution photo evidence',
+        description:
+          'Before submitting, take or attach 1–3 clear JPEG, PNG, or WebP photos showing the real goods or assistance being distributed. Without at least one photo the Record Distribution button stays disabled. Bulk Excel submission is disabled because each record needs its own evidence.',
+        target: RECORD_TARGETS.evidence,
+        placement: 'auto',
+        padding: 3,
+      },
+      {
         id: 'submit',
         title: 'Record Distribution creates the Pending record',
         description:
-          'The button is enabled after a beneficiary is selected. Before pressing it, recheck beneficiary, category, items, quantity, and notes. The guide highlights the button but will not submit anything.',
+          'The button requires an approved beneficiary and at least one supporting photo. Before pressing it, recheck the beneficiary, relief type, items, quantity, notes, and attachments. The guide highlights the button but will not submit anything.',
         target: RECORD_TARGETS.submit,
         placement: 'top',
         padding: 3,
@@ -387,7 +398,7 @@ function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
         id: 'finish',
         title: 'Accuracy matters more than speed',
         description:
-          'Final check: Did the distribution actually occur? Is the beneficiary correct? Do the item description and quantity agree? Is every note factual? Am I prepared for an Administrator to review this exact record?',
+          'Final check: Did the distribution actually occur? Is the beneficiary correct? Do the item description and quantity agree? Is every note factual? Did I attach 1–3 genuine evidence photos? Am I prepared for an Administrator to review this exact record?',
         placement: 'center',
         eyebrow: 'Ready to record',
       },
@@ -450,7 +461,7 @@ function markRegisterAnchors() {
 function WorkerRegisterCitizenGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-register-citizen-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'Register Citizen guide',
     role: 'WORKER',
     steps: [
@@ -482,9 +493,9 @@ function WorkerRegisterCitizenGuide({ user }: { user: AuthUser }) {
       },
       {
         id: 'documents',
-        title: 'Current Worker submission records document availability, not uploaded files',
+        title: 'Worker registration sends supported document attachments',
         description:
-          'The present Worker API removes File objects before sending the registration. Document-availability flags can be recorded, but the actual files are not uploaded by this Worker workflow yet. Keep required source documents through the approved municipal process.',
+          'The form serializes supported attachments into the documents payload for the Worker registration request, then removes raw File objects from the JSON body. Saved drafts still do not retain file attachments; choose them again after resuming.',
         target: REGISTER_TARGETS.card,
         placement: 'auto',
         padding: 4,
@@ -830,220 +841,6 @@ function WorkerAnnouncementsGuide({ user }: { user: AuthUser }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Worker Daily Reports
-// ---------------------------------------------------------------------------
-
-const REPORTS_ANCHOR = 'data-worker-reports-tour-anchor'
-const REPORTS_TARGETS = {
-  header: '[data-tour="worker-reports-header"]',
-  template:
-    '[data-tour="daily-reports-template-settings"]',
-  date: '[data-tour="worker-reports-date"]',
-  summary: '[data-tour="worker-reports-summary"]',
-  distributions: '[data-tour="worker-reports-distributions"]',
-  notes: '[data-tour="worker-reports-notes"]',
-  print: '[data-tour="worker-reports-print"]',
-  report: '[data-tour="worker-reports-report"]',
-} as const
-
-function clearReportsAnchors() {
-  clearTourAnchors(REPORTS_ANCHOR)
-}
-
-function workerReportsVisible() {
-  const heading = findHeading('Daily Reports')
-  if (!heading) return false
-  const root = featureRoot('Daily Reports')
-  return Boolean(
-    root &&
-      root.querySelector<HTMLElement>(
-        '.report-print-root',
-      ),
-  )
-}
-
-function reportSection(root: ParentNode, title: string) {
-  const heading = findExact<HTMLElement>(root, 'h2', title)
-  return heading ? ancestorContaining(heading, [title], 3) : null
-}
-
-function markReportsAnchors() {
-  clearReportsAnchors()
-  const root = featureRoot('Daily Reports')
-  const heading = findHeading('Daily Reports')
-  if (!root || !heading) return false
-
-  if (hasLoadingText(root, [
-    'Generating daily report',
-    'Calculating registrations, distributions, workers, and field activity...',
-  ])) {
-    return false
-  }
-
-  const report = root.querySelector<HTMLElement>('.report-print-root')
-  const noData = findExact<HTMLElement>(root, 'p', 'No report data is available.')
-  const reportTarget = report ?? noData?.closest<HTMLElement>('[data-slot="card"]') ?? noData
-  if (!reportTarget) return false
-
-  const header = ancestorContaining(heading, [
-    'Daily Reports',
-    'Generate a date-based report, verify the figures, then print it on A4 paper.',
-  ], 3)
-  const template =
-    root.querySelector<HTMLElement>(
-      '[data-report-template-settings="true"]',
-    )
-  const dateInput = root.querySelector<HTMLInputElement>('#report-date')
-  const date = dateInput ? ancestorContaining(dateInput, ['Report date'], 3) : null
-  const summary = report ? reportSection(report, 'Daily Summary') : reportTarget
-  const distributions = report
-    ? reportSection(report, 'Relief Distributions') ??
-      reportTarget
-    : reportTarget
-  const notes = report
-    ? reportSection(report, 'Field Notes') ??
-      reportTarget
-    : reportTarget
-  const print = findButton(root, 'Print Report')
-
-  if (
-    !header ||
-    !template ||
-    !date ||
-    !summary ||
-    !distributions ||
-    !notes ||
-    !print
-  ) return false
-
-  setTourAnchor(header, 'worker-reports-header', REPORTS_ANCHOR)
-  setTourAnchor(
-    template,
-    'worker-reports-template',
-    REPORTS_ANCHOR,
-  )
-  setTourAnchor(date, 'worker-reports-date', REPORTS_ANCHOR)
-  setTourAnchor(summary, 'worker-reports-summary', REPORTS_ANCHOR)
-  setTourAnchor(distributions, 'worker-reports-distributions', REPORTS_ANCHOR)
-  setTourAnchor(notes, 'worker-reports-notes', REPORTS_ANCHOR)
-  setTourAnchor(print, 'worker-reports-print', REPORTS_ANCHOR)
-  setTourAnchor(reportTarget, 'worker-reports-report', REPORTS_ANCHOR)
-  return true
-}
-
-function WorkerReportsGuide({ user }: { user: AuthUser }) {
-  const tour = useMemo<WalkthroughTour>(() => ({
-    id: userScopedTourId('worker-daily-reports-first-use', user.id),
-    version: 2,
-    title: 'Worker Daily Reports guide',
-    role: 'WORKER',
-    steps: [
-      {
-        id: 'welcome',
-        title: 'Welcome to your Daily Accomplishment Report',
-        description:
-          'This report summarizes records attributed to your signed-in Worker account for one Philippine calendar date. The guide will not change the date or open the print window.',
-        placement: 'center',
-        eyebrow: 'Worker daily reporting',
-      },
-      {
-        id: 'purpose',
-        title: 'The report summarizes CRMS records—it does not verify them independently',
-        description:
-          'Review the underlying distributions and field notes before signing or circulating a report. A generated total can still reflect an incorrect beneficiary, quantity, date, status, or note.',
-        target: REPORTS_TARGETS.header,
-        placement: 'bottom',
-        padding: 4,
-      },
-      {
-        id: 'template',
-        title: 'Choose the report layout and keep signatories current',
-        description:
-          'Formal shows full detail, Compact uses a tighter print layout, and Summary focuses on key totals. The report title and both signature names and positions can be edited and saved so personnel changes do not require a code change.',
-        target: REPORTS_TARGETS.template,
-        placement: 'auto',
-        padding: 4,
-      },
-      {
-        id: 'date',
-        title: 'The selected day follows Asia/Manila time',
-        description:
-          'Changing Report date loads the Worker report from midnight to midnight in Philippine time. Confirm the Report Date printed inside the report, especially when activity was recorded around midnight.',
-        target: REPORTS_TARGETS.date,
-        placement: 'bottom',
-        padding: 3,
-      },
-      {
-        id: 'summary',
-        title: 'Read record counts and item quantity separately',
-        description:
-          'Distributions counts records. Approved, Pending, and Rejected divide those records by current status. Total Quantity adds the numeric quantity fields and is not the number of beneficiaries. Field Notes counts notes saved through the Worker Field Notes screen for the selected day.',
-        target: REPORTS_TARGETS.summary,
-        placement: 'auto',
-        padding: 4,
-      },
-      {
-        id: 'assigned',
-        title: 'Assigned Households is a current assignment count',
-        description:
-          'Assigned Households counts households currently linked to your Worker account. It is not limited to households visited on the selected date, so do not treat it as a daily accomplishment total.',
-        target: REPORTS_TARGETS.summary,
-        placement: 'auto',
-        padding: 4,
-      },
-      {
-        id: 'distributions',
-        title: 'Use the detail rows to verify the summary',
-        description:
-          'Each row shows beneficiary or household, barangay, items, quantity, and status. Pending and Rejected records remain part of the day’s recorded activity but must not be reported as approved assistance.',
-        target: REPORTS_TARGETS.distributions,
-        placement: 'auto',
-        padding: 3,
-      },
-      {
-        id: 'notes',
-        title: 'Field Notes are printed with their saved timestamps',
-        description:
-          'The report shows the note text and creation time. Check that sensitive details are necessary before printing. A note’s creation time can differ from the time of the field event described in it.',
-        target: REPORTS_TARGETS.notes,
-        placement: 'auto',
-        padding: 3,
-      },
-      {
-        id: 'print',
-        title: 'Print only after reviewing personal and operational data',
-        description:
-          'Print Report opens the browser print dialog and formats the document for A4 portrait paper. Confirm the date, printer, page range, intended recipient, and secure storage before creating paper or PDF copies.',
-        target: REPORTS_TARGETS.print,
-        placement: 'bottom',
-        padding: 3,
-      },
-      {
-        id: 'finish',
-        title: 'Sign only a report you have checked against the source records',
-        description:
-          'Final check: Is the date correct? Do the rows support the totals? Are Pending and Rejected records described accurately? Are field notes appropriate for the audience? Is the report being shared only with authorized people?',
-        placement: 'center',
-        eyebrow: 'Good reporting practice',
-      },
-    ],
-  }), [user.id])
-
-  return (
-    <ContextualFeatureGuide
-      user={user}
-      tour={tour}
-      navId="reports"
-      label="Daily Reports guide"
-      icon={<Printer className="h-4 w-4" />}
-      discover={markReportsAnchors}
-      clear={clearReportsAnchors}
-      isFeatureVisible={workerReportsVisible}
-    />
-  )
-}
-
 export function WorkerFeatureWalkthroughs({ user }: { user: AuthUser }) {
   return (
     <>
@@ -1053,7 +850,6 @@ export function WorkerFeatureWalkthroughs({ user }: { user: AuthUser }) {
       <WorkerRegisterCitizenGuide user={user} />
       <WorkerFieldNotesGuide user={user} />
       <WorkerAnnouncementsGuide user={user} />
-      <WorkerReportsGuide user={user} />
     </>
   )
 }

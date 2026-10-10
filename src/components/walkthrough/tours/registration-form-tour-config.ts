@@ -15,7 +15,7 @@ export function createRegistrationFormTour(
 
   return {
     id: tourId,
-    version: 4,
+    version: 5,
     title: 'Registration form guide',
     role,
     steps: [
@@ -97,7 +97,7 @@ export function createRegistrationFormTour(
         id: 'documents',
         title: '4. Documents — record the supporting documents available',
         description: workerMode
-          ? 'Use this section to record which supporting documents are available. The current Worker submission sends the document-availability flags but does not upload the selected File objects yet. Saved drafts also do not retain attachments, so keep required source documents through the approved municipal process.'
+          ? 'Use this section to record which supporting documents are available. Selected supported files are serialized and submitted with the Worker registration for authorized review. Saved drafts do not retain attachments, so choose the files again after resuming.'
           : 'Use this section for supporting documents such as proof of identity, proof of residence, medical records, or ID photos when available. If you loaded a saved draft, choose the files again because drafts do not retain file attachments.',
         target: TARGETS.section,
         placement: 'bottom',

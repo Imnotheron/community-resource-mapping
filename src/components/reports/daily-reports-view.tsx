@@ -35,6 +35,7 @@ import {
 import { WowLoader } from '@/components/ui/wow-loader'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ReliefReportsView } from '@/components/reports/relief-reports-view'
+import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
 
 function todayInputValue() {
   return new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10)
@@ -1087,7 +1088,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
   ])
 
   return (
-    <div className="daily-reports-screen space-y-5 animate-fade-in">
+    <div data-tour="reports-operations-root" className="daily-reports-screen space-y-5 animate-fade-in">
       <style>{`
         @media print {
           @page {
@@ -1389,7 +1390,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         }
       `}</style>
 
-      <div className="no-print flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div data-tour="reports-operations-header" className="no-print flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-emerald-700">
             Operations Reporting
@@ -1418,6 +1419,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
       </div>
 
       <Card
+        data-tour="reports-operations-settings"
         data-report-template-settings="true"
         className="no-print border-slate-200"
       >
@@ -1555,7 +1557,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         </CardContent>
       </Card>
 
-      <Card className="no-print min-w-0 border-slate-200">
+      <Card data-tour="reports-operations-filters" className="no-print min-w-0 border-slate-200">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarDays className="h-4 w-4 text-emerald-600" />
@@ -1828,6 +1830,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         </Card>
       ) : (
         <div
+          data-tour="reports-operations-preview"
           data-print-report="true"
           className="report-print-root rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-10"
           aria-label={
@@ -1857,10 +1860,11 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
   const [section, setSection] = useState<'OPERATIONS' | 'RELIEF'>('OPERATIONS')
 
   return (
-    <section className="space-y-5" data-testid="daily-report-workspace">
+    <section className="space-y-5" data-tour="daily-reports-workspace" data-testid="daily-report-workspace">
       <div
         className="no-print flex w-full max-w-lg gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5"
         role="tablist"
+        data-tour="daily-reports-tabs"
         aria-label="Report sections"
       >
         <button
@@ -1871,6 +1875,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           className={`min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${section === 'OPERATIONS'
             ? 'bg-white text-emerald-800 shadow-sm'
             : 'text-slate-600 hover:bg-white/70'}`}
+          data-tour="reports-tab-operations"
         >
           Daily Operations Report
         </button>
@@ -1882,6 +1887,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
           className={`min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${section === 'RELIEF'
             ? 'bg-white text-emerald-800 shadow-sm'
             : 'text-slate-600 hover:bg-white/70'}`}
+          data-tour="reports-tab-relief"
         >
           Relief Reports
         </button>
@@ -1890,6 +1896,7 @@ export function DailyReportsView({ user }: { user: AuthUser }) {
       {section === 'OPERATIONS'
         ? <DailyOperationsReportsView user={user} />
         : <ReliefReportsView user={user} />}
+      <DailyReportsWalkthrough key={section} user={user} section={section} />
     </section>
   )
 }
