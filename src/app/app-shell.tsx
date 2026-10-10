@@ -13,7 +13,6 @@ import { ReliefApprovalWalkthrough } from '@/components/walkthrough/tours/relief
 import { AnnouncementsWalkthrough } from '@/components/walkthrough/tours/announcements-tour'
 import { FeedbackWalkthrough } from '@/components/walkthrough/tours/feedback-tour'
 import { VulnerableMapWalkthrough } from '@/components/walkthrough/tours/vulnerable-map-tour'
-import { DailyReportsWalkthrough } from '@/components/walkthrough/tours/daily-reports-tour'
 import { OperationsHistoryWalkthrough } from '@/components/walkthrough/tours/operations-history-tour'
 import { ProfileSettingsWalkthrough } from '@/components/walkthrough/tours/profile-settings-tour'
 import { WorkerWalkthrough } from '@/components/walkthrough/tours/worker-tour'
@@ -280,7 +279,6 @@ function AppShellContent() {
         <AnnouncementsWalkthrough user={user} />
         <FeedbackWalkthrough user={user} />
         <VulnerableMapWalkthrough user={user} />
-        <DailyReportsWalkthrough user={user} />
         {setupReminder}
       </>
     )
