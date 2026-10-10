@@ -345,7 +345,7 @@ contains(
 )
 contains(
   'src/components/walkthrough/tours/admin-tour.tsx',
-  '[data-tour="mobile-nav-distributions"]',
+  "['distributions', 'Relief Approval'",
   'The Administrator welcome guide must support Relief Approval on mobile',
 )
 contains(
