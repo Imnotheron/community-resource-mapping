@@ -244,7 +244,7 @@ export function RegistrationWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-registration-first-use', user.id),
-      version: 1,
+      version: 2,
       title: 'Registrations guide',
       role: 'ADMIN',
       steps: [
@@ -269,7 +269,7 @@ export function RegistrationWalkthrough({ user }: { user: AuthUser }) {
           id: 'status-filter',
           title: 'Choose which registrations you want to see',
           description:
-            'Use this status filter to switch between Pending, Approved, Rejected, or All. When you are reviewing new applications, start with Pending so you only see people who still need a decision.',
+            'Filter by Pending, Approved, Rejected, or All. Search for a citizen, narrow by vulnerability sector, and sort by name, sector, barangay, newest, or oldest. Start with Pending for undecided applications.',
           target: TARGETS.statusFilter,
           placement: 'left',
           padding: 2,
@@ -278,7 +278,7 @@ export function RegistrationWalkthrough({ user }: { user: AuthUser }) {
           id: 'record-list',
           title: 'Each card is one person’s registration',
           description:
-            'The list changes when you change the status filter. If you see “No registrations,” there is simply nothing in that status right now—you do not need to fix anything.',
+            'The list changes with search, status, sector, and sort settings. If you see “No registrations,” there is simply nothing in that status right now—you do not need to fix anything.',
           target: TARGETS.records,
           placement: 'auto',
           padding: 3,
