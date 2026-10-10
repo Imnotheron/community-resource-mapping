@@ -100,7 +100,7 @@ export function AdminWalkthrough({ user }: { user: AuthUser }) {
           id: 'welcome',
           title: `Welcome to CRMS${user.name ? `, ${user.name}` : ''}`,
           description:
-            'This welcome guide is shown automatically only to newly created accounts. It introduces every Administrator section in the same order it appears in the sidebar. You can skip it now and reopen it later with the Guide button.',
+            'This welcome guide appears automatically for new accounts. It follows the current Administrator navigation on desktop or mobile. You can skip it and reopen it later using Guide.',
           placement: 'center',
           eyebrow: 'Welcome guide',
         },
