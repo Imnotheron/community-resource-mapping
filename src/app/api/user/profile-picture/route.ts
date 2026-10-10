@@ -1,25 +1,16 @@
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-import sharp from 'sharp'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { requireMatchingRequestUser } from '@/lib/request-user-session'
 
 // Deployment targets such as Vercel cannot persist uploads under public/.
-// Store a small, normalized WebP data URL in the existing User.profilePicture
-// TEXT column instead: no new table, external storage credentials, or files.
+// Store a small, client-normalized image data URL in User.profilePicture.
+// No native image library, new table, external credentials, or files are needed.
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const MAX_SAVED_BYTES = 48 * 1024
-const MAX_IMAGE_PIXELS = 25_000_000
-const MAX_DIMENSION = 256
-
-const MIME_TYPES_BY_FORMAT: Record<string, string[]> = {
-  jpeg: ['image/jpeg', 'image/jpg'],
-  png: ['image/png'],
-  webp: ['image/webp'],
-}
 
 function errorJson(message: string, status: number) {
   return NextResponse.json(
@@ -28,45 +19,30 @@ function errorJson(message: string, status: number) {
   )
 }
 
-async function toStoredPicture(file: File): Promise<string | null> {
-  const input = Buffer.from(await file.arrayBuffer())
+// Check the actual file signature, not just the untrusted multipart MIME.
+// Client-side canvas export removes camera EXIF/GPS metadata and shrinks
+// the image before upload. The strict byte limit also bounds database size.
+function detectImageMime(input: Buffer): string | null {
+  if (
+    input.length >= 4 &&
+    input[0] === 0xff &&
+    input[1] === 0xd8 &&
+    input[2] === 0xff &&
+    input[input.length - 2] === 0xff &&
+    input[input.length - 1] === 0xd9
+  ) return 'image/jpeg'
 
-  try {
-    const metadata = await sharp(input, {
-      limitInputPixels: MAX_IMAGE_PIXELS,
-    }).metadata()
+  if (
+    input.length >= 24 &&
+    input.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  ) return 'image/png'
 
-    if (
-      !metadata.format ||
-      !MIME_TYPES_BY_FORMAT[metadata.format]?.includes(file.type)
-    ) {
-      return null
-    }
-
-    // Remove EXIF/location data and normalize all accepted formats.
-    // Always resize before storing to keep JSON login/user-list responses
-    // small even when many people have profile pictures.
-    for (const quality of [72, 55, 38]) {
-      const image = await sharp(input, {
-        limitInputPixels: MAX_IMAGE_PIXELS,
-      })
-        .rotate()
-        .resize({
-          width: MAX_DIMENSION,
-          height: MAX_DIMENSION,
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .webp({ quality, effort: 4 })
-        .toBuffer()
-
-      if (image.length <= MAX_SAVED_BYTES) {
-        return `data:image/webp;base64,${image.toString('base64')}`
-      }
-    }
-  } catch (error) {
-    console.warn('Invalid or unreadable profile picture:', error)
-  }
+  if (
+    input.length >= 16 &&
+    input.toString('ascii', 0, 4) === 'RIFF' &&
+    input.toString('ascii', 8, 12) === 'WEBP' &&
+    input.readUInt32LE(4) + 8 === input.length
+  ) return 'image/webp'
 
   return null
 }
@@ -97,13 +73,23 @@ export async function POST(request: NextRequest) {
     })
     if (!existing) return errorJson('User not found', 404)
 
-    const profilePictureUrl = await toStoredPicture(file)
-    if (!profilePictureUrl) {
+    if (file.size > MAX_SAVED_BYTES) {
       return errorJson(
-        'This photo could not be processed. Choose a valid JPG, PNG, or WebP image.',
+        'Photo is too large after preparation. Refresh the page and try a smaller image.',
+        413,
+      )
+    }
+
+    const contents = Buffer.from(await file.arrayBuffer())
+    const actualMime = detectImageMime(contents)
+    const declaredMime = file.type === 'image/jpg' ? 'image/jpeg' : file.type
+    if (!actualMime || actualMime !== declaredMime) {
+      return errorJson(
+        'Invalid image contents. Choose a valid JPG, PNG, or WebP image.',
         400,
       )
     }
+    const profilePictureUrl = `data:${actualMime};base64,${contents.toString('base64')}`
 
     await db.user.update({
       where: { id: auth.userId },
