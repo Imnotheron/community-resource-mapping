@@ -415,10 +415,10 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
   )
 
   return (
-    <div className="space-y-5" data-testid="relief-reports-section">
+    <div data-tour="reports-relief-root" className="space-y-5" data-testid="relief-reports-section">
       <style>{PRINT_CSS}</style>
 
-      <div className="no-print flex flex-wrap items-start justify-between gap-3">
+      <div data-tour="reports-relief-header" className="no-print flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-xl font-semibold text-slate-950">
             <FileBarChart2 className="h-5 w-5 text-emerald-700" />
@@ -446,7 +446,7 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
         </div>
       </div>
 
-      <Card className="no-print min-w-0">
+      <Card data-tour="reports-relief-request" className="no-print min-w-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarRange className="h-4 w-4 text-emerald-700" />
@@ -513,7 +513,7 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
         </Card>
       ) : (
         <>
-          <Card className="no-print min-w-0" data-testid="relief-report-template-picker">
+          <Card className="no-print min-w-0" data-tour="reports-relief-templates" data-testid="relief-report-template-picker">
             <CardHeader>
               <CardTitle className="text-base">Choose print template</CardTitle>
             </CardHeader>
@@ -555,7 +555,7 @@ export function ReliefReportsView({ user }: { user: AuthUser }) {
               <CardTitle className="text-base">Filter this relief report</CardTitle>
             </CardHeader>
             <CardContent
-              data-testid="relief-report-filters"
+              data-tour="reports-relief-filters" data-testid="relief-report-filters"
               className="grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3 [&>div]:min-w-0"
             >
               <div className="space-y-2">
