@@ -257,6 +257,7 @@ const RECORD_TARGETS = {
   items: '[data-tour="worker-record-items"]',
   quantity: '[data-tour="worker-record-quantity"]',
   notes: '[data-tour="worker-record-notes"]',
+  evidence: '[data-tour="worker-record-evidence"]',
   submit: '[data-tour="worker-record-submit"]',
 } as const
 
@@ -289,8 +290,9 @@ function markRecordAnchors() {
   const items = fieldGroup(root, 'Items Provided')
   const quantity = fieldGroup(root, 'Quantity')
   const notes = fieldGroup(root, 'Notes (optional)')
+  const evidence = root.querySelector<HTMLElement>('#relief-supporting-photo')?.closest<HTMLElement>('.rounded-xl') ?? null
 
-  if (!header || !form || !beneficiary || !type || !items || !quantity || !notes || !submit) {
+  if (!header || !form || !beneficiary || !type || !items || !quantity || !notes || !evidence || !submit) {
     return false
   }
 
@@ -301,6 +303,7 @@ function markRecordAnchors() {
   setTourAnchor(items, 'worker-record-items', RECORD_ANCHOR)
   setTourAnchor(quantity, 'worker-record-quantity', RECORD_ANCHOR)
   setTourAnchor(notes, 'worker-record-notes', RECORD_ANCHOR)
+  setTourAnchor(evidence, 'worker-record-evidence', RECORD_ANCHOR)
   setTourAnchor(submit, 'worker-record-submit', RECORD_ANCHOR)
   return true
 }
@@ -308,7 +311,7 @@ function markRecordAnchors() {
 function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-record-distribution-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'Record Distribution guide',
     role: 'WORKER',
     steps: [
@@ -375,10 +378,19 @@ function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
         padding: 3,
       },
       {
+        id: 'evidence',
+        title: 'Attach the required distribution photo evidence',
+        description:
+          'Before submitting, take or attach 1–3 clear JPEG, PNG, or WebP photos showing the real goods or assistance being distributed. Without at least one photo the Record Distribution button stays disabled. Bulk Excel submission is disabled because each record needs its own evidence.',
+        target: RECORD_TARGETS.evidence,
+        placement: 'auto',
+        padding: 3,
+      },
+      {
         id: 'submit',
         title: 'Record Distribution creates the Pending record',
         description:
-          'The button is enabled after a beneficiary is selected. Before pressing it, recheck beneficiary, category, items, quantity, and notes. The guide highlights the button but will not submit anything.',
+          'The button requires an approved beneficiary and at least one supporting photo. Before pressing it, recheck the beneficiary, relief type, items, quantity, notes, and attachments. The guide highlights the button but will not submit anything.',
         target: RECORD_TARGETS.submit,
         placement: 'top',
         padding: 3,
@@ -387,7 +399,7 @@ function WorkerRecordDistributionGuide({ user }: { user: AuthUser }) {
         id: 'finish',
         title: 'Accuracy matters more than speed',
         description:
-          'Final check: Did the distribution actually occur? Is the beneficiary correct? Do the item description and quantity agree? Is every note factual? Am I prepared for an Administrator to review this exact record?',
+          'Final check: Did the distribution actually occur? Is the beneficiary correct? Do the item description and quantity agree? Is every note factual? Did I attach 1–3 genuine evidence photos? Am I prepared for an Administrator to review this exact record?',
         placement: 'center',
         eyebrow: 'Ready to record',
       },
@@ -450,7 +462,7 @@ function markRegisterAnchors() {
 function WorkerRegisterCitizenGuide({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(() => ({
     id: userScopedTourId('worker-register-citizen-first-use', user.id),
-    version: 1,
+    version: 2,
     title: 'Register Citizen guide',
     role: 'WORKER',
     steps: [
@@ -482,9 +494,9 @@ function WorkerRegisterCitizenGuide({ user }: { user: AuthUser }) {
       },
       {
         id: 'documents',
-        title: 'Current Worker submission records document availability, not uploaded files',
+        title: 'Worker registration sends supported document attachments',
         description:
-          'The present Worker API removes File objects before sending the registration. Document-availability flags can be recorded, but the actual files are not uploaded by this Worker workflow yet. Keep required source documents through the approved municipal process.',
+          'The form serializes supported attachments into the documents payload for the Worker registration request, then removes raw File objects from the JSON body. Saved drafts still do not retain file attachments; choose them again after resuming.',
         target: REGISTER_TARGETS.card,
         placement: 'auto',
         padding: 4,
