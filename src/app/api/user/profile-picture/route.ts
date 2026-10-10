@@ -1,27 +1,74 @@
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
-import { existsSync } from 'fs'
-import { mkdir, unlink, writeFile } from 'fs/promises'
-import { join } from 'path'
+import sharp from 'sharp'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { requireMatchingRequestUser } from '@/lib/request-user-session'
 
-function safePicturePath(value: string | null | undefined) {
-  if (!value || !value.startsWith('/uploads/')) return null
-  return join(process.cwd(), 'public', value)
+// Deployment targets such as Vercel cannot persist uploads under public/.
+// Store a small, normalized WebP data URL in the existing User.profilePicture
+// TEXT column instead: no new table, external storage credentials, or files.
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+const MAX_SAVED_BYTES = 48 * 1024
+const MAX_IMAGE_PIXELS = 25_000_000
+const MAX_DIMENSION = 256
+
+const MIME_TYPES_BY_FORMAT: Record<string, string[]> = {
+  jpeg: ['image/jpeg', 'image/jpg'],
+  png: ['image/png'],
+  webp: ['image/webp'],
 }
 
-async function removeStoredPicture(value: string | null | undefined) {
-  const filepath = safePicturePath(value)
-  if (!filepath || !existsSync(filepath)) return
+function errorJson(message: string, status: number) {
+  return NextResponse.json(
+    { success: false, error: message },
+    { status, headers: { 'Cache-Control': 'no-store' } },
+  )
+}
+
+async function toStoredPicture(file: File): Promise<string | null> {
+  const input = Buffer.from(await file.arrayBuffer())
 
   try {
-    await unlink(filepath)
+    const metadata = await sharp(input, {
+      limitInputPixels: MAX_IMAGE_PIXELS,
+    }).metadata()
+
+    if (
+      !metadata.format ||
+      !MIME_TYPES_BY_FORMAT[metadata.format]?.includes(file.type)
+    ) {
+      return null
+    }
+
+    // Remove EXIF/location data and normalize all accepted formats.
+    // Always resize before storing to keep JSON login/user-list responses
+    // small even when many people have profile pictures.
+    for (const quality of [72, 55, 38]) {
+      const image = await sharp(input, {
+        limitInputPixels: MAX_IMAGE_PIXELS,
+      })
+        .rotate()
+        .resize({
+          width: MAX_DIMENSION,
+          height: MAX_DIMENSION,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality, effort: 4 })
+        .toBuffer()
+
+      if (image.length <= MAX_SAVED_BYTES) {
+        return `data:image/webp;base64,${image.toString('base64')}`
+      }
+    }
   } catch (error) {
-    console.error('Error deleting profile picture file:', error)
+    console.warn('Invalid or unreadable profile picture:', error)
   }
+
+  return null
 }
 
 export async function POST(request: NextRequest) {
@@ -33,90 +80,44 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file')
 
     if (!(file instanceof File)) {
-      return NextResponse.json(
-        { success: false, error: 'No file uploaded' },
-        { status: 400 },
-      )
+      return errorJson('No file uploaded', 400)
     }
 
-    const allowedTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Only JPG, PNG, and WebP images are allowed',
-        },
-        { status: 400 },
-      )
+    if (file.size === 0 || file.size > MAX_UPLOAD_BYTES) {
+      return errorJson('Choose an image smaller than 5 MB', 400)
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { success: false, error: 'File size must be less than 5MB' },
-        { status: 400 },
-      )
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      return errorJson('Only JPG, PNG, and WebP images are allowed', 400)
     }
 
-    const user = await db.user.findUnique({
+    const existing = await db.user.findUnique({
       where: { id: auth.userId },
-      select: { profilePicture: true },
+      select: { id: true },
     })
+    if (!existing) return errorJson('User not found', 404)
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 },
+    const profilePictureUrl = await toStoredPicture(file)
+    if (!profilePictureUrl) {
+      return errorJson(
+        'This photo could not be processed. Choose a valid JPG, PNG, or WebP image.',
+        400,
       )
     }
 
-    const uploadDir = join(process.cwd(), 'public', 'uploads')
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
-
-    const extensionByType: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/jpg': 'jpg',
-      'image/png': 'png',
-      'image/webp': 'webp',
-    }
-    const extension = extensionByType[file.type]
-    const filename = `${Date.now()}-profile-${auth.userId}.${extension}`
-    const filepath = join(uploadDir, filename)
-    const profilePictureUrl = `/uploads/${filename}`
-
-    const bytes = await file.arrayBuffer()
-    await writeFile(filepath, Buffer.from(bytes))
-
-    try {
-      await db.user.update({
-        where: { id: auth.userId },
-        data: { profilePicture: profilePictureUrl },
-      })
-    } catch (error) {
-      await removeStoredPicture(profilePictureUrl)
-      throw error
-    }
-
-    await removeStoredPicture(user.profilePicture)
+    await db.user.update({
+      where: { id: auth.userId },
+      data: { profilePicture: profilePictureUrl },
+    })
 
     return NextResponse.json({
       success: true,
       profilePictureUrl,
       message: 'Profile picture uploaded successfully',
-    })
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Error uploading profile picture:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to upload profile picture' },
-      { status: 500 },
-    )
+    return errorJson('Failed to save profile picture. Please try again.', 500)
   }
 }
 
@@ -125,35 +126,25 @@ export async function DELETE(request: NextRequest) {
     const auth = await requireMatchingRequestUser(request)
     if ('error' in auth) return auth.error
 
-    const user = await db.user.findUnique({
+    const existing = await db.user.findUnique({
       where: { id: auth.userId },
       select: { profilePicture: true },
     })
+    if (!existing) return errorJson('User not found', 404)
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 },
-      )
-    }
-
-    if (user.profilePicture) {
+    if (existing.profilePicture) {
       await db.user.update({
         where: { id: auth.userId },
         data: { profilePicture: null },
       })
-      await removeStoredPicture(user.profilePicture)
     }
 
     return NextResponse.json({
       success: true,
       message: 'Profile picture removed successfully',
-    })
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Error removing profile picture:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to remove profile picture' },
-      { status: 500 },
-    )
+    return errorJson('Failed to remove profile picture. Please try again.', 500)
   }
 }
