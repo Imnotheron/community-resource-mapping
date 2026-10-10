@@ -336,6 +336,64 @@ contains(
   'Relief report summaries must distinguish approved quantities',
 )
 
+
+// Walkthroughs must stay aligned to the real responsive navigation and reporting UI.
+contains(
+  'src/components/layout/mobile-app-nav.tsx',
+  'xl:hidden',
+  'Mobile bottom navigation must remain visible until the desktop xl sidebar appears',
+)
+contains(
+  'src/components/walkthrough/tours/admin-tour.tsx',
+  '[data-tour="mobile-nav-distributions"]',
+  'The Administrator welcome guide must support Relief Approval on mobile',
+)
+contains(
+  'src/components/walkthrough/tours/worker-tour.tsx',
+  "'history',",
+  'The Worker welcome guide must include Activity History in the real navigation order',
+)
+contains(
+  'src/components/walkthrough/tours/worker-feature-tours.tsx',
+  'worker-record-evidence',
+  'The Worker relief guide must point to the mandatory photo evidence field',
+)
+contains(
+  'src/components/walkthrough/tours/worker-feature-tours.tsx',
+  'Log a distribution manually or import multiple distribution records from Excel.',
+  'The Worker record guide must discover the current distribution screen subtitle',
+)
+contains(
+  'src/components/walkthrough/tours/relief-approval-tour.tsx',
+  'No distributions match the current filters.',
+  'Relief Approval guide must support the current empty state',
+)
+contains(
+  'src/components/walkthrough/tours/relief-approval-tour.tsx',
+  'relief-approval-view',
+  'Relief Approval walkthrough must teach the View photo-evidence workflow',
+)
+contains(
+  'src/components/walkthrough/tours/daily-reports-tour.tsx',
+  'DSWD-style Relief Distribution Sheet',
+  'Relief Reports walkthrough must describe the current DSWD-style template',
+)
+contains(
+  'src/components/reports/daily-reports-view.tsx',
+  '<DailyReportsWalkthrough key={section} user={user} section={section} />',
+  'Both Daily Operations and Relief Reports tabs must mount their contextual guides',
+)
+contains(
+  'src/components/walkthrough/tours/registration-form-tour-config.ts',
+  'Selected supported files are serialized',
+  'Worker registration walkthrough must not claim that attachments are discarded',
+)
+excludes(
+  'src/components/walkthrough/tours/registration-form-tour-config.ts',
+  'does not upload the selected File objects',
+  'Worker registration tour must not describe the obsolete no-upload behavior',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
