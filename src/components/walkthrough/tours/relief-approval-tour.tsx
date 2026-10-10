@@ -383,10 +383,10 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
       const origin = event.target
       if (!(origin instanceof Element)) return
 
-      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"]')
+      const navItem = origin.closest<HTMLElement>('[data-tour^="nav-"], [data-tour^="mobile-nav-"]')
       if (!navItem) return
 
-      if (navItem.dataset.tour === 'nav-distributions') {
+      if ((navItem.dataset.tour === 'nav-distributions' || navItem.dataset.tour === 'mobile-nav-distributions')) {
         window.setTimeout(beginDiscovery, 0)
       } else {
         leaveFeature()
