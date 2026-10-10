@@ -139,11 +139,12 @@ function markReliefApprovalAnchors() {
 
   // Use the current section structure, not legacy text or labels:
   // cards now lead with the beneficiary name, not "Beneficiary:".
-  const header = ancestorContaining(
+  const titleBlock = ancestorContaining(
     heading,
     ['Relief Distribution Approval', 'Review relief distributions by beneficiary'],
     3,
   )
+  const header = titleBlock?.parentElement
   const featureRoot = header?.parentElement
   if (!(header instanceof HTMLElement) || !(featureRoot instanceof HTMLElement)) return false
 
