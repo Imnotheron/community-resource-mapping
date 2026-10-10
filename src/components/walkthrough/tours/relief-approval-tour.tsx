@@ -24,6 +24,8 @@ const TARGETS = {
   filter: '[data-tour="relief-approval-filter"]',
   record: '[data-tour="relief-approval-record"]',
   actions: '[data-tour="relief-approval-actions"]',
+  view: '[data-tour="relief-approval-view"]',
+  bulk: '[data-tour="relief-approval-bulk"]',
 } as const
 
 function normalizedText(value: string | null | undefined) {
@@ -135,90 +137,64 @@ function markReliefApprovalAnchors() {
   )
   if (!heading) return false
 
-  const headingBlock = ancestorContaining(heading, [
-    'Relief Distribution Approval',
-    'Review relief distributions recorded by field workers.',
-  ])
-  if (!headingBlock) return false
-
-  const header = headingBlock.parentElement instanceof HTMLElement
-    ? headingBlock.parentElement
-    : headingBlock
-  const featureRoot = header.parentElement instanceof HTMLElement
-    ? header.parentElement
-    : header
+  // Use the current section structure, not legacy text or labels:
+  // cards now lead with the beneficiary name, not "Beneficiary:".
+  const header = ancestorContaining(
+    heading,
+    ['Relief Distribution Approval', 'Review relief distributions by beneficiary'],
+    3,
+  )
+  const featureRoot = header?.parentElement
+  if (!(header instanceof HTMLElement) || !(featureRoot instanceof HTMLElement)) return false
 
   const filter = Array.from(
     header.querySelectorAll<HTMLElement>('[role="combobox"]'),
   ).find(isVisible) ?? null
 
-  const beneficiaryLabel = findVisibleStartingWith<HTMLElement>(
-    featureRoot,
-    'span',
-    'Beneficiary:',
-  )
+  const firstHeading = Array.from(
+    featureRoot.querySelectorAll<HTMLHeadingElement>('[data-slot="card"] h3'),
+  ).find(isVisible) ?? null
+  const firstRecord = firstHeading?.closest<HTMLElement>('[data-slot="card"]') ?? null
 
-  const detailsGrid = beneficiaryLabel
-    ? ancestorContaining(beneficiaryLabel, [
-        'Beneficiary:',
-        'Worker:',
-        'Quantity:',
-        'Date:',
-      ], 6)
-    : null
-
-  // The details grid is inside the left column of the card row. Move two
-  // levels up so the spotlight also includes distribution type, item text,
-  // notes, and the action area described by the guide.
-  const firstRecord =
-    detailsGrid?.parentElement?.parentElement instanceof HTMLElement
-      ? detailsGrid.parentElement.parentElement
-      : detailsGrid
-
-  const emptyState = Array.from(
-    featureRoot.querySelectorAll<HTMLElement>('p, div'),
-  ).find((element) => {
-    if (!isVisible(element)) return false
-    const text = normalizedText(element.textContent)
-    return /^No (pending|approved|rejected|all) distributions\.$/i.test(text)
-  }) ?? null
-
-  // Do not attach the tour while the records area is still loading. Waiting
-  // for either a real record or the final empty-state prevents stale targets.
-  if (!filter || (!firstRecord && !emptyState)) {
-    clearReliefApprovalAnchors()
-    return false
-  }
-
-  const recordTarget = firstRecord ?? emptyState!
-
-  const approve = Array.from(
-    featureRoot.querySelectorAll<HTMLButtonElement>('button'),
+  const emptyText = Array.from(
+    featureRoot.querySelectorAll<HTMLElement>('p'),
   ).find(
-    (button) => isVisible(button) && normalizedText(button.textContent) === 'Approve',
+    (element) =>
+      isVisible(element) &&
+      normalizedText(element.textContent) === 'No distributions match the current filters.',
   ) ?? null
-  const reject = Array.from(
-    featureRoot.querySelectorAll<HTMLButtonElement>('button'),
-  ).find(
-    (button) => isVisible(button) && normalizedText(button.textContent) === 'Reject',
-  ) ?? null
+  const emptyState = emptyText?.closest<HTMLElement>('[data-slot="card"]') ?? emptyText
+  const record = firstRecord ?? emptyState
 
-  // When the current filter has no Pending action buttons, keep the action
-  // teaching step on the feature workspace rather than reusing recordTarget;
-  // reusing it would overwrite the record's data-tour anchor.
+  // Do not attach to the "Loading records" placeholder.
+  if (!filter || !record) return false
+
+  const buttons = firstRecord
+    ? Array.from(firstRecord.querySelectorAll<HTMLButtonElement>('button')).filter(isVisible)
+    : []
+  const view = buttons.find((button) => normalizedText(button.textContent) === 'View')
+  const approve = buttons.find((button) => normalizedText(button.textContent) === 'Approve')
+  const reject = buttons.find((button) => normalizedText(button.textContent) === 'Reject')
   const actions = approve && reject
     ? lowestCommonAncestor([approve, reject])
-    : featureRoot
-
-  if (!actions) {
-    clearReliefApprovalAnchors()
-    return false
-  }
+    : view?.parentElement ?? null
+  const bulk = Array.from(
+    header.querySelectorAll<HTMLButtonElement>('button'),
+  ).find((button) =>
+    isVisible(button) &&
+    /^(Approve All|Reject All|Approve Selected|Reject Selected)$/i.test(
+      normalizedText(button.textContent),
+    ),
+  ) ?? null
 
   setAnchor(header, 'relief-approval-header')
   setAnchor(filter, 'relief-approval-filter')
-  setAnchor(recordTarget, 'relief-approval-record')
-  setAnchor(actions, 'relief-approval-actions')
+  setAnchor(record, 'relief-approval-record')
+  // View and decisions only exist for matching records; absent targets
+  // display a safe centered explanation rather than highlighting wrong controls.
+  if (view) setAnchor(view, 'relief-approval-view')
+  if (actions) setAnchor(actions, 'relief-approval-actions')
+  if (bulk) setAnchor(bulk, 'relief-approval-bulk')
 
   return true
 }
@@ -235,7 +211,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
   const tour = useMemo<WalkthroughTour>(
     () => ({
       id: userScopedTourId('admin-relief-approval-first-use', user.id),
-      version: 1,
+      version: 2,
       title: 'Relief Approval guide',
       role: 'ADMIN',
       steps: [
@@ -260,7 +236,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           id: 'status-filter',
           title: 'Start with Pending, then use the other statuses for history',
           description:
-            'Pending shows records that still have Approve or Reject actions. Approved shows accepted records, Rejected shows declined records, and All lets you review the complete list. Changing this filter does not change a record by itself.',
+            'Filter by status, general or specific relief type, barangay, general or specific vulnerability, worker, and beneficiary search. Sort by newest, oldest, name, or other fields. Available choices reflect matching records; filters do not approve or reject anything.',
           target: TARGETS.filter,
           placement: 'left',
           padding: 3,
@@ -269,7 +245,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           id: 'record-basics',
           title: 'Read the relief type and items first',
           description:
-            'Each card starts with the distribution type, current status, and the items that the worker recorded. Make sure the description is understandable and matches the kind of relief that was actually given. If the current filter is empty, the page simply tells you there are no matching distributions.',
+            'Each card now starts with the beneficiary name and current status, then shows the general and specific relief types, items, vulnerability, barangay, worker, quantity, evidence count, and date. Make sure the description is understandable and matches the kind of relief that was actually given. If the current filter is empty, the page simply tells you there are no matching distributions.',
           target: TARGETS.record,
           placement: 'auto',
           padding: 3,
@@ -278,7 +254,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           id: 'record-details',
           title: 'Check who received it, who recorded it, how much, and when',
           description:
-            'Beneficiary identifies the vulnerable citizen when the record is linked to a profile; otherwise it may show Household. Worker identifies who recorded the distribution. Quantity is the recorded amount, and Date is the distribution date. Check that these details make sense together before deciding.',
+            'The card heading identifies the beneficiary (or household when unlinked). General and specific vulnerability show the recorded classifications. Worker identifies who recorded the distribution. Quantity is the recorded amount, and Date is the distribution date. Check that these details make sense together before deciding.',
           target: TARGETS.record,
           placement: 'auto',
           padding: 3,
@@ -289,6 +265,24 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           description:
             'A worker may include notes explaining the distribution. Rejected records can also show a rejection reason. Read that information carefully, but if something important is unclear, verify the underlying record instead of guessing.',
           target: TARGETS.record,
+          placement: 'auto',
+          padding: 3,
+        },
+        {
+          id: 'view-evidence',
+          title: 'Open View and check the supporting photos',
+          description:
+            'View opens a detailed read-only review of the beneficiary, barangay, general and specific vulnerabilities, relief type, goods, quantity, worker, date, and submitted photos. New field records require photo evidence; legacy records can have none. The guide never opens the dialog for you.',
+          target: TARGETS.view,
+          placement: 'auto',
+          padding: 3,
+        },
+        {
+          id: 'bulk-actions',
+          title: 'Select the right pending records before a bulk decision',
+          description:
+            'Each pending card has a selection checkbox. You can approve or reject selected pending records, or use Approve All / Reject All for the pending records in the current filtered results. Check the filters and each beneficiary first: bulk actions can affect more than one person.',
+          target: TARGETS.bulk,
           placement: 'auto',
           padding: 3,
         },
@@ -305,7 +299,7 @@ export function ReliefApprovalWalkthrough({ user }: { user: AuthUser }) {
           id: 'reject',
           title: 'If you reject, explain the problem clearly',
           description:
-            'Reject changes a Pending record to Rejected. The current screen allows a rejection reason to be left blank, but a short factual reason is better practice because it explains what needs attention and may be included in a notification to the affected user. Avoid unnecessary private information.',
+            'Reject changes a Pending record to Rejected. Provide a short factual rejection reason when the action asks for one; it is better practice because it explains what needs attention and may be included in a notification to the affected user. Avoid unnecessary private information.',
           target: TARGETS.actions,
           placement: 'auto',
           padding: 3,
