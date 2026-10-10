@@ -83,7 +83,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
   const { activeTourId } = useWalkthrough()
 
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)')
+    const media = window.matchMedia('(min-width: 1280px)')
     const update = () => {
       setIsDesktop(media.matches)
       setLayoutReady(true)
@@ -108,9 +108,9 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
         title: 'Confirm the signed-in worker and current page',
         description:
           'The workspace header shows where you are. Before recording field activity, make sure the correct Worker account is signed in so the record is attributed to the right person.',
-        target: '.crms-dashboard-theme header',
+        target: (isDesktop ? '[data-tour="workspace-desktop-header"]' : '[data-tour="workspace-mobile-header"]'),
         placement: 'bottom',
-        beforeEnter: () => prepareTarget('.crms-dashboard-theme header'),
+        beforeEnter: () => prepareTarget((isDesktop ? '[data-tour="workspace-desktop-header"]' : '[data-tour="workspace-mobile-header"]')),
       },
     ]
 
@@ -137,9 +137,14 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
         'This page lists distributions recorded under your Worker account. Use the status filter and read any rejection reason before correcting or recording follow-up information.',
       ),
       desktopNavStep(
+        'history',
+        'Review Activity History',
+        'Activity History combines your relief entries with worker-visible events. Use the search and status, date, type, and barangay filters to trace past work.',
+      ),
+      desktopNavStep(
         'new-distribution',
         'Record a relief distribution carefully',
-        'Record Distribution is for an approved citizen. Verify the beneficiary, item description, quantity, and notes before submitting. A new record is sent for Administrator review; recording it does not mean it is already approved.',
+        'Record Distribution is for an approved citizen. Verify the beneficiary, item description, quantity, and notes and 1–3 photo evidence files before submitting. A new record is sent for Administrator review; recording it does not mean it is already approved.',
       ),
       desktopNavStep(
         'register-vulnerable',
@@ -155,6 +160,11 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
         'announcements',
         'Read official Announcements',
         'Announcements contains notices intended for Workers. Check priority, date, location, and instructions before acting, and verify urgent operational details through the proper municipal channel.',
+      ),
+      desktopNavStep(
+        'vulnerable-map',
+        'Use the Vulnerable Map with care',
+        'Use approved household locations only for authorized field coordination. Verify the address and protect location and vulnerability details.',
       ),
       desktopNavStep(
         'reports',
@@ -200,20 +210,20 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
         'Review only the distributions recorded under your Worker account and check their current approval status.',
       ),
       mobileNavStep(
+        'history',
+        'Activity History',
+        'Review relief entries and municipal events with the available filters.',
+      ),
+      mobileNavStep(
         'new-distribution',
         'Distribute',
         'Record assistance for the correct approved beneficiary. Submission creates a record for Administrator review; it is not automatically approved.',
-      ),
-      mobileNavStep(
-        'register-vulnerable',
-        'Register',
-        'Use the full citizen-registration workflow and verify the information before submitting it.',
       ),
       {
         id: 'mobile-more',
         title: 'Open More for the remaining Worker pages',
         description:
-          'More contains Field Notes, Announcements, Daily Reports, User Guide, Profile & Settings, and Sign out. The guide does not open the sheet automatically, so you stay in control of the screen.',
+          'More contains Register Citizen, Field Notes, Community Updates, Vulnerable Map, Daily Reports, Help Guide, Profile & Settings, and Sign out. The guide does not open the sheet automatically, so you stay in control of the screen.',
         target: '[data-tour="mobile-nav-more"]',
         placement: 'top',
         padding: 2,
@@ -223,7 +233,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
 
     return {
       id: userScopedTourId('worker-first-login', user.id),
-      version: 1,
+      version: 2,
       title: 'Field Worker guide',
       role: 'WORKER',
       steps: [
@@ -255,7 +265,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
       onClick={start}
       disabled={Boolean(activeTourId)}
       aria-label="Open Field Worker guide"
-      className="fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full bg-white/95 p-0 shadow-lg backdrop-blur-xl sm:h-auto sm:w-auto sm:px-4 md:bottom-10 md:right-6"
+      className="fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full bg-white/95 p-0 shadow-lg backdrop-blur-xl sm:h-auto sm:w-auto sm:px-4 xl:bottom-10 xl:right-6"
     >
       <CircleHelp className="h-4 w-4" />
       <span className="hidden sm:inline">Worker guide</span>
