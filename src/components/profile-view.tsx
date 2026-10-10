@@ -120,6 +120,47 @@ function normalizePicture(
     : null
 }
 
+// Vercel rejects large request bodies before the API can validate them.
+// Resize selected camera photos in the browser; the server validates again
+// and stores a smaller, metadata-free WebP avatar in the database.
+async function prepareProfilePictureUpload(file: File): Promise<File> {
+  if (typeof createImageBitmap !== 'function') {
+    if (file.size <= 2.5 * 1024 * 1024) return file
+    throw new Error(
+      'This browser cannot resize a large photo. Please choose an image smaller than 2.5 MB.',
+    )
+  }
+
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    throw new Error('This image cannot be opened. Please choose another photo.')
+  }
+
+  try {
+    const scale = Math.min(1, 768 / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Your browser could not prepare this photo.')
+
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+
+    const encoded = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.82),
+    )
+    if (!encoded || encoded.type !== 'image/jpeg') {
+      throw new Error('Could not compress the selected photo.')
+    }
+
+    return new File([encoded], 'profile.jpg', { type: 'image/jpeg' })
+  } finally {
+    bitmap.close()
+  }
+}
+
 export function ProfileView({
   user,
   onBack,
@@ -393,29 +434,23 @@ export function ProfileView({
         pendingPictureFile,
       )
 
-      const response = await fetch(
+      const prepared = await prepareProfilePictureUpload(
+        pendingPictureFile,
+      )
+      formData.set('file', prepared)
+
+      // apiFetch supplies the signed session token and account header while
+      // preserving multipart/form-data's browser-generated boundary.
+      const data = await apiFetch<{ profilePictureUrl: string }>(
         '/api/user/profile-picture',
         {
           method: 'POST',
-          headers: {
-            'x-user-id': user.id,
-          },
+          useUserHeader: true,
           body: formData,
         },
       )
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            'Profile-picture upload failed',
-        )
-      }
-
-      return normalizePicture(
-        data.profilePictureUrl,
-      )
+      return normalizePicture(data.profilePictureUrl)
     }
 
     if (removePictureOnSave) {
