@@ -139,23 +139,38 @@ async function prepareProfilePictureUpload(file: File): Promise<File> {
   }
 
   try {
-    const scale = Math.min(1, 768 / Math.max(bitmap.width, bitmap.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Your browser could not prepare this photo.')
+    // Store only a tiny avatar so that login responses and user lists
+    // remain fast even with hundreds of registered accounts.
+    for (const { dimension, quality } of [
+      { dimension: 256, quality: 0.76 },
+      { dimension: 256, quality: 0.58 },
+      { dimension: 192, quality: 0.45 },
+    ]) {
+      const scale = Math.min(
+        1,
+        dimension / Math.max(bitmap.width, bitmap.height),
+      )
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Your browser could not prepare this photo.')
 
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      // White background prevents transparent PNG pixels becoming black
+      // when the browser converts them to the storage-friendly JPEG format.
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
-    const encoded = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.82),
-    )
-    if (!encoded || encoded.type !== 'image/jpeg') {
-      throw new Error('Could not compress the selected photo.')
+      const encoded = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', quality),
+      )
+      if (encoded?.type === 'image/jpeg' && encoded.size <= 48 * 1024) {
+        return new File([encoded], 'profile.jpg', { type: 'image/jpeg' })
+      }
     }
 
-    return new File([encoded], 'profile.jpg', { type: 'image/jpeg' })
+    throw new Error('This photo could not be reduced. Try another image.')
   } finally {
     bitmap.close()
   }
