@@ -83,7 +83,7 @@ export function VulnerableWalkthrough({ user }: { user: AuthUser }) {
   const { activeTourId } = useWalkthrough()
 
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)')
+    const media = window.matchMedia('(min-width: 1280px)')
     const update = () => {
       setIsDesktop(media.matches)
       setLayoutReady(true)
@@ -108,9 +108,9 @@ export function VulnerableWalkthrough({ user }: { user: AuthUser }) {
         title: 'Confirm your account before viewing personal information',
         description:
           'The workspace header identifies the signed-in account and current page. On a shared device, sign out when finished so another person cannot see your profile, assistance history, or messages.',
-        target: '.crms-dashboard-theme header',
+        target: (isDesktop ? '[data-tour="workspace-desktop-header"]' : '[data-tour="workspace-mobile-header"]'),
         placement: 'bottom',
-        beforeEnter: () => prepareTarget('.crms-dashboard-theme header'),
+        beforeEnter: () => prepareTarget((isDesktop ? '[data-tour="workspace-desktop-header"]' : '[data-tour="workspace-mobile-header"]')),
       },
     ]
 
@@ -213,7 +213,7 @@ export function VulnerableWalkthrough({ user }: { user: AuthUser }) {
 
     return {
       id: userScopedTourId('vulnerable-first-login', user.id),
-      version: 1,
+      version: 2,
       title: 'Vulnerable Citizen guide',
       role: 'VULNERABLE',
       steps: [
@@ -245,7 +245,7 @@ export function VulnerableWalkthrough({ user }: { user: AuthUser }) {
       onClick={start}
       disabled={Boolean(activeTourId)}
       aria-label="Open Vulnerable Citizen guide"
-      className="fixed bottom-24 right-4 z-40 rounded-full bg-white/95 shadow-lg backdrop-blur-xl md:bottom-10 md:right-6"
+      className="fixed bottom-24 right-4 z-40 rounded-full bg-white/95 shadow-lg backdrop-blur-xl xl:bottom-10 xl:right-6"
     >
       <CircleHelp className="h-4 w-4" />
       Citizen guide
