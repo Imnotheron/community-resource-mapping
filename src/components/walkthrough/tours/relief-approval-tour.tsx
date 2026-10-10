@@ -70,19 +70,6 @@ function findVisibleExact<T extends HTMLElement>(selector: string, text: string)
   )
 }
 
-function findVisibleStartingWith<T extends HTMLElement>(
-  root: ParentNode,
-  selector: string,
-  text: string,
-) {
-  return (
-    Array.from(root.querySelectorAll<T>(selector)).find(
-      (element) =>
-        isVisible(element) && normalizedText(element.textContent).startsWith(text),
-    ) ?? null
-  )
-}
-
 function ancestorContaining(
   start: HTMLElement | null,
   requiredText: string[],
