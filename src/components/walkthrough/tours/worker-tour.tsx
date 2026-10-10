@@ -144,7 +144,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
       desktopNavStep(
         'new-distribution',
         'Record a relief distribution carefully',
-        'Record Distribution is for an approved citizen. Verify the beneficiary, item description, quantity, and notes and 1–3 photo evidence files before submitting. A new record is sent for Administrator review; recording it does not mean it is already approved.',
+        'Record Distribution is for an approved citizen. Verify the beneficiary, item description, quantity, notes, and 1–3 genuine supporting photos before submitting. A new record is sent for Administrator review; recording it does not mean it is already approved.',
       ),
       desktopNavStep(
         'register-vulnerable',
@@ -193,7 +193,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
         id: 'mobile-navigation',
         title: 'Use the bottom navigation on a phone',
         description:
-          'The four most common Worker pages are kept in the bottom bar. Additional pages and account controls are under More.',
+          'Overview, My Relief, Activity History, and Record Relief are in the bottom bar. Additional pages and account controls are under More.',
         target: '[data-tour="mobile-navigation"]',
         placement: 'top',
         padding: 2,
@@ -217,7 +217,7 @@ export function WorkerWalkthrough({ user }: { user: AuthUser }) {
       mobileNavStep(
         'new-distribution',
         'Distribute',
-        'Record assistance for the correct approved beneficiary. Submission creates a record for Administrator review; it is not automatically approved.',
+        'Record actual assistance for an approved beneficiary and attach 1–3 photos. Submitting creates a Pending record for Administrator review, not an automatic approval.',
       ),
       {
         id: 'mobile-more',
