@@ -336,6 +336,55 @@ contains(
   'Relief report summaries must distinguish approved quantities',
 )
 
+
+// Profile pictures must not use Vercel's read-only / ephemeral public/ filesystem.
+// The existing User.profilePicture field holds a bounded, normalized data URL.
+excludes(
+  'src/app/api/user/profile-picture/route.ts',
+  "writeFile",
+  'Profile picture upload must never write into the serverless filesystem',
+)
+excludes(
+  'src/app/api/user/profile-picture/route.ts',
+  "public', 'uploads",
+  'Profile picture upload must not depend on the ephemeral public/uploads directory',
+)
+contains(
+  'src/app/api/user/profile-picture/route.ts',
+  "import sharp from 'sharp'",
+  'Profile photos must be decoded and normalized server-side',
+)
+contains(
+  'src/app/api/user/profile-picture/route.ts',
+  'MAX_SAVED_BYTES = 48 * 1024',
+  'Stored profile photos must be bounded to prevent large auth and user-list responses',
+)
+contains(
+  'src/app/api/user/profile-picture/route.ts',
+  'data:image/webp;base64,',
+  'Profile photos must persist as compatible WebP URLs in the existing User field',
+)
+contains(
+  'src/app/api/user/profile-picture/route.ts',
+  "requireMatchingRequestUser(request)",
+  'Profile picture updates must be tied to the signed-in session',
+)
+contains(
+  'src/app/api/user/profile-picture/route.ts',
+  'data: { profilePicture: null }',
+  'Profile picture deletion must clear the database column',
+)
+contains(
+  'src/components/profile-view.tsx',
+  'prepareProfilePictureUpload(',
+  'Profile photos must be resized on the client to avoid request-body limits',
+)
+contains(
+  'src/components/profile-view.tsx',
+  "useUserHeader: true,\n          body: formData",
+  'Multipart uploads must use the signed-in API client',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
