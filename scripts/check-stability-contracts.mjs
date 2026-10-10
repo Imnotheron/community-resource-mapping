@@ -351,8 +351,8 @@ excludes(
 )
 contains(
   'src/app/api/user/profile-picture/route.ts',
-  "import sharp from 'sharp'",
-  'Profile photos must be decoded and normalized server-side',
+  'detectImageMime',
+  'Profile uploads must verify file signatures rather than trust MIME headers',
 )
 contains(
   'src/app/api/user/profile-picture/route.ts',
@@ -361,8 +361,8 @@ contains(
 )
 contains(
   'src/app/api/user/profile-picture/route.ts',
-  'data:image/webp;base64,',
-  'Profile photos must persist as compatible WebP URLs in the existing User field',
+  "contents.toString('base64')",
+  'Profile photos must persist as small data URLs in the existing User field',
 )
 contains(
   'src/app/api/user/profile-picture/route.ts',
