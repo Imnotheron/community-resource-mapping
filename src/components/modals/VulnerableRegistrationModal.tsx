@@ -1636,27 +1636,26 @@ export default function VulnerableRegistrationModal({
     try {
       await onSubmit(form)
 
-      if (currentDraftId) {
-        const currentUserId = getCurrentAdminId()
-        const ownerField = isWorker
-          ? { workerId: currentUserId }
-          : { adminId: currentUserId }
-
-        await apiFetch(`${draftBasePath}/${currentDraftId}`, {
-          method: 'DELETE',
-          body: JSON.stringify(ownerField),
-        }).catch(() => null)
-      }
-
-      // Success is shown only after the registration API has completed.
-      // Admin registrations are approved immediately; Worker submissions
-      // remain pending Administrator review.
+      // Only the API mutation determines success. Draft cleanup runs
+      // afterward and cannot misreport a saved registration as a failure.
       const fullName = [
         form.firstName,
         form.middleName,
         form.lastName,
         form.suffix,
       ].map((part) => String(part || '').trim()).filter(Boolean).join(' ')
+
+      if (currentDraftId) {
+        const currentUserId = getCurrentAdminId()
+        const ownerField = isWorker
+          ? { workerId: currentUserId }
+          : { adminId: currentUserId }
+
+        void apiFetch(`${draftBasePath}/${currentDraftId}`, {
+          method: 'DELETE',
+          body: JSON.stringify(ownerField),
+        }).catch(() => null)
+      }
 
       setForm(getEmptyForm())
       setErrors({})
@@ -1666,7 +1665,6 @@ export default function VulnerableRegistrationModal({
         name: fullName,
         status: isWorker ? 'PENDING' : 'APPROVED',
       })
-      await loadDrafts()
       onClose()
     } catch (error: any) {
       if (
@@ -1679,7 +1677,6 @@ export default function VulnerableRegistrationModal({
           conflicts: error.data.conflicts,
         })
       }
-
     } finally {
       // Allow another registration after the success dialog is dismissed,
       // and allow retry when a save or duplicate check fails.
