@@ -1168,8 +1168,8 @@ function RegistrationsView() {
             : 'The profile has been created and approved.',
       })
 
-      // Shared registration modal closes after it records a successful save.
-      await load()
+      // Refresh the list without delaying the saved-registration result modal.
+      void load()
     } catch (err: any) {
       if (err?.code !== 'DUPLICATE_REGISTRATION') {
         toast.error('Registration failed', {
