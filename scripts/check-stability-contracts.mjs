@@ -385,6 +385,40 @@ contains(
   'Multipart uploads must use the signed-in API client',
 )
 
+
+// The five-step registration form must show a status-specific result dialog
+// only after the POST callback has resolved successfully.
+contains(
+  'src/components/modals/VulnerableRegistrationModal.tsx',
+  'await onSubmit(form)',
+  'Registration confirmation must await the server response',
+)
+contains(
+  'src/components/modals/VulnerableRegistrationModal.tsx',
+  'setSuccessfulRegistration({',
+  'Completed registration must display an explicit success modal',
+)
+contains(
+  'src/components/modals/VulnerableRegistrationModal.tsx',
+  "status: isWorker ? 'PENDING' : 'APPROVED'",
+  'Registration success must distinguish Worker pending and Admin approved records',
+)
+contains(
+  'src/components/modals/VulnerableRegistrationModal.tsx',
+  'data-testid="registration-success-dialog"',
+  'Success modal must expose a testable, accessible result surface',
+)
+contains(
+  'src/components/modals/VulnerableRegistrationModal.tsx',
+  'submitLockRef.current = false',
+  'Submission lock must allow another registration after completion or error',
+)
+contains(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'void load()',
+  'Admin refresh must not block the successful registration result dialog',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {

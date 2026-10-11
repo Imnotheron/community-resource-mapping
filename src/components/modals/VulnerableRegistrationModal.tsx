@@ -37,6 +37,15 @@ import { cn } from '@/lib/utils'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { SmartEditableSelect } from '@/components/ui/smart-editable-select'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useLookupOptions } from '@/hooks/use-lookup-options'
 import { SAN_POLICARPO_BARANGAYS } from '@/lib/san-policarpo-geography'
@@ -892,6 +901,10 @@ export default function VulnerableRegistrationModal({
   const [loadingDrafts, setLoadingDrafts] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [confirmAction, setConfirmAction] = useState<RegistrationConfirmAction>(null)
+  const [successfulRegistration, setSuccessfulRegistration] = useState<{
+    name: string
+    status: 'APPROVED' | 'PENDING'
+  } | null>(null)
   const [modalFrame, setModalFrame] = useState<ModalFrame | null>(null)
   const bloodTypeOptions = useLookupOptions('BLOOD_TYPE', BLOOD_TYPE_OPTIONS)
   const educationalAttainmentOptions = useLookupOptions(
@@ -1623,13 +1636,22 @@ export default function VulnerableRegistrationModal({
     try {
       await onSubmit(form)
 
+      // Only the API mutation determines success. Draft cleanup runs
+      // afterward and cannot misreport a saved registration as a failure.
+      const fullName = [
+        form.firstName,
+        form.middleName,
+        form.lastName,
+        form.suffix,
+      ].map((part) => String(part || '').trim()).filter(Boolean).join(' ')
+
       if (currentDraftId) {
         const currentUserId = getCurrentAdminId()
         const ownerField = isWorker
           ? { workerId: currentUserId }
           : { adminId: currentUserId }
 
-        await apiFetch(`${draftBasePath}/${currentDraftId}`, {
+        void apiFetch(`${draftBasePath}/${currentDraftId}`, {
           method: 'DELETE',
           body: JSON.stringify(ownerField),
         }).catch(() => null)
@@ -1639,7 +1661,10 @@ export default function VulnerableRegistrationModal({
       setErrors({})
       setStep(0)
       setCurrentDraftId(null)
-      await loadDrafts()
+      setSuccessfulRegistration({
+        name: fullName,
+        status: isWorker ? 'PENDING' : 'APPROVED',
+      })
       onClose()
     } catch (error: any) {
       if (
@@ -1652,10 +1677,10 @@ export default function VulnerableRegistrationModal({
           conflicts: error.data.conflicts,
         })
       }
-
-      // Unlock on failure so the user can correct the form and retry.
-      submitLockRef.current = false
     } finally {
+      // Allow another registration after the success dialog is dismissed,
+      // and allow retry when a save or duplicate check fails.
+      submitLockRef.current = false
       setSubmitting(false)
     }
   }
@@ -2923,6 +2948,65 @@ export default function VulnerableRegistrationModal({
       variant="destructive"
       showCancel={false}
     />
+
+    <AlertDialog
+      open={Boolean(successfulRegistration)}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) setSuccessfulRegistration(null)
+      }}
+    >
+      <AlertDialogContent
+        data-testid="registration-success-dialog"
+        className="w-[calc(100vw-2rem)] max-w-md overflow-hidden border-emerald-200 bg-white p-0 shadow-xl"
+      >
+        <div className="px-6 pb-6 pt-7">
+          <AlertDialogHeader className="items-center space-y-3 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-9 w-9" aria-hidden="true" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl font-bold text-slate-900">
+              {successfulRegistration?.status === 'PENDING'
+                ? 'Registration Submitted Successfully'
+                : 'Registration Successful'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-sm leading-6 text-slate-600">
+              {successfulRegistration?.status === 'PENDING'
+                ? 'The vulnerable citizen record was saved and is awaiting Administrator approval.'
+                : 'The vulnerable citizen was successfully registered and the profile is approved.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-center">
+            <p className="break-words font-semibold text-slate-900">
+              {successfulRegistration?.name}
+            </p>
+            <p
+              data-testid="registration-success-status"
+              className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-700"
+            >
+              {successfulRegistration?.status === 'PENDING'
+                ? 'Pending Administrator Approval'
+                : 'Approved Registration'}
+            </p>
+          </div>
+
+          <p className="mt-4 text-center text-sm leading-6 text-slate-600">
+            {successfulRegistration?.status === 'PENDING'
+              ? 'The Administrator must review and approve this registration before the citizen appears as an approved beneficiary.'
+              : 'You can now find the registered citizen in Vulnerable Registrations and Users List.'}
+          </p>
+
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogAction
+              className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={() => setSuccessfulRegistration(null)}
+            >
+              Done
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   )
 }
