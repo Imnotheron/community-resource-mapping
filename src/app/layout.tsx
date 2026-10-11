@@ -12,6 +12,7 @@ import { SuccessSoundListener } from '@/components/feedback/success-sound-listen
 import { ThemeProvider } from '@/components/theme-provider'
 import { AccentProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { Toaster as SonnerToaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WalkthroughProvider } from '@/components/walkthrough/walkthrough-provider'
 
@@ -126,6 +127,7 @@ export default function RootLayout({
         </ThemeProvider>
 
         <Toaster />
+        <SonnerToaster position="top-right" richColors closeButton visibleToasts={3} />
         <SuccessSoundListener />
         <DeleteAccountHoverSound />
       </body>
