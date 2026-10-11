@@ -2080,16 +2080,20 @@ function UsersView() {
         body: JSON.stringify({ adminId: getAdminId() }),
       });
 
+      const deletedUserLabel =
+        deleteTarget.name || deleteTarget.email || "The user";
       setUsers((currentUsers) =>
         currentUsers.filter((user) => user.id !== deleteTarget.id),
       );
+      // Close the destructive confirmation before showing the success
+      // dialog. Email delivery is separate from successful account removal.
+      setDeleteTarget(null);
       toast.success("User deleted", {
         description: result?.emailDelivery?.sent
-          ? `${deleteTarget.name || deleteTarget.email || "The user"} was removed and the deletion email was sent.`
-          : `${deleteTarget.name || deleteTarget.email || "The user"} was removed, but the deletion email was not sent: ${result?.emailDelivery?.message || "Email delivery failed."}`,
+          ? `${deletedUserLabel} was removed and the deletion email was sent.`
+          : `${deletedUserLabel} was removed, but the deletion email was not sent: ${result?.emailDelivery?.message || "Email delivery failed."}`,
       });
-      setDeleteTarget(null);
-      load(false);
+      void load(false);
     } catch (err: any) {
       toast.error("Delete failed", { description: err.message });
     } finally {

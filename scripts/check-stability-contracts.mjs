@@ -419,6 +419,61 @@ contains(
   'Admin refresh must not block the successful registration result dialog',
 )
 
+
+contains(
+  'src/app/layout.tsx',
+  '<SonnerToaster position="top-right"',
+  'CRMS must mount the renderer used by Sonner success and error notifications',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'DEDICATED_SUCCESS_DIALOG_PATTERNS',
+  'Registration and staff result dialogs must avoid duplicate success toasts',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'return undefined',
+  'The shared result dialog must prevent duplicate Sonner notifications',
+)
+
+// Consistent success results: irreversible and record-creating actions
+// should present a result dialog only after the successful API response.
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'data-testid="action-success-dialog"',
+  'Important record changes must display an accessible success dialog',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  '/^User deleted$/i',
+  'Deleting a user must display an explicit completed-deletion result',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'deletion email was not sent',
+  'The user-deletion result must distinguish saved deletion from email-delivery failure',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  '/^\\d+ relief distributions? (approved|rejected)$/i',
+  'Relief approval and rejection counts must be acknowledged',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'noticeQueueRef.current.push(nextNotice)',
+  'Consecutive success results must not overwrite one another',
+)
+contains(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'const deletedUserLabel =',
+  'User deletion must preserve the identity shown in the success result',
+)
+contains(
+  'src/components/dashboards/admin-dashboard.tsx',
+  'setDeleteTarget(null);\n      toast.success("User deleted"',
+  'The user deletion confirmation must close before the success result is presented',
+)
+
 if (failures.length) {
   console.error('\nCRMS stability contracts failed:\n')
   failures.forEach((failure, index) => {
