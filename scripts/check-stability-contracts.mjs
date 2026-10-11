@@ -454,7 +454,7 @@ contains(
 )
 contains(
   'src/components/dashboards/admin-dashboard.tsx',
-  'setDeleteTarget(null);\\n      toast.success("User deleted"',
+  'setDeleteTarget(null);\n      toast.success("User deleted"',
   'The user deletion confirmation must close before the success result is presented',
 )
 
