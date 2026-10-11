@@ -957,7 +957,7 @@ function RegisterVulnerableView({ workerId }: { workerId: string }) {
         description: data?.message || 'The profile was submitted for admin approval.',
       })
 
-      setOpen(false)
+      // The shared registration form closes itself and presents the result.
     } catch (err: any) {
       if (err?.code !== 'DUPLICATE_REGISTRATION') {
         toast.error('Registration failed', {
