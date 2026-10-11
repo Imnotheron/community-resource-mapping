@@ -108,9 +108,12 @@ export function SuccessSoundListener() {
           activeNoticeRef.current = nextNotice
           setNotice(nextNotice)
         }
+        // The dialog is the success feedback for important actions;
+        // showing an identical Sonner toast would be redundant.
+        return undefined
       }
 
-      // Preserve existing success toasts and their return values for callers.
+      // Routine actions keep their existing lightweight Sonner messages.
       return originalSuccess(...args)
     }
 
