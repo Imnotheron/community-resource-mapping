@@ -1168,7 +1168,7 @@ function RegistrationsView() {
             : 'The profile has been created and approved.',
       })
 
-      setShowRegisterVulnerable(false)
+      // Shared registration modal closes after it records a successful save.
       await load()
     } catch (err: any) {
       if (err?.code !== 'DUPLICATE_REGISTRATION') {
