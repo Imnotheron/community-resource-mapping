@@ -46,6 +46,15 @@ const DIALOG_SUCCESS_PATTERNS = [
   /^Dropdown option (added|restored|hidden)$/i,
 ]
 
+// These workflows already show dedicated result dialogs. Keep their
+// success sounds, but avoid duplicate toasts (and never surface generated
+// temporary credentials in a transient notification).
+const DEDICATED_SUCCESS_DIALOG_PATTERNS = [
+  /^Vulnerable person registered$/i,
+  /^Administrator account created$/i,
+  /^Worker account created$/i,
+]
+
 const SOUND_SUCCESS_PATTERNS = [
   /profile settings saved/i,
   /administrator account created/i,
@@ -88,6 +97,13 @@ export function SuccessSoundListener() {
 
       if (isSoundSuccessMessage(message)) {
         playInstantSuccessSound()
+      }
+
+      if (
+        typeof message === 'string' &&
+        DEDICATED_SUCCESS_DIALOG_PATTERNS.some((pattern) => pattern.test(message))
+      ) {
+        return undefined
       }
 
       if (isDialogSuccessMessage(message)) {
