@@ -420,6 +420,22 @@ contains(
 )
 
 
+contains(
+  'src/app/layout.tsx',
+  '<SonnerToaster position="top-right"',
+  'CRMS must mount the renderer used by Sonner success and error notifications',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'DEDICATED_SUCCESS_DIALOG_PATTERNS',
+  'Registration and staff result dialogs must avoid duplicate success toasts',
+)
+contains(
+  'src/components/feedback/success-sound-listener.tsx',
+  'return undefined',
+  'The shared result dialog must prevent duplicate Sonner notifications',
+)
+
 // Consistent success results: irreversible and record-creating actions
 // should present a result dialog only after the successful API response.
 contains(
