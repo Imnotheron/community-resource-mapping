@@ -26,13 +26,18 @@ export function Footer({ onAccessPortal }: FooterProps) {
           People · Resources · Safer Communities
         </p>
 
-        <button
+        <div className="flex items-center gap-4">
+          <a href="/about" className="text-xs font-semibold text-emerald-800 underline-offset-4 hover:underline">
+            About CRMS
+          </a>
+          <button
           type="button"
           onClick={onAccessPortal}
           className="self-start rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 md:self-auto"
         >
           Access Portal
-        </button>
+          </button>
+        </div>
       </div>
     </footer>
   )
