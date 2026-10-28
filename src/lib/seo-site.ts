@@ -1,8 +1,9 @@
 /**
- * Public, canonical production URL. Keep this in sync with the live Vercel
- * domain (or configure NEXT_PUBLIC_APP_URL when moving to a custom domain).
+ * Canonical public production URL. Update NEXT_PUBLIC_APP_URL if the site
+ * moves to a custom domain.
  */
-export const SITE_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.trim().startsWith('https://')
-    ? process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/+$/, '')
-    : 'https://community-resource-mapping.vercel.app'
+const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || ''
+
+export const SITE_URL = configuredUrl.startsWith('https://')
+  ? configuredUrl.replace(/\/+$/, '')
+  : 'https://community-resource-mapping.vercel.app'
