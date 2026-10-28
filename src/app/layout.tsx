@@ -29,7 +29,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ||
-      'http://localhost:3000',
+      'https://community-resource-mapping.vercel.app',
   ),
   title: {
     default:
@@ -37,17 +37,21 @@ export const metadata: Metadata = {
     template: '%s | Community Resource Mapping System',
   },
   description:
-    'A comprehensive system for identifying, tracking, and supporting vulnerable groups with real-time mapping and relief distribution tracking.',
+    'Community Resource Mapping System (CRMS), an academic capstone project supporting vulnerable citizen registration, resource mapping and relief tracking in San Policarpo, Eastern Samar.',
   keywords: [
-    'Community',
-    'Resource Mapping',
+    'Community Resource Mapping System',
+    'CRMS San Policarpo',
+    'Community Resource Mapping',
     'Vulnerable Groups',
     'PWD',
     'San Policarpo',
     'Eastern Samar',
     'Relief Distribution',
   ],
-  authors: [{ name: 'San Policarpo LGU' }],
+  authors: [{ name: 'CRMS Capstone Project Team' }],
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
   icons: {
     icon: [
       {
@@ -72,6 +76,7 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
+    siteName: 'Community Resource Mapping System',
     title: 'Community Resource Mapping System',
     description:
       'Supporting vulnerable communities in San Policarpo, Eastern Samar',
