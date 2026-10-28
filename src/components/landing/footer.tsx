@@ -31,11 +31,11 @@ export function Footer({ onAccessPortal }: FooterProps) {
             About CRMS
           </a>
           <button
-          type="button"
-          onClick={onAccessPortal}
-          className="self-start rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 md:self-auto"
-        >
-          Access Portal
+            type="button"
+            onClick={onAccessPortal}
+            className="self-start rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 md:self-auto"
+          >
+            Access Portal
           </button>
         </div>
       </div>
