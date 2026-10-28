@@ -49,9 +49,9 @@ export const metadata: Metadata = {
     'Relief Distribution',
   ],
   authors: [{ name: 'CRMS Capstone Project Team' }],
-  verification: process.env.GOOGLE_SITE_VERIFICATION
-    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
-    : undefined,
+  verification: {
+    google: 'C650lxXeqCfESuMsf3Nefio1tWQXovT2iObAeODh7jc',
+  },
   icons: {
     icon: [
       {
