@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -38,6 +39,13 @@ import { ReliefReportsView } from '@/components/reports/relief-reports-view'
 
 function todayInputValue() {
   return new Date(Date.now() + 8 * 60 * 60_000).toISOString().slice(0, 10)
+}
+
+function recentReportPeriod(days: number) {
+  const to = todayInputValue()
+  const from = new Date(`${to}T00:00:00.000Z`)
+  from.setUTCDate(from.getUTCDate() - (days - 1))
+  return { from: from.toISOString().slice(0, 10), to }
 }
 
 function formatDate(value: string) {
@@ -107,12 +115,18 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 function ReportHeader({
   title,
   date,
+  fromDate,
+  toDate,
   generatedAt,
 }: {
   title: string
   date: string
+  fromDate?: string
+  toDate?: string
   generatedAt: string
 }) {
+  const from = fromDate || date
+  const to = toDate || date
   return (
     <header className="report-document-header border-b-2 border-slate-900 pb-4 text-center">
       <div className="report-government-heading flex items-center justify-center gap-3">
@@ -138,7 +152,9 @@ function ReportHeader({
         {title}
       </h1>
       <p className="report-date mt-1 text-sm">
-        Report Date: {formatDate(date)}
+        {from === to
+          ? `Report Date: ${formatDate(to)}`
+          : `Report Period: ${formatDate(from)} – ${formatDate(to)}`}
       </p>
       <p className="report-generated text-xs text-slate-500">
         Generated: {formatDateTime(generatedAt)}
@@ -250,6 +266,8 @@ function AdminReport({
       <ReportHeader
         title={settings.title || 'Daily Municipal Operations Report'}
         date={report.date}
+        fromDate={report.fromDate}
+        toDate={report.toDate}
         generatedAt={report.generatedAt}
       />
 
@@ -472,6 +490,8 @@ function WorkerReport({
       <ReportHeader
         title={settings.title || 'Daily Worker Accomplishment Report'}
         date={report.date}
+        fromDate={report.fromDate}
+        toDate={report.toDate}
         generatedAt={report.generatedAt}
       />
 
@@ -685,7 +705,12 @@ function matchesReliefFilters(
 
 function DailyOperationsReportsView({ user }: { user: AuthUser }) {
   const isAdmin = String(user.role).toUpperCase() === 'ADMIN'
-  const [date, setDate] = useState(todayInputValue())
+  const [fromDate, setFromDate] = useState(todayInputValue())
+  const [toDate, setToDate] = useState(todayInputValue())
+  const latestRequest = useRef(0)
+  const dateError = !fromDate || !toDate || fromDate > toDate
+    ? 'Choose valid From and To dates; From must not be after To.'
+    : null
   const [barangay, setBarangay] = useState('ALL')
   const [workerId, setWorkerId] = useState('ALL')
   const [personId, setPersonId] = useState('ALL')
@@ -707,9 +732,15 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
     )
 
   const load = useCallback(async () => {
+    const requestNumber = ++latestRequest.current
+    if (dateError) {
+      setReport(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
-      const query = new URLSearchParams({ date })
+      const query = new URLSearchParams({ from: fromDate, to: toDate })
       if (barangay !== 'ALL') query.set('barangay', barangay)
       if (personId !== 'ALL') query.set('personId', personId)
       if (lastName !== 'ALL') query.set('lastName', lastName)
@@ -724,14 +755,16 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
         ? `/api/admin/reports/daily?${query}`
         : `/api/worker/reports/daily?${query}`
       const data = await apiFetch(endpoint)
-      setReport(data.report)
+      if (requestNumber === latestRequest.current) setReport(data.report)
     } catch (error: any) {
-      setReport(null)
-      toast.error('Failed to load report', { description: error.message })
+      if (requestNumber === latestRequest.current) {
+        setReport(null)
+        toast.error('Failed to load report', { description: error.message })
+      }
     } finally {
-      setLoading(false)
+      if (requestNumber === latestRequest.current) setLoading(false)
     }
-  }, [barangay, date, isAdmin, lastName, personId, user.id, workerId])
+  }, [barangay, dateError, fromDate, isAdmin, lastName, personId, toDate, user.id, workerId])
 
   useEffect(() => {
     load()
@@ -789,6 +822,12 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
     }
   }
 
+  const reportIsCurrent = Boolean(
+    report &&
+    (report.fromDate || report.date) === fromDate &&
+    (report.toDate || report.date) === toDate &&
+    !dateError,
+  )
   const barangays = useMemo(() => report?.barangays || [], [report])
   const people = useMemo(() => report?.people || [], [report])
 
