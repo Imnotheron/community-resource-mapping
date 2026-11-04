@@ -259,6 +259,7 @@ function AdminReport({
   report: any
   settings: ReportSettings
 }) {
+  const isPeriod = Boolean(report.fromDate && report.toDate && report.fromDate !== report.toDate)
   return (
     <div
       className={`report-document space-y-6 report-template-${settings.template.toLowerCase()}`}
@@ -277,20 +278,21 @@ function AdminReport({
         </h2>
         <div className="report-summary-grid grid grid-cols-2 gap-3 md:grid-cols-4">
           <Metric label="Citizen Profiles (current)" value={report.summary.totalVulnerableCitizens} />
-          <Metric label="New Registrations (daily)" value={report.summary.newRegistrations} />
+          <Metric label={isPeriod ? 'New Registrations (period)' : 'New Registrations (daily)'} value={report.summary.newRegistrations} />
           <Metric label="Worker Accounts (current)" value={report.summary.activeWorkers} />
-          <Metric label="Workers Online / Seen (date)" value={report.summary.workersOnlineToday} />
-          <Metric label="Relief Records (daily)" value={report.summary.distributionsRecorded} />
+          <Metric label={isPeriod ? 'Workers Online / Last Seen (period)' : 'Workers Online / Seen (date)'} value={report.summary.workersOnlineToday} />
+          <Metric label={isPeriod ? 'Relief Records (period)' : 'Relief Records (daily)'} value={report.summary.distributionsRecorded} />
           <Metric label="Verified Relief Records" value={report.summary.verifiedDistributions} />
           <Metric label="Approved" value={report.summary.approvedDistributions} />
           <Metric label="Distributed" value={report.summary.distributedDistributions} />
           <Metric label="Pending" value={report.summary.pendingDistributions} />
           <Metric label="Rejected" value={report.summary.rejectedDistributions} />
-          <Metric label="Field Notes (daily)" value={report.summary.fieldNotesCreated} />
+          <Metric label={isPeriod ? 'Field Notes (period)' : 'Field Notes (daily)'} value={report.summary.fieldNotesCreated} />
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Profile and worker totals are current snapshots, not daily increases.
-          Relief and registration figures reflect the selected report date.
+          Relief and registration figures reflect the selected reporting period.
+          Online/last-seen worker figures use current presence or the latest saved last-seen timestamp.
           Worker filtering limits relief activity and field notes, not the municipality-wide
           worker or profile snapshots.
         </p>
@@ -334,7 +336,7 @@ function AdminReport({
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Relief Records Entered for the Day
+          {isPeriod ? 'Relief Records Entered in Selected Period' : 'Relief Records Entered for the Day'}
         </h2>
         <p className="mb-2 text-xs text-slate-500">
           Individual quantities are as entered; do not total unlike units.
@@ -355,7 +357,7 @@ function AdminReport({
               {report.distributions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
-                    No distributions recorded for this date.
+                    No distributions recorded for the selected period.
                   </td>
                 </tr>
               ) : (
@@ -406,7 +408,7 @@ function AdminReport({
               {report.registrations.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="px-3 py-6 text-center text-slate-500">
-                    No new registrations for this date.
+                    No new registrations for the selected period.
                   </td>
                 </tr>
               ) : (
@@ -455,7 +457,7 @@ function AdminReport({
       {settings.template !== 'SUMMARY' && (
         <section className="report-section">
           <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-            Field Updates / Notes (Report Date)
+            {isPeriod ? 'Field Updates / Notes (Report Period)' : 'Field Updates / Notes (Report Date)'}
           </h2>
           <p className="mb-2 text-xs text-slate-500">
             Notes are scoped by date and selected worker, if any; beneficiary and
@@ -467,7 +469,7 @@ function AdminReport({
                 <p className="whitespace-pre-wrap break-words text-sm">{item.note}</p>
                 <p className="text-xs text-slate-500">{item.user?.name || 'Worker'} · {formatDateTime(item.createdAt)}</p>
               </div>
-            )) : <p className="text-sm text-slate-500">No field notes entered for this date.</p>}
+            )) : <p className="text-sm text-slate-500">No field notes entered for the selected period.</p>}
           </div>
         </section>
       )}
@@ -483,6 +485,7 @@ function WorkerReport({
   report: any
   settings: ReportSettings
 }) {
+  const isPeriod = Boolean(report.fromDate && report.toDate && report.fromDate !== report.toDate)
   return (
     <div
       className={`report-document space-y-6 report-template-${settings.template.toLowerCase()}`}
@@ -506,28 +509,28 @@ function WorkerReport({
 
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Daily Summary
+          {isPeriod ? 'Report Period Summary' : 'Daily Summary'}
         </h2>
         <div className="report-summary-grid grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Metric label="Relief Records (daily)" value={report.summary.distributionsRecorded} />
+          <Metric label={isPeriod ? 'Relief Records (period)' : 'Relief Records (daily)'} value={report.summary.distributionsRecorded} />
           <Metric label="Verified Relief Records" value={report.summary.verifiedDistributions} />
           <Metric label="Approved" value={report.summary.approvedDistributions} />
           <Metric label="Distributed" value={report.summary.distributedDistributions} />
           <Metric label="Pending" value={report.summary.pendingDistributions} />
           <Metric label="Rejected" value={report.summary.rejectedDistributions} />
-          <Metric label="Field Notes (daily)" value={report.summary.fieldNotesCreated} />
+          <Metric label={isPeriod ? 'Field Notes (period)' : 'Field Notes (daily)'} value={report.summary.fieldNotesCreated} />
           <Metric label="Assigned Households (current)" value={report.summary.assignedHouseholds} />
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Relief and field note counts are for the report date and signed-in worker.
-          Assigned households are a current snapshot, not today's household visits.
+          Relief and field note counts cover the selected reporting period for the signed-in worker.
+          Assigned households are a current snapshot, not a count of visits during the period.
         </p>
       </section>
 
       {settings.template !== 'SUMMARY' && (
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Relief Records Entered for the Day
+          {isPeriod ? 'Relief Records Entered in Selected Period' : 'Relief Records Entered for the Day'}
         </h2>
         <p className="mb-2 text-xs text-slate-500">
           Individual quantities are as entered; do not total unlike units.
@@ -547,7 +550,7 @@ function WorkerReport({
               {report.distributions.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
-                    No distributions recorded for this date.
+                    No distributions recorded for the selected period.
                   </td>
                 </tr>
               ) : (
@@ -587,7 +590,7 @@ function WorkerReport({
         <div className="report-field-notes space-y-2">
           {report.fieldNotes.length === 0 ? (
             <div className="report-empty-state rounded-xl border border-slate-200 p-5 text-center text-xs text-slate-500">
-              No field notes recorded for this date.
+              No field notes recorded for the selected period.
             </div>
           ) : (
             report.fieldNotes.map((item: any) => (
