@@ -304,7 +304,7 @@ function AdminReport({
           Citizen Register (Limited Information)
         </h2>
         <p className="mb-2 text-xs text-slate-500">
-          Current profile snapshot matching citizen filters, not just registrations created today.
+          Current profile snapshot matching citizen filters; not limited to registrations within the selected reporting period.
           Contact details and full residential addresses are intentionally excluded from printouts.
         </p>
         <ReportTable>
@@ -430,7 +430,7 @@ function AdminReport({
 
       <section className="report-section">
         <h2 className="report-section-title mb-3 text-sm font-bold uppercase tracking-wide">
-          Barangay Coverage (Current Profiles / Daily Records)
+          {isPeriod ? 'Barangay Coverage (Current Profiles / Period Records)' : 'Barangay Coverage (Current Profiles / Daily Records)'}
         </h2>
         <ReportTable>
           <table className="report-table w-full text-left text-xs">
@@ -438,7 +438,7 @@ function AdminReport({
               <tr>
                 <th className="px-3 py-2">Barangay</th>
                 <th className="px-3 py-2">Current profile records</th>
-                <th className="px-3 py-2">Daily relief records (all statuses)</th>
+                <th className="px-3 py-2">{isPeriod ? 'Relief records in period (all statuses)' : 'Daily relief records (all statuses)'}</th>
               </tr>
             </thead>
             <tbody>
@@ -460,7 +460,7 @@ function AdminReport({
             {isPeriod ? 'Field Updates / Notes (Report Period)' : 'Field Updates / Notes (Report Date)'}
           </h2>
           <p className="mb-2 text-xs text-slate-500">
-            Notes are scoped by date and selected worker, if any; beneficiary and
+            Notes are scoped by reporting period and selected worker, if any; beneficiary and
             barangay filters do not apply to unstructured note text.
           </p>
           <div className="space-y-2">
