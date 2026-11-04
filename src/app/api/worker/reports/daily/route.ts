@@ -4,27 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { requireRequestUser } from '@/lib/request-user-session'
-
-function currentManilaDate() {
-  return new Date(Date.now() + 8 * 60 * 60 * 1_000)
-    .toISOString()
-    .slice(0, 10)
-}
-
-function getDayRange(value: string | null) {
-  const date = value ?? currentManilaDate()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
-  const [year, month, day] = date.split('-').map(Number)
-  const calendarDay = new Date(Date.UTC(year, month - 1, day))
-  if (
-    calendarDay.getUTCFullYear() !== year ||
-    calendarDay.getUTCMonth() !== month - 1 ||
-    calendarDay.getUTCDate() !== day
-  ) return null
-
-  const start = new Date(`${date}T00:00:00.000+08:00`)
-  return { date, start, end: new Date(start.getTime() + 24 * 60 * 60 * 1_000) }
-}
+import { getDailyReportRange } from '@/lib/daily-report-date-range'
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,14 +15,14 @@ export async function GET(request: NextRequest) {
     })
     if ('error' in auth) return auth.error
 
-    const range = getDayRange(request.nextUrl.searchParams.get('date'))
+    const range = getDailyReportRange(request.nextUrl.searchParams)
     if (!range) {
       return NextResponse.json(
-        { success: false, error: 'Choose a valid calendar date (YYYY-MM-DD).' },
+        { success: false, error: 'Select valid From and To dates (YYYY-MM-DD); From must not be after To.' },
         { status: 400 },
       )
     }
-    const { date, start, end } = range
+    const { date, fromDate, toDate, start, end, includesToday } = range
     const barangay = request.nextUrl.searchParams.get('barangay')?.trim() || null
     const personId = request.nextUrl.searchParams.get('personId')?.trim() || null
     const lastName = request.nextUrl.searchParams.get('lastName')?.trim() || null
@@ -172,6 +152,8 @@ export async function GET(request: NextRequest) {
       success: true,
       report: {
         date,
+        fromDate,
+        toDate,
         generatedAt: new Date().toISOString(),
         worker,
         filters: { barangay, personId, lastName },
