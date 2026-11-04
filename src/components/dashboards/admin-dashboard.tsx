@@ -1691,7 +1691,7 @@ function userInitials(user: any) {
     .toUpperCase();
 }
 
-function UserManagementAvatar({ user }: { user: any }) {
+function UserManagementAvatar({ user, large = false }: { user: any; large?: boolean }) {
   const picture =
     user?.profilePicture ||
     user?.profileImage ||
@@ -1701,7 +1701,7 @@ function UserManagementAvatar({ user }: { user: any }) {
     null;
 
   return (
-    <Avatar className="h-10 w-10 border border-slate-200 bg-slate-100 shadow-sm">
+    <Avatar className={large ? "h-20 w-20 shrink-0 border-2 border-slate-200 bg-slate-100 shadow-sm" : "h-10 w-10 border border-slate-200 bg-slate-100 shadow-sm"}>
       {picture ? (
         <AvatarImage
           src={picture}
@@ -2617,7 +2617,7 @@ function UserManagementProfileDialog({
         ) : (
           <div className="space-y-5">
             <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <UserManagementAvatar user={user} />
+              <UserManagementAvatar user={user} large />
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-semibold text-slate-950">
                   {displayName}
@@ -4859,6 +4859,7 @@ function FeedbackView() {
       item.adminResponse,
       item.user?.name,
       item.user?.email,
+      item.user?.role,
     ]
       .join(" ")
       .toLowerCase()
@@ -4931,7 +4932,7 @@ function FeedbackView() {
                       </Badge>
                       <StatusBadge status={f.status} />
                       <span className="text-xs text-muted-foreground">
-                        from {f.user?.name} · {timeAgo(f.createdAt)}
+                        from {f.user?.name || "Unknown user"} — {String(f.user?.role || "User").toLowerCase().replace(/^./, (char) => char.toUpperCase())} · {timeAgo(f.createdAt)}
                       </span>
                     </div>
                     {f.subject && <h3 className="font-medium">{f.subject}</h3>}
@@ -5376,7 +5377,16 @@ function AdminMapProfileDialog({
             <Card>
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
+                  <div className="flex items-center gap-4">
+                     <Avatar className="h-20 w-20 shrink-0 border-2 border-border">
+                       {profile.profilePicture && (
+                         <AvatarImage src={profile.profilePicture} alt={fullName || "Citizen profile photo"} className="object-cover" />
+                       )}
+                       <AvatarFallback className="text-lg font-semibold">
+                         {((profile.firstName?.charAt(0) || "") + (profile.lastName?.charAt(0) || "")) || "U"}
+                       </AvatarFallback>
+                     </Avatar>
+                     <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                       Registered Citizen
                     </p>
@@ -5386,7 +5396,9 @@ function AdminMapProfileDialog({
                     <p className="mt-1 text-sm text-muted-foreground">
                       {profile.emailAddress || "No email recorded"}
                     </p>
-                  </div>
+                  <Badge variant="outline" className="mt-2">Vulnerable</Badge>
+                     </div>
+                   </div>
 
                   <StatusBadge status={profile.registrationStatus || "UNKNOWN"} />
                 </div>
