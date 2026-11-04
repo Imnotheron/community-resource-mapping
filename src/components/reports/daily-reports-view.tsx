@@ -1437,17 +1437,17 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
             Daily Reports
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Generate a date-based report, verify the figures, then print it on A4 paper.
+            Select one day or a From–To period, review the records, then print on A4 paper.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
+          <Button variant="outline" onClick={load} disabled={loading || Boolean(dateError)} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button
             onClick={() => window.print()}
-            disabled={loading || !report}
+            disabled={loading || !reportIsCurrent}
             className="gap-2"
           >
             <Printer className="h-4 w-4" />
@@ -1608,15 +1608,57 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
           data-testid="daily-report-filters"
           className="grid w-full min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3 [&>div]:min-w-0"
         >
+          <div className="space-y-2 sm:col-span-2 xl:col-span-3">
+            <p className="text-xs font-semibold text-slate-600">Select the reporting period</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => {
+                const today = todayInputValue()
+                setFromDate(today)
+                setToDate(today)
+              }}>Today only</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setToDate(todayInputValue())}>Through today</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => {
+                const period = recentReportPeriod(7)
+                setFromDate(period.from)
+                setToDate(period.to)
+              }}>Last 7 days</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => {
+                const period = recentReportPeriod(30)
+                setFromDate(period.from)
+                setToDate(period.to)
+              }}>Last 30 days</Button>
+            </div>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="report-date">Report date</Label>
+            <Label htmlFor="report-from-date">From date</Label>
             <Input
-              id="report-date"
+              id="report-from-date"
               type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="w-full min-w-0"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-to-date">To date</Label>
+            <Input
+              id="report-to-date"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="w-full min-w-0"
+            />
+          </div>
+          {dateError ? (
+            <p role="alert" className="text-sm text-destructive sm:col-span-2 xl:col-span-3">{dateError}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground sm:col-span-2 xl:col-span-3">
+              {fromDate === toDate
+                ? `Showing records for ${formatDate(fromDate)}.`
+                : `Showing records from ${formatDate(fromDate)} through ${formatDate(toDate)} (inclusive).`}
+              Current profile and account totals are snapshots, not historical totals.
+            </p>
+          )
 
           <>
             <div className="space-y-2">
@@ -1858,7 +1900,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
           label="Generating daily report"
           description="Calculating registrations, distributions, workers, and field activity..."
         />
-      ) : !report ? (
+      ) : !reportIsCurrent ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="h-10 w-10 text-slate-400" />
