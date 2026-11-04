@@ -671,6 +671,78 @@ test('Daily Operations validates calendar dates and preserves worker-only report
   expect(visibleBeneficiaries.size).toBeGreaterThanOrEqual(0)
 })
 
+test('Daily Operations includes both endpoints of a selected Manila date range', async ({ request }) => {
+  const admin = await login(request, 'admin@crms.gov.ph', 'admin123', 'admin')
+  const worker = await login(request, 'worker@sampolicarpo.gov', 'worker123', 'worker')
+  const from = '2026-08-28'
+  const to = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  for (const role of ['admin', 'worker'] as const) {
+    const token = role === 'admin' ? admin.token : worker.token
+    const url = `/api/${role}/reports/daily`
+    for (const invalid of [
+      '?from=2026-02-30&to=' + to,
+      '?from=2026-08-28&to=not-a-date',
+      '?from=' + to + '&to=2026-08-28',
+    ]) {
+      const response = await request.get(url + invalid, { headers: bearer(token) })
+      expect(response.status(), await response.text()).toBe(400)
+    }
+
+    const response = await request.get(url + `?from=${from}&to=${to}`, {
+      headers: bearer(token),
+    })
+    expect(response.status(), await response.text()).toBe(200)
+    const report = (await response.json()).report
+    expect(report.fromDate).toBe(from)
+    expect(report.toDate).toBe(to)
+    expect(report.summary.distributionsRecorded).toBe(report.distributions.length)
+    for (const distribution of report.distributions) {
+      const recordedInManila = new Date(
+        new Date(distribution.distributionDate).getTime() + 8 * 60 * 60 * 1000,
+      ).toISOString().slice(0, 10)
+      expect(recordedInManila >= from && recordedInManila <= to).toBe(true)
+      if (role === 'worker') {
+        expect(distribution.workerId || worker.user.id).toBe(worker.user.id)
+      }
+    }
+
+    // The old single-date URL remains backward compatible.
+    const legacy = await request.get(url + `?date=${from}`, {
+      headers: bearer(token),
+    })
+    expect(legacy.status(), await legacy.text()).toBe(200)
+    const legacyReport = (await legacy.json()).report
+    expect(legacyReport.fromDate).toBe(from)
+    expect(legacyReport.toDate).toBe(from)
+  }
+})
+
+test('Daily Operations date picker previews a custom date range and returns to today', async ({ page }) => {
+  await browserLogin(page, {
+    email: 'admin@crms.gov.ph',
+    password: 'admin123',
+    role: 'admin',
+  })
+  await page.goto('/admin/dashboard#reports')
+  await dismissWelcomeGuide(page)
+
+  const from = page.locator('#report-from-date')
+  const to = page.locator('#report-to-date')
+  const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  await expect(from).toHaveValue(today)
+  await expect(to).toHaveValue(today)
+  await from.fill('2026-08-28')
+  await expect(page.getByText('Report Period:', { exact: false })).toBeVisible()
+  await expect(page.locator('[data-print-report="true"]')).toContainText('August 28, 2026')
+  await expect(to).toHaveValue(today)
+
+  await page.getByRole('button', { name: 'Today only' }).click()
+  await expect(from).toHaveValue(today)
+  await expect(to).toHaveValue(today)
+  await expect(page.locator('[data-print-report="true"]')).toContainText('Report Date:')
+})
+
 test('Daily Operations preserves household relief and verified totals without unnecessary narrative inputs', async ({ page }) => {
   await browserLogin(page, {
     email: 'admin@crms.gov.ph',
