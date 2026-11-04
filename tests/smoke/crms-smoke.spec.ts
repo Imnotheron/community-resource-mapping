@@ -697,13 +697,20 @@ test('Daily Operations includes both endpoints of a selected Manila date range',
     expect(report.fromDate).toBe(from)
     expect(report.toDate).toBe(to)
     expect(report.summary.distributionsRecorded).toBe(report.distributions.length)
+    const workerRecordIds = role === 'worker'
+      ? new Set(
+          (await (await request.get('/api/worker/my-distributions', {
+            headers: bearer(worker.token),
+          })).json()).distributions.map((item: { id: string }) => item.id),
+        )
+      : null
     for (const distribution of report.distributions) {
       const recordedInManila = new Date(
         new Date(distribution.distributionDate).getTime() + 8 * 60 * 60 * 1000,
       ).toISOString().slice(0, 10)
       expect(recordedInManila >= from && recordedInManila <= to).toBe(true)
       if (role === 'worker') {
-        expect(distribution.workerId || worker.user.id).toBe(worker.user.id)
+        expect(workerRecordIds?.has(distribution.id)).toBe(true)
       }
     }
 
