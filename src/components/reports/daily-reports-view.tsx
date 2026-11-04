@@ -1661,7 +1661,7 @@ function DailyOperationsReportsView({ user }: { user: AuthUser }) {
                 : `Showing records from ${formatDate(fromDate)} through ${formatDate(toDate)} (inclusive).`}
               Current profile and account totals are snapshots, not historical totals.
             </p>
-          )
+          )}
 
           <>
             <div className="space-y-2">
