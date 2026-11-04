@@ -670,6 +670,9 @@ function FeedbackView({ userId }: { userId: string }) {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[0.625rem]">{f.type.replace(/_/g, ' ')}</Badge>
                     <StatusBadge status={f.status} />
+                    <span className="text-xs text-muted-foreground">
+                      From {f.user?.name || 'You'} — {f.user?.role === 'VULNERABLE' ? 'Vulnerable' : f.user?.role || 'User'}
+                    </span>
                     <span className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</span>
                   </div>
                   {f.subject && <p className="mt-1 text-sm font-medium">{f.subject}</p>}
