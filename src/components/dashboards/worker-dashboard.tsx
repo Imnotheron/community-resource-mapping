@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard, Package, PackagePlus, UserPlus, NotebookPen, Megaphone,
-  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History, MapPinned, Camera, X,
+  Loader2, Check, Users as UsersIcon, BookOpen, Printer, FileSpreadsheet, Upload, Search, History, MapPinned, Camera, X, MessageSquare,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { useDashboardSection } from '@/hooks/use-dashboard-section'
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'my-distributions', label: 'My Relief Records', icon: Package },
   { id: 'history', label: 'Activity History', icon: History },
+  { id: 'feedback', label: 'Feedback', icon: MessageSquare },
   { id: 'new-distribution', label: 'Record Relief', icon: PackagePlus },
   { id: 'register-vulnerable', label: 'Register Citizen', icon: UserPlus },
   { id: 'field-notes', label: 'Field Notes', icon: NotebookPen },
@@ -75,6 +77,7 @@ export function WorkerDashboard({ user, onLogout, onProfile }: WorkerDashboardPr
       {view === 'overview' && <OverviewView workerId={user.id} onNavigate={setView} />}
       {view === 'my-distributions' && <MyDistributionsView workerId={user.id} />}
       {view === 'history' && <OperationsHistory mode="worker" workerId={user.id} />}
+      {view === 'feedback' && <WorkerFeedbackView />}
       {view === 'new-distribution' && <NewDistributionView workerId={user.id} onDone={() => setView('my-distributions')} />}
       {view === 'register-vulnerable' && <RegisterVulnerableView workerId={user.id} />}
       {view === 'field-notes' && <FieldNotesView workerId={user.id} />}
@@ -1395,6 +1398,124 @@ function WorkerAnnouncementsView() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// =================== FEEDBACK FROM RELIEF RECIPIENTS ===================
+// The API only returns feedback on distributions recorded by this signed-in worker.
+function WorkerFeedbackView() {
+  const [feedback, setFeedback] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({ page: String(page), limit: '10', status: statusFilter })
+        const data = await apiFetch(`/api/worker/feedback?${params.toString()}`)
+        if (cancelled) return
+        setFeedback(data.feedback || [])
+        setTotalPages(Math.max(1, data.pagination?.totalPages || 1))
+        setTotal(data.pagination?.total || 0)
+      } catch (error: any) {
+        if (!cancelled) {
+          setFeedback([])
+          toast.error('Failed to load relief feedback', { description: error.message })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [page, statusFilter])
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Feedback from Relief Recipients</h1>
+          <p className="text-sm text-muted-foreground">
+            Feedback from vulnerable citizens about relief distributions you recorded.
+            Other workers' feedback is not visible.
+          </p>
+        </div>
+        <div className="w-44">
+          <Label htmlFor="worker-feedback-status">Status</Label>
+          <Select value={statusFilter} onValueChange={(next) => { setPage(1); setStatusFilter(next) }}>
+            <SelectTrigger id="worker-feedback-status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All statuses</SelectItem>
+              <SelectItem value="SUBMITTED">Submitted</SelectItem>
+              <SelectItem value="REVIEWED">Reviewed</SelectItem>
+              <SelectItem value="RESOLVED">Resolved</SelectItem>
+              <SelectItem value="DISMISSED">Dismissed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {loading ? (
+        <WowLoader compact label="Loading feedback" description="Reading feedback for your relief records..." />
+      ) : feedback.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
+          No feedback matches this status for your relief distributions.
+        </CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+          {feedback.map((item) => {
+            const sender = item.user
+            const relief = item.reliefDistribution
+            const senderName = sender?.name || 'Unknown citizen'
+            return (
+              <Card key={item.id}>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-12 w-12 shrink-0">
+                      {sender?.profilePicture && (
+                        <AvatarImage src={sender.profilePicture} alt={senderName} className="object-cover" />
+                      )}
+                      <AvatarFallback>{senderName.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{senderName} — {sender?.role === 'VULNERABLE' ? 'Vulnerable' : sender?.role || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">Submitted {formatDateTime(item.createdAt)}</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <Badge variant="outline">{item.feedbackType.replace(/_/g, ' ')}</Badge>
+                        <StatusBadge status={item.status} />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm">{item.message}</p>
+                  <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+                    <p><span className="font-semibold text-foreground">Relief type:</span> {relief?.distributionType || 'Unknown'}</p>
+                    <p><span className="font-semibold text-foreground">Supplies:</span> {relief?.itemsProvided || 'Not recorded'}</p>
+                    <p><span className="font-semibold text-foreground">Quantity:</span> {relief?.quantity ?? '—'}</p>
+                    <p><span className="font-semibold text-foreground">Distribution date:</span> {relief?.distributionDate ? formatDate(relief.distributionDate) : 'Not recorded'}</p>
+                  </div>
+                  {item.adminResponse && (
+                    <div className="rounded-lg border border-border p-3 text-sm">
+                      <span className="font-semibold">Administrator response:</span> {item.adminResponse}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{total} feedback record{total === 1 ? '' : 's'} · Page {page} of {totalPages}</p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+          <Button size="sm" variant="outline" disabled={loading || page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+        </div>
+      </div>
     </div>
   )
 }
