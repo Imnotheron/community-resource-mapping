@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -183,6 +184,7 @@ function OverviewView({ userId, onNavigate }: { userId: string; onNavigate: (v: 
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{d.distributionType}</p>
                     <p className="truncate text-xs text-muted-foreground">{timeAgo(d.createdAt)}</p>
+                    <p className="truncate text-xs text-muted-foreground">Relief worker: {d.worker?.name || 'Not recorded'} — Worker</p>
                   </div>
                   <StatusBadge status={d.status} />
                 </div>
@@ -278,9 +280,20 @@ function MyProfileView({ userId }: { userId: string }) {
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold">{profile.firstName} {profile.middleName ? profile.middleName + ' ' : ''}{profile.lastName}{profile.suffix ? ', ' + profile.suffix : ''}</h2>
-              <p className="text-sm text-muted-foreground">{profile.emailAddress}</p>
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20 shrink-0 border-2 border-border">
+                {profile.user?.profilePicture && (
+                  <AvatarImage src={profile.user.profilePicture} alt={profile.user?.name || 'Profile photo'} className="object-cover" />
+                )}
+                <AvatarFallback className="text-xl font-semibold">
+                  {((profile.firstName?.charAt(0) || '') + (profile.lastName?.charAt(0) || '')) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="text-xl font-semibold">{profile.firstName} {profile.middleName ? profile.middleName + ' ' : ''}{profile.lastName}{profile.suffix ? ', ' + profile.suffix : ''}</h2>
+                <p className="text-sm text-muted-foreground">{profile.emailAddress}</p>
+                <Badge variant="outline" className="mt-2">Vulnerable</Badge>
+              </div>
             </div>
             <StatusBadge status={profile.registrationStatus} />
           </div>
@@ -515,7 +528,7 @@ function ReliefHistoryView({ userId }: { userId: string }) {
                     </div>
                     <p className="text-sm text-muted-foreground">{d.itemsProvided}</p>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground md:grid-cols-3">
-                      <span><b className="text-foreground">Worker:</b> {d.worker?.name || '—'}</span>
+                      <span><b className="text-foreground">Relief worker:</b> {d.worker?.name || 'Not recorded'} — Worker</span>
                       <span><b className="text-foreground">Quantity:</b> {d.quantity}</span>
                       <span><b className="text-foreground">Date:</b> {formatDate(d.distributionDate)}</span>
                     </div>
@@ -545,7 +558,10 @@ function ReliefHistoryView({ userId }: { userId: string }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Feedback for {feedbackTarget?.distributionType}</DialogTitle>
-            <DialogDescription>Share your experience about this relief distribution.</DialogDescription>
+            <DialogDescription>
+              Share feedback about {feedbackTarget?.itemsProvided || 'this relief'}.
+              Relief worker: {feedbackTarget?.worker?.name || 'Not recorded'} — Worker.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
