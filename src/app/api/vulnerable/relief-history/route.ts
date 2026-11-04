@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         rejectionReason: true,
         createdAt: true,
         worker: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, role: true, profilePicture: true },
         },
         feedback: {
           where: { userId: auth.userId },
